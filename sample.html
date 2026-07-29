@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 
 <script>
 /* ============================================================
@@ -123,9 +123,9 @@ tailwind.config = { theme: { extend: {
   .photo-cell.show-missing .photo-box .photo-add{ display:none; }
   .photo-cell.show-missing .miss-tag{ display:flex; }
   .photo-box.has-img .miss-tag{ display:none !important; }
-  /* 메모만 있는 칸(미촬영 등): 큰 사진박스 숨기고 메모를 크게 */
+  /* 메모만 있는 칸(미촬영 등): 사진칸과 같은 크기의 박스에 메모를 크게 가운데 표시 */
   .photo-cell.memo-only .photo-box{ display:none; }
-  .photo-cell.memo-only .pmemo{ margin-top:0; border-color:#f59e0b; background:#fff7ed; color:#b45309; font-weight:700; text-align:center; padding:14px 8px; }
+  .photo-cell.memo-only .pmemo{ margin-top:0; height:140px !important; box-sizing:border-box; border:2px dashed #f59e0b; background:#fff7ed; color:#b45309; font-weight:800; font-size:16px; text-align:center; border-radius:14px; padding:56px 8px 0; resize:none; }
   /* 사진 설명/메모: 박스 밖에 두어 탭해도 카메라가 안 열리고 바로 입력됨 */
   .pmemo{ display:block; width:100%; margin-top:5px; border:1.5px solid #e2e8f0; border-radius:8px; padding:6px 8px; font-size:12px; color:#334155; background:#fff; resize:none; overflow:hidden; outline:none; line-height:1.35; }
   .pmemo:focus{ border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
@@ -241,7 +241,7 @@ tailwind.config = { theme: { extend: {
     .pcell-empty{ display:none !important; }
     /* 미촬영/메모만 있는 칸: 큰 박스 숨기고 '미촬영'만 크게 */
     #photoBox .photo-cell.memo-only .photo-box{ display:none !important; }
-    #photoBox .photo-cell.memo-only .pmemo{ border:1px solid #f59e0b !important; background:#fff7ed !important; color:#b45309 !important; text-align:center !important; font-weight:800 !important; font-size:12px !important; padding:8mm 2mm !important; }
+    #photoBox .photo-cell.memo-only .pmemo{ height:50mm !important; box-sizing:border-box !important; border:1px solid #f59e0b !important; background:#fff7ed !important; color:#b45309 !important; text-align:center !important; font-weight:800 !important; font-size:13px !important; padding:22mm 2mm 0 !important; }
     #photoBox .photo-cell.show-missing .photo-box{ height:14mm !important; border-color:#f59e0b !important; background:#fff7ed !important; }
     #photoBox .pmemo{ border:none !important; background:transparent !important; padding:2px 0 !important; font-weight:800 !important; font-size:11px !important; color:#334155 !important; }
     #photoBox .pmemo:placeholder-shown{ display:none !important; }
@@ -448,6 +448,7 @@ tailwind.config = { theme: { extend: {
       <i class="fa-solid fa-chevron-down acc-arrow open text-slate-400"></i>
     </button>
     <div class="acc-body open px-4 pb-4">
+      <button type="button" onclick="fillDefaults()" class="no-print w-full mb-3 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>전 항목 '적합' 기본값 자동입력 <span class="font-normal text-brand-50">(특이사항만 직접 작성)</span></button>
       <div id="autoVerdict" class="mb-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">항목 판정을 입력하면 자동 집계가 표시됩니다.</div>
       <div id="costSummary" class="mb-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">원가(수율&실원가) 입력 시 증감이 표시됩니다.</div>
       <label class="lbl">제품별 종합 판정</label>
@@ -983,6 +984,18 @@ function polishAll(){
   });
   toast(n?('문장 다듬기 완료('+n+'곳) — 확인 후 수정하세요'):'다듬을 문장이 없습니다');
 }
+// 전 항목 '적합(○)·기존과 유사' 기본값 자동입력 (특이사항만 직접 작성)
+function fillDefaults(){
+  const cols=activeCols();
+  const hasData = allItemKeys().some(k=>cols.some(c=>state[k+'_'+c.id+'_v']));
+  if(hasData && !confirm("전 항목을 '적합(○) · 기존과 유사'로 채웁니다. 이미 매긴 판정도 ○로 덮어씁니다. 계속할까요?")) return;
+  [['proc',PROC],['sens',SENS]].forEach(([p,gs])=>gs.forEach((g,gi)=>{ if(isGroupOff(p,gi))return; g.items.forEach((it,ii)=>{ const key=`${p}_${gi}_${ii}`;
+    cols.forEach((c,ci)=>{ state[key+'_'+c.id+'_v']='○'; if(!(state[key+'_'+c.id]||'').trim()) state[key+'_'+c.id]=(ci===0?'특이사항 없음':'기존과 유사 / 특이사항 없음'); });
+  }); }));
+  cols.forEach((c,ci)=>{ state['final_'+c.id+'_v']='○'; if(!(state['final_'+c.id+'_note']||'').trim()) state['final_'+c.id+'_note']=(ci===0?'기준 (현 사용 제품)':'사용 가능 — 특이사항 없음'); });
+  persist(); build();
+  toast('기본값 자동입력 완료 — 특이사항만 수정하세요');
+}
 function updateAutoVerdict(){
   const cols=activeCols(), ks=allItemKeys(); const box=document.getElementById('autoVerdict');
   const lines=[]; let anyX=false, anyDone=false;
@@ -1071,7 +1084,7 @@ function exportPDF(){
   window.addEventListener('afterprint',restore);
   setTimeout(()=>{ window.print(); setTimeout(restore,1500); }, 300);
 }
-function exportExcel(){
+async function exportExcel(){
   collect();
   const cols=activeCols(); const NC=cols.length; const W=3+NC;
   const R=[]; const pad=a=>{ const r=a.slice(); while(r.length<W)r.push(''); return r; };
@@ -1109,16 +1122,18 @@ function exportExcel(){
   if(state.comment){ meta('종합 평가', state.comment); }
   meta('검증자 서명', state.sign||'');
 
-  // 스타일
-  const HAIR={style:'thin',color:{rgb:'CBD5E1'}}; const bd={top:HAIR,bottom:HAIR,left:HAIR,right:HAIR};
-  const F=(sz,b,c)=>({name:'맑은 고딕',sz:sz||10,bold:!!b,color:{rgb:c||'1F2937'}});
+  // ── ExcelJS 렌더(서식 + 사진 포함) ──
+  const AR=h=>'FF'+h;
+  const HAIR={style:'thin',color:{argb:AR('CBD5E1')}}; const bd={top:HAIR,bottom:HAIR,left:HAIR,right:HAIR};
+  const F=(sz,b,c)=>({name:'맑은 고딕',size:sz||10,bold:!!b,color:{argb:AR(c||'1F2937')}});
+  const FILL=h=>({type:'pattern',pattern:'solid',fgColor:{argb:AR(h)}});
   const VC={'○':'16A34A','△':'D97706','×':'E11D48','생략':'94A3B8'};
   function sty(r,c){
-    if(r.t==='title') return {font:F(14,true,'FFFFFF'),fill:{fgColor:{rgb:'166534'}},alignment:{vertical:'center'}};
-    if(r.t==='section') return {font:F(11,true,'166534'),fill:{fgColor:{rgb:'ECFDF5'}},alignment:{vertical:'center'},border:bd};
-    if(r.t==='head') return {font:F(10,true,'334155'),fill:{fgColor:{rgb:'F1F5F9'}},alignment:{vertical:'center',horizontal:c<3?'left':'center',wrapText:true},border:bd};
-    if(r.t==='group') return {font:F(10,true,'166534'),fill:{fgColor:{rgb:'F0FDF4'}},alignment:{vertical:'center'},border:bd};
-    if(r.t==='meta'){ if(c<=1) return {font:F(10,true,'475569'),fill:{fgColor:{rgb:'F8FAFC'}},alignment:{vertical:'center',horizontal:'left',wrapText:true},border:bd}; return {font:F(10),alignment:{vertical:'center',horizontal:'left',wrapText:true},border:bd}; }
+    if(r.t==='title') return {font:F(14,true,'FFFFFF'),fill:FILL('166534'),alignment:{vertical:'middle'}};
+    if(r.t==='section') return {font:F(11,true,'166534'),fill:FILL('ECFDF5'),alignment:{vertical:'middle'},border:bd};
+    if(r.t==='head') return {font:F(10,true,'334155'),fill:FILL('F1F5F9'),alignment:{vertical:'middle',horizontal:c<3?'left':'center',wrapText:true},border:bd};
+    if(r.t==='group') return {font:F(10,true,'166534'),fill:FILL('F0FDF4'),alignment:{vertical:'middle'},border:bd};
+    if(r.t==='meta'){ if(c<=1) return {font:F(10,true,'475569'),fill:FILL('F8FAFC'),alignment:{vertical:'middle',horizontal:'left',wrapText:true},border:bd}; return {font:F(10),alignment:{vertical:'middle',horizontal:'left',wrapText:true},border:bd}; }
     if(r.t==='item'){
       if(c===0) return {font:F(10,false,'64748B'),alignment:{horizontal:'center',vertical:'top'},border:bd};
       if(c===1) return {font:F(10,true,'334155'),alignment:{vertical:'top',wrapText:true},border:bd};
@@ -1127,17 +1142,38 @@ function exportExcel(){
     }
     return {font:F(10),alignment:{vertical:'top',wrapText:true},border:bd};
   }
-  const aoa=R.map(r=>r.cells); const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:5},{wch:20},{wch:32}, ...cols.map(()=>({wch:22}))];
-  const merges=[];
-  R.forEach((r,ri)=>{
-    for(let c=0;c<W;c++){ const a=XLSX.utils.encode_cell({r:ri,c}); if(!ws[a]) ws[a]={t:'s',v:''}; ws[a].s=sty(r,c); }
-    if(r.t==='title'||r.t==='section'||r.mergeAll) merges.push({s:{r:ri,c:0},e:{r:ri,c:W-1}});
-    else if(r.metaRow){ merges.push({s:{r:ri,c:0},e:{r:ri,c:1}}); merges.push({s:{r:ri,c:2},e:{r:ri,c:W-1}}); }
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('품질검증');
+  ws.columns=[{width:6},{width:22},{width:34}, ...cols.map(()=>({width:22}))];
+  R.forEach(r=>{
+    const row=ws.addRow(r.cells); const rn=row.number;
+    if(r.t==='title') row.height=26;
+    for(let c=0;c<W;c++){ row.getCell(c+1).style=sty(r,c); }
+    if(r.t==='title'||r.t==='section'||r.mergeAll) ws.mergeCells(rn,1,rn,W);
+    else if(r.metaRow){ ws.mergeCells(rn,1,rn,2); ws.mergeCells(rn,3,rn,W); }
   });
-  ws['!merges']=merges; ws['!rows']=[{hpt:24}];
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'품질검증');
-  XLSX.writeFile(wb,`품질검증_${state.product||C.ingredient}_${state.date||''}.xlsx`); toast('Excel 저장 완료');
+  // 사진 시트(이미지 있을 때만)
+  const prows=photoRowsArr();
+  const anyImg=prows.some((_,i)=>cols.some(c=>photosObj[c.id+'_'+i]));
+  if(anyImg){
+    const ps=wb.addWorksheet('사진'); ps.columns=cols.map(()=>({width:26}));
+    prows.forEach((label,i)=>{
+      const hasRow=cols.some(c=>photosObj[c.id+'_'+i]||(state['pmemo_'+c.id+'_'+i]||'').trim());
+      if(!hasRow) return;
+      const cap=ps.addRow([label]); ps.mergeCells(cap.number,1,cap.number,cols.length); cap.getCell(1).font=F(11,true,'166534'); cap.getCell(1).fill=FILL('ECFDF5'); cap.getCell(1).alignment={vertical:'middle'};
+      const hdr=ps.addRow(cols.map(c=>c.name)); hdr.eachCell(cel=>{cel.font=F(10,true,'334155'); cel.fill=FILL('F1F5F9'); cel.alignment={horizontal:'center'}; cel.border=bd;});
+      const imgRow=ps.addRow(cols.map(()=>'')); imgRow.height=105;
+      cols.forEach((c,ci)=>{ const cell=imgRow.getCell(ci+1); cell.border=bd; const pk=c.id+'_'+i; const data=photosObj[pk];
+        if(data){ const m=/^data:image\/(\w+);base64,(.+)$/.exec(data); if(m){ const id=wb.addImage({base64:m[2],extension:m[1]}); ps.addImage(id,{tl:{col:ci+0.05,row:imgRow.number-1+0.05},ext:{width:168,height:126}}); } }
+        else { cell.value=(state['pmemo_'+pk]||'미촬영'); cell.alignment={vertical:'middle',horizontal:'center'}; cell.font=F(11,true,'B45309'); cell.fill=FILL('FFF7ED'); }
+      });
+      ps.addRow([]);
+    });
+  }
+  const buf=await wb.xlsx.writeBuffer();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download=`품질검증_${state.product||C.ingredient}_${state.date||''}.xlsx`; a.click();
+  toast('Excel 저장 완료'+(anyImg?' (사진 포함)':''));
 }
 async function saveShareFile(){
   collect();
