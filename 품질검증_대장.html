@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<title>품질검증 대장 — 제조회사별 정리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+  body{ font-family:'Pretendard','Malgun Gothic',sans-serif; background:#f1f5f9; }
+  .fld{ border:1.5px solid #e2e8f0; border-radius:10px; padding:8px 11px; font-size:13px; background:#fff; }
+  .fld:focus{ outline:none; border-color:#16a34a; }
+  .btn{ padding:8px 13px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; border:none; }
+  th{ position:sticky; top:0; }
+  .th-btn{ cursor:pointer; user-select:none; }
+  .v-o{ color:#16a34a; } .v-t{ color:#d97706; } .v-x{ color:#e11d48; }
+  tr-hover:hover{ background:#f8fafc; }
+</style>
+</head>
+<body>
+<div class="max-w-full mx-auto px-4 py-5">
+  <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+    <div>
+      <h1 class="text-xl font-extrabold text-slate-800"><i class="fa-solid fa-book text-slate-700"></i> 품질검증 대장</h1>
+      <p class="text-xs text-slate-500 mt-0.5">각 검증에서 <b>[대장에 추가]</b>한 내용이 제조회사별로 모입니다. <span id="cnt"></span></p>
+    </div>
+    <div class="flex gap-1.5 flex-wrap">
+      <button class="btn bg-green-600 text-white" onclick="toExcel()"><i class="fa-solid fa-file-excel mr-1"></i>엑셀</button>
+      <button class="btn bg-slate-200 text-slate-700" onclick="document.getElementById('imp').click()"><i class="fa-solid fa-file-import mr-1"></i>가져오기</button>
+      <input type="file" id="imp" accept=".json,.qclog" multiple class="hidden" onchange="importFiles(this.files)">
+      <button class="btn bg-slate-200 text-slate-700" onclick="exportJson()"><i class="fa-solid fa-file-export mr-1"></i>내보내기</button>
+      <button class="btn bg-rose-100 text-rose-600" onclick="clearAll()"><i class="fa-solid fa-trash mr-1"></i>비우기</button>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm p-4 mb-4 flex flex-wrap items-end gap-3">
+    <div><label class="block text-xs font-bold text-slate-500 mb-1">제조회사</label><select id="fMaker" class="fld" onchange="render()"><option value="">전체</option></select></div>
+    <div><label class="block text-xs font-bold text-slate-500 mb-1">판정</label><select id="fVerdict" class="fld" onchange="render()"><option value="">전체</option><option value="○">○ 사용가능</option><option value="△">△ 보류</option><option value="×">× 불가</option></select></div>
+    <div class="flex-1 min-w-[180px]"><label class="block text-xs font-bold text-slate-500 mb-1">검색(제품·대상·원산지·로트)</label><input id="fSearch" class="fld w-full" placeholder="검색어" oninput="render()"></div>
+    <label class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" id="grp" class="w-4 h-4 accent-slate-700" onchange="render()"> 제조회사별 묶어보기</label>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm overflow-auto" style="max-height:70vh">
+    <table class="w-full text-sm" id="tbl">
+      <thead class="bg-slate-100 text-slate-600 text-xs">
+        <tr id="headRow"></tr>
+      </thead>
+      <tbody id="body"></tbody>
+    </table>
+    <div id="empty" class="p-10 text-center text-slate-400 text-sm hidden">아직 대장에 추가된 검증이 없습니다.<br>검증 파일에서 <b>[이 검증을 품질검증 대장에 추가]</b>를 눌러 보세요.</div>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-5 py-2.5 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
+
+<script>
+const COLS=[
+  {k:'date',t:'검증일'},{k:'ingredient',t:'제품'},{k:'target',t:'대상'},
+  {k:'maker',t:'제조회사'},{k:'origin',t:'원산지'},{k:'spec',t:'규격'},
+  {k:'exp',t:'유통기한'},{k:'lot',t:'로트'},{k:'verdict',t:'판정'},
+  {k:'reason',t:'사유'},{k:'note',t:'특이사항'}
+];
+let DATA=load(), sortK='date', sortDir=-1;
+function load(){ try{ return JSON.parse(localStorage.getItem('qc_ledger')||'[]'); }catch(e){ return []; } }
+function save(){ localStorage.setItem('qc_ledger', JSON.stringify(DATA)); }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0',2000); }
+function vClass(v){ return v==='○'?'v-o':v==='△'?'v-t':v==='×'?'v-x':''; }
+
+function buildHead(){
+  document.getElementById('headRow').innerHTML = COLS.map(c=>`<th class="th-btn text-left px-2.5 py-2 whitespace-nowrap" onclick="setSort('${c.k}')">${c.t} <span class="text-slate-300">${sortK===c.k?(sortDir>0?'▲':'▼'):''}</span></th>`).join('')+'<th class="px-2 py-2"></th>';
+}
+function setSort(k){ if(sortK===k)sortDir*=-1; else{sortK=k;sortDir=1;} render(); }
+
+function filtered(){
+  const m=document.getElementById('fMaker').value, v=document.getElementById('fVerdict').value, q=(document.getElementById('fSearch').value||'').toLowerCase();
+  let d=DATA.filter(r=>(!m||r.maker===m)&&(!v||r.verdict===v)&&(!q||[r.ingredient,r.target,r.origin,r.lot,r.maker,r.spec].some(x=>String(x||'').toLowerCase().includes(q))));
+  d.sort((a,b)=>{ const x=String(a[sortK]||''),y=String(b[sortK]||''); return x<y?-1*sortDir:x>y?1*sortDir:0; });
+  return d;
+}
+function rowHtml(r,gi){
+  return `<tr class="border-t border-slate-100 hover:bg-slate-50">`+COLS.map(c=>{
+    let val=r[c.k]||''; let cls='px-2.5 py-2 align-top';
+    if(c.k==='verdict') return `<td class="${cls} font-extrabold ${vClass(val)}">${val||'-'}</td>`;
+    if(c.k==='maker') return `<td class="${cls} font-bold text-slate-700">${esc(val)}</td>`;
+    if(c.k==='reason'||c.k==='note') return `<td class="${cls} text-slate-500 text-xs max-w-[220px]">${esc(val)}</td>`;
+    return `<td class="${cls} text-slate-700 whitespace-nowrap">${esc(val)}</td>`;
+  }).join('')+`<td class="px-2 py-2"><span class="text-slate-300 hover:text-rose-500 cursor-pointer" onclick="delRow('${r.id}')"><i class="fa-solid fa-xmark"></i></span></td></tr>`;
+}
+function render(){
+  buildHead();
+  const d=filtered();
+  document.getElementById('cnt').textContent = `· 총 ${DATA.length}건 (표시 ${d.length}건)`;
+  // 제조회사 필터 옵션 갱신
+  const makers=[...new Set(DATA.map(r=>r.maker).filter(Boolean))].sort();
+  const sel=document.getElementById('fMaker'); const cur=sel.value;
+  sel.innerHTML='<option value="">전체 제조회사</option>'+makers.map(m=>`<option ${m===cur?'selected':''}>${esc(m)}</option>`).join('');
+  const body=document.getElementById('body'); const emp=document.getElementById('empty');
+  if(!d.length){ body.innerHTML=''; emp.classList.remove('hidden'); return; } else emp.classList.add('hidden');
+  if(document.getElementById('grp').checked){
+    const groups={}; d.forEach(r=>{ (groups[r.maker||'(미입력)']=groups[r.maker||'(미입력)']||[]).push(r); });
+    body.innerHTML=Object.keys(groups).sort().map(m=>`<tr class="bg-slate-50"><td colspan="${COLS.length+1}" class="px-3 py-1.5 font-extrabold text-slate-700"><i class="fa-solid fa-industry text-slate-400 mr-1"></i>${esc(m)} <span class="text-xs font-normal text-slate-400">(${groups[m].length}건)</span></td></tr>`+groups[m].map(r=>rowHtml(r)).join('')).join('');
+  } else {
+    body.innerHTML=d.map(r=>rowHtml(r)).join('');
+  }
+}
+function delRow(id){ DATA=DATA.filter(r=>r.id!==id); save(); render(); }
+function clearAll(){ if(confirm('대장을 전부 비웁니다. 되돌릴 수 없습니다. 계속할까요?')){ DATA=[]; save(); render(); } }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function toExcel(){
+  const d=filtered();
+  const aoa=[COLS.map(c=>c.t)].concat(d.map(r=>COLS.map(c=>r[c.k]||'')));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=COLS.map(c=>({wch: c.k==='reason'||c.k==='note'?30 : c.k==='maker'||c.k==='ingredient'?16:12}));
+  const HAIR={style:'thin',color:{rgb:'CBD5E1'}}; const bd={top:HAIR,bottom:HAIR,left:HAIR,right:HAIR};
+  const rng=XLSX.utils.decode_range(ws['!ref']);
+  for(let R=rng.s.r;R<=rng.e.r;R++)for(let Cc=rng.s.c;Cc<=rng.e.c;Cc++){ const a=XLSX.utils.encode_cell({r:R,c:Cc}); if(!ws[a])ws[a]={t:'s',v:''};
+    ws[a].s = R===0 ? {font:{name:'맑은 고딕',bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'0F172A'}},alignment:{horizontal:'center',vertical:'center'},border:bd}
+      : {font:{name:'맑은 고딕',sz:10},alignment:{vertical:'top',wrapText:true},border:bd}; }
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'품질검증대장');
+  XLSX.writeFile(wb,'품질검증_대장_'+new Date().toISOString().slice(0,10)+'.xlsx'); toast('엑셀 저장 완료');
+}
+function exportJson(){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(DATA,null,1)],{type:'application/json'})); a.download='품질검증_대장.json'; a.click(); }
+function importFiles(files){
+  let added=0, pend=files.length;
+  [...files].forEach(f=>{ const r=new FileReader(); r.onload=e=>{ try{ const j=JSON.parse(e.target.result); const arr=Array.isArray(j)?j:[j];
+    const ids=new Set(DATA.map(x=>x.id)); arr.forEach(x=>{ if(x&&x.id){ DATA=DATA.filter(y=>y.id!==x.id); DATA.push(x); added++; } });
+  }catch(err){} if(--pend===0){ save(); render(); toast('가져오기 완료 ('+added+'건)'); } }; r.readAsText(f); });
+}
+buildHead(); render();
+window.addEventListener('storage', ()=>{ DATA=load(); render(); });
+</script>
+</body>
+</html>

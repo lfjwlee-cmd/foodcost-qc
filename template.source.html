@@ -410,6 +410,8 @@ tailwind.config = { theme: { extend: {
       <textarea class="fld" rows="6" data-k="comment" placeholder="① 각 항목을 입력한 뒤 [자동 정리]를 누르면 판정 집계·원가·결론이 자동 작성됩니다.&#10;② 자동 작성 후 필요한 부분을 직접 다듬어 완성하세요."></textarea>
       <label class="lbl mt-3">검증자 서명</label>
       <input class="fld" data-k="sign" placeholder="서명/성명 입력">
+      <button type="button" onclick="saveToLedger()" class="no-print w-full mt-4 py-3 rounded-xl bg-slate-800 text-white text-sm font-bold"><i class="fa-solid fa-book mr-1"></i>이 검증을 품질검증 대장에 추가 <span class="font-normal text-slate-300">(제조회사별 정리)</span></button>
+      <p class="no-print text-[11px] text-slate-400 mt-1 text-center">여러 검증을 모아 대장에서 제조회사·제품·판정별로 정리해 볼 수 있습니다.</p>
     </div>
   </section>
 </main>
@@ -968,6 +970,28 @@ function fillDefaults(){
   cols.forEach((c,ci)=>{ state['final_'+c.id+'_v']='○'; if(!(state['final_'+c.id+'_note']||'').trim()) state['final_'+c.id+'_note']=(ci===0?'기준 (현 사용 제품)':'사용 가능 — 특이사항 없음'); });
   persist(); build();
   toast('기본값 자동입력 완료 — 특이사항만 수정하세요');
+}
+// 이 검증을 '품질검증 대장'에 제품(열)별로 추가 (제조회사 기준 정리용)
+function specIdx(name){ return SPEC_FIELDS ? SPEC_FIELDS.findIndex(f=>String(f).replace(/\s/g,'').indexOf(name)>=0) : -1; }
+function saveToLedger(){
+  collect();
+  const cols=activeCols();
+  const iMan=specIdx('제조회사'), iOri=specIdx('원산지'), iSpec=specIdx('규격'), iLot=specIdx('로트'), iExp=specIdx('유통기한');
+  const g=(fi,cid)=> fi>=0 ? (state['spec_'+fi+'_'+cid]||'') : '';
+  const rows=cols.map(c=>({
+    date:state.date||'', ingredient:state.product||C.ingredient||'', target:c.name,
+    maker:g(iMan,c.id), origin:g(iOri,c.id), spec:g(iSpec,c.id), lot:g(iLot,c.id), exp:g(iExp,c.id),
+    verdict:state['final_'+c.id+'_v']||'', reason:state['final_'+c.id+'_note']||'',
+    note:state.note||'', brand:selectedBrands().join(', '), cat:C.category||'',
+    id:(state.date||'')+'|'+(state.product||C.ingredient||'')+'|'+c.id
+  }));
+  let led=[]; try{ led=JSON.parse(localStorage.getItem('qc_ledger')||'[]'); }catch(e){}
+  const ids=new Set(rows.map(r=>r.id));
+  led=led.filter(r=>!ids.has(r.id)).concat(rows);
+  try{ localStorage.setItem('qc_ledger', JSON.stringify(led)); }catch(e){}
+  // 대장 가져오기용 항목 파일도 저장(로컬·다른 기기에서 취합 가능)
+  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(rows,null,1)],{type:'application/json'})); a.download='대장항목_'+(state.product||C.ingredient||'')+'_'+(state.date||'')+'.qclog'; a.click(); }catch(e){}
+  toast('대장에 추가됨 ('+rows.length+'건) — 대장 페이지에서 확인 / 저장된 .qclog 파일을 대장 [가져오기]에 넣어도 됩니다');
 }
 function updateAutoVerdict(){
   const cols=activeCols(), ks=allItemKeys(); const box=document.getElementById('autoVerdict');
