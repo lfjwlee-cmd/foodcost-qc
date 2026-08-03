@@ -181,7 +181,7 @@ tailwind.config = { theme: { extend: {
     /* 인쇄: 개별 무게 입력칸은 숨기고 요약(개수·최소·최대·편차)만 */
     #weightBox .wt-list, #weightBox button{ display:none !important; }
     /* 인쇄 시 STEP1 기본정보는 보고서 헤더가 대체 → 중복 숨김 */
-    #step1{ display:none !important; }
+    #step1, #specSection{ display:none !important; }
     /* 보고서 헤더 */
     #reportHead{ margin-bottom:10px; }
     #reportHead .rh-title{ font-size:18px; font-weight:800; color:#0f172a; letter-spacing:-.3px; }
@@ -232,6 +232,7 @@ tailwind.config = { theme: { extend: {
 
   <!-- 인쇄/PDF 전용 보고서 헤더 -->
   <div id="reportHead" class="print-only"></div>
+  <div id="specPrint" class="print-only"></div>
 
   <!-- STEP 1 기본정보 (인쇄 시엔 보고서 헤더로 대체) -->
   <section id="step1" class="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -277,6 +278,18 @@ tailwind.config = { theme: { extend: {
     </button>
     <div class="acc-body px-4 pb-4">
       <div id="complianceBox" class="grid grid-cols-2 gap-3"></div>
+    </div>
+  </section>
+
+  <!-- 제조회사 · 상세 스펙 (입고 이력관리 · config.specFields 있을 때) -->
+  <section id="specSection" class="bg-white rounded-2xl shadow-sm overflow-hidden" style="display:none">
+    <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
+      <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-industry text-brand-500"></i>제조회사 · 상세 스펙</span>
+      <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
+    </button>
+    <div class="acc-body px-4 pb-4">
+      <p class="text-[11px] text-slate-400 mb-3">입고 제품 이력관리용 — 제품별 제조회사·규격·유통기한·로트 등을 각 칸에 입력하세요.</p>
+      <div id="specBox" class="overflow-x-auto"></div>
     </div>
   </section>
 
@@ -461,6 +474,7 @@ function build(){
 
   document.getElementById('processBox').innerHTML = renderGroups(PROC,'proc');
   document.getElementById('sensoryBox').innerHTML = renderGroups(SENS,'sens');
+  buildSpecs();
 
   buildPhotos();
   presetDefaults();
@@ -612,6 +626,32 @@ function buildWeights(){ if(!C.weight)return; const cols=activeCols();
 }
 function addWeight(colId){ weightArr(colId).push(''); persist(); buildWeights(); }
 function delWeight(colId,i){ weightArr(colId).splice(i,1); persist(); buildWeights(); }
+
+// ── 제조회사·상세 스펙 (입고 이력관리): 제품(열)별 스펙 칸 ──
+const SPEC_FIELDS = (C.specFields===false) ? null : ((Array.isArray(C.specFields)&&C.specFields.length) ? C.specFields : ['제조회사','원산지','규격/사양','유통기한','제조일자','로트번호','포장/단위']);
+function buildSpecs(){
+  const sec=document.getElementById('specSection'); if(!sec)return;
+  if(!SPEC_FIELDS){ sec.style.display='none'; return; }
+  sec.style.display='';
+  const cols=activeCols(); const gt='minmax(88px,120px) repeat('+cols.length+',minmax(120px,1fr))';
+  let h='<div class="grid gap-1.5 mb-1.5" style="grid-template-columns:'+gt+'"><div></div>'
+    + cols.map((c,ci)=>`<div class="text-xs font-bold text-center py-1 rounded" style="color:${colStyle(ci).c};background:#f8fafc"><span class="colname" data-ci="${ci}">${escapeHtml(c.name)}</span></div>`).join('') + '</div>';
+  SPEC_FIELDS.forEach((f,fi)=>{
+    h+='<div class="grid gap-1.5 mb-1.5 items-center" style="grid-template-columns:'+gt+'">'
+      + `<div class="text-xs font-bold text-slate-600" data-ek="spec.${fi}">${escapeHtml(f)}</div>`
+      + cols.map(c=>`<input class="fld fld-sm" data-k="spec_${fi}_${c.id}" placeholder="입력">`).join('')
+      + '</div>';
+  });
+  document.getElementById('specBox').innerHTML=h;
+}
+function fillSpecPrint(){
+  const el=document.getElementById('specPrint'); if(!el)return;
+  if(!SPEC_FIELDS){ el.innerHTML=''; return; }
+  const cols=activeCols();
+  let h='<p style="font-size:13px;font-weight:800;margin:6px 0 4px;">■ 제조회사 · 상세 스펙</p><table class="ptbl"><colgroup><col style="width:16%">'+cols.map(()=>'<col>').join('')+'</colgroup><thead><tr><th>항목</th>'+cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join('')+'</tr></thead><tbody>';
+  SPEC_FIELDS.forEach((f,fi)=>{ h+='<tr><td style="font-weight:700">'+escapeHtml(ekv('spec.'+fi,f))+'</td>'+cols.map(c=>`<td>${escapeHtml(state['spec_'+fi+'_'+c.id]||'')}</td>`).join('')+'</tr>'; });
+  el.innerHTML=h+'</tbody></table>';
+}
 
 function renderGroups(groups,prefix){
   return groups.map((g,gi)=>{
@@ -995,7 +1035,7 @@ function exportPDF(){
   const openStates=[...document.querySelectorAll('.acc-body')].map(b=>b.classList.contains('open'));
   // 인쇄 전: 모든 아코디언 펼침
   document.querySelectorAll('.acc-body').forEach(b=>b.classList.add('open'));
-  collect(); refreshPhotoPairs(); buildPrintTables(); fillReportHead(); fillFinalPrint();   // 현재 입력값을 표·헤더에 반영
+  collect(); refreshPhotoPairs(); buildPrintTables(); fillReportHead(); fillSpecPrint(); fillFinalPrint();   // 현재 입력값을 표·헤더에 반영
   // 사진: 사진·메모·미촬영표시 아무 것도 없는 칸/줄은 인쇄에서 숨김 (미촬영은 인쇄에 표시)
   document.querySelectorAll('#photoBox > div.pdf-keep').forEach(row=>{
     row.querySelectorAll('.photo-cell').forEach(cell=>{
@@ -1031,6 +1071,9 @@ async function exportExcel(){
   if(state.purpose) meta('검증 목적', state.purpose);
   push('section',['■ 비교 대상']);
   cols.forEach(c=> push('meta',[c.name,'',c.desc||''],{metaRow:true}));
+  if(SPEC_FIELDS){ push('section',['■ 제조회사 · 상세 스펙']); push('head',['','항목','', ...cols.map(c=>c.name)]);
+    SPEC_FIELDS.forEach((f,fi)=> push('item',['', ekv('spec.'+fi,f), '', ...cols.map(c=>state['spec_'+fi+'_'+c.id]||'')]));
+  }
   if(state.note){ meta('특이사항', state.note); }
   const dumpT=(gs,p,title)=>{
     push('section',['■ '+title]);
