@@ -16,7 +16,7 @@
   th{ position:sticky; top:0; }
   .th-btn{ cursor:pointer; user-select:none; }
   .v-o{ color:#16a34a; } .v-t{ color:#d97706; } .v-x{ color:#e11d48; }
-  tr-hover:hover{ background:#f8fafc; }
+  td[data-edit] input, td[data-edit] select{ min-width:80px; }
 </style>
 </head>
 <body>
@@ -24,7 +24,7 @@
   <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
     <div>
       <h1 class="text-xl font-extrabold text-slate-800"><i class="fa-solid fa-book text-slate-700"></i> 품질검증 대장</h1>
-      <p class="text-xs text-slate-500 mt-0.5">각 검증에서 <b>[대장에 추가]</b>한 내용이 제조회사별로 모입니다. <span id="cnt"></span></p>
+      <p class="text-xs text-slate-500 mt-0.5">각 검증에서 <b>[대장에 추가]</b>한 내용이 제조회사별로 모입니다. <span class="text-slate-400">셀을 <b>더블클릭</b>하면 값을 수정할 수 있어요.</span> <span id="cnt"></span></p>
     </div>
     <div class="flex gap-1.5 flex-wrap">
       <button class="btn bg-green-600 text-white" onclick="toExcel()"><i class="fa-solid fa-file-excel mr-1"></i>엑셀</button>
@@ -57,7 +57,7 @@
 
 <script>
 const COLS=[
-  {k:'date',t:'검증일'},{k:'ingredient',t:'제품'},{k:'target',t:'대상'},
+  {k:'date',t:'검증일'},{k:'ingredient',t:'제품'},{k:'target',t:'대상'},{k:'brand',t:'브랜드'},
   {k:'maker',t:'제조회사'},{k:'origin',t:'원산지'},{k:'spec',t:'규격'},
   {k:'exp',t:'유통기한'},{k:'lot',t:'로트'},{k:'verdict',t:'판정'},
   {k:'reason',t:'사유'},{k:'note',t:'특이사항'}
@@ -75,18 +75,32 @@ function setSort(k){ if(sortK===k)sortDir*=-1; else{sortK=k;sortDir=1;} render()
 
 function filtered(){
   const m=document.getElementById('fMaker').value, v=document.getElementById('fVerdict').value, q=(document.getElementById('fSearch').value||'').toLowerCase();
-  let d=DATA.filter(r=>(!m||r.maker===m)&&(!v||r.verdict===v)&&(!q||[r.ingredient,r.target,r.origin,r.lot,r.maker,r.spec].some(x=>String(x||'').toLowerCase().includes(q))));
+  let d=DATA.filter(r=>(!m||r.maker===m)&&(!v||r.verdict===v)&&(!q||[r.ingredient,r.target,r.origin,r.lot,r.maker,r.spec,r.brand].some(x=>String(x||'').toLowerCase().includes(q))));
   d.sort((a,b)=>{ const x=String(a[sortK]||''),y=String(b[sortK]||''); return x<y?-1*sortDir:x>y?1*sortDir:0; });
   return d;
 }
 function rowHtml(r,gi){
+  const ed=`ondblclick="editCell('${r.id}','$K',this)" title="더블클릭하여 수정"`;
   return `<tr class="border-t border-slate-100 hover:bg-slate-50">`+COLS.map(c=>{
-    let val=r[c.k]||''; let cls='px-2.5 py-2 align-top';
-    if(c.k==='verdict') return `<td class="${cls} font-extrabold ${vClass(val)}">${val||'-'}</td>`;
-    if(c.k==='maker') return `<td class="${cls} font-bold text-slate-700">${esc(val)}</td>`;
-    if(c.k==='reason'||c.k==='note') return `<td class="${cls} text-slate-500 text-xs max-w-[220px]">${esc(val)}</td>`;
-    return `<td class="${cls} text-slate-700 whitespace-nowrap">${esc(val)}</td>`;
-  }).join('')+`<td class="px-2 py-2"><span class="text-slate-300 hover:text-rose-500 cursor-pointer" onclick="delRow('${r.id}')"><i class="fa-solid fa-xmark"></i></span></td></tr>`;
+    let val=r[c.k]||''; let cls='px-2.5 py-2 align-top cursor-text'; const e=ed.replace('$K',c.k);
+    if(c.k==='verdict') return `<td class="${cls} font-extrabold ${vClass(val)}" ${e}>${val||'-'}</td>`;
+    if(c.k==='maker') return `<td class="${cls} font-bold text-slate-700" ${e}>${esc(val)}</td>`;
+    if(c.k==='reason'||c.k==='note') return `<td class="${cls} text-slate-500 text-xs max-w-[220px]" ${e}>${esc(val)}</td>`;
+    return `<td class="${cls} text-slate-700 whitespace-nowrap" ${e}>${esc(val)}</td>`;
+  }).join('')+`<td class="px-2 py-2"><span class="text-slate-300 hover:text-rose-500 cursor-pointer" onclick="delRow('${r.id}')" title="행 삭제"><i class="fa-solid fa-xmark"></i></span></td></tr>`;
+}
+function editCell(id,k,td){
+  const r=DATA.find(x=>x.id===id); if(!r||td.dataset.edit) return;
+  td.dataset.edit='1';
+  const cur=r[k]==null?'':r[k]; let inp;
+  if(k==='verdict'){ inp=document.createElement('select'); ['','○','△','×'].forEach(o=>{ inp.add(new Option(o||'-',o, false, o===cur)); }); }
+  else { inp=document.createElement('input'); inp.value=cur; }
+  inp.className='fld w-full text-xs py-1'; td.textContent=''; td.appendChild(inp); inp.focus();
+  let done=false;
+  const commit=()=>{ if(done)return; done=true; r[k]=inp.value; save(); render(); };
+  const cancel=()=>{ if(done)return; done=true; render(); };
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } else if(e.key==='Escape'){ inp.removeEventListener('blur', commit); cancel(); } });
 }
 function render(){
   buildHead();
