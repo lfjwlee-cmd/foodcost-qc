@@ -4,10 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f172a">
-<title>품질검증 대장 — 제조회사별 정리</title>
+<title>품질검증 대장 — 제조회사별 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   body{ font-family:'Pretendard','Malgun Gothic',sans-serif; background:#f1f5f9; }
   .fld{ border:1.5px solid #e2e8f0; border-radius:10px; padding:8px 11px; font-size:13px; background:#fff; }
@@ -17,56 +18,111 @@
   .th-btn{ cursor:pointer; user-select:none; }
   .v-o{ color:#16a34a; } .v-t{ color:#d97706; } .v-x{ color:#e11d48; }
   td[data-edit] input, td[data-edit] select{ min-width:80px; }
+  .card{ background:#fff; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
 </style>
 </head>
 <body>
-<div class="max-w-full mx-auto px-4 py-5">
-  <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+<!-- 로그인 오버레이 -->
+<div id="gate" class="fixed inset-0 z-50 bg-slate-900/95 flex items-center justify-center px-4">
+  <div class="card p-6 w-full max-w-sm text-center">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-800 text-white text-xl mb-3"><i class="fa-solid fa-lock"></i></div>
+    <h1 class="text-lg font-extrabold text-slate-800">품질검증 대장</h1>
+    <p class="text-xs text-slate-500 mt-1 mb-4">팀 공용 비밀번호를 입력하세요.</p>
+    <input id="pw" type="password" class="fld w-full text-center" placeholder="공용 비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <p id="gateMsg" class="text-xs text-rose-600 font-bold mt-2 h-4"></p>
+    <button class="btn bg-slate-800 text-white w-full mt-2" onclick="doLogin()"><i class="fa-solid fa-right-to-bracket mr-1"></i>들어가기</button>
+    <p class="text-[11px] text-slate-400 mt-3">내부용 · 각 검증의 [대장에 추가]가 여기로 모입니다.</p>
+  </div>
+</div>
+
+<div id="app" class="max-w-full mx-auto px-4 py-5 hidden">
+  <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
     <div>
-      <h1 class="text-xl font-extrabold text-slate-800"><i class="fa-solid fa-book text-slate-700"></i> 품질검증 대장</h1>
-      <p class="text-xs text-slate-500 mt-0.5">각 검증에서 <b>[대장에 추가]</b>한 내용이 제조회사별로 모입니다. <span class="text-slate-400">셀을 <b>더블클릭</b>하면 값을 수정할 수 있어요.</span> <span id="cnt"></span></p>
+      <h1 class="text-xl font-extrabold text-slate-800"><i class="fa-solid fa-gauge-high text-slate-700"></i> 품질검증 대장</h1>
+      <p class="text-xs text-slate-500 mt-0.5">여러 사람이 어느 컴퓨터에서 넣어도 <b>한 곳에 실시간</b>으로 모입니다. 셀 <b>더블클릭</b> 수정. <span id="cnt"></span></p>
     </div>
-    <div class="flex gap-1.5 flex-wrap">
+    <div class="flex gap-1.5 flex-wrap items-center">
+      <span id="syncDot" class="text-xs text-slate-400"></span>
+      <button class="btn bg-slate-100 text-slate-600" onclick="loadData()"><i class="fa-solid fa-rotate mr-1"></i>새로고침</button>
       <button class="btn bg-green-600 text-white" onclick="toExcel()"><i class="fa-solid fa-file-excel mr-1"></i>엑셀</button>
       <button class="btn bg-slate-200 text-slate-700" onclick="document.getElementById('imp').click()"><i class="fa-solid fa-file-import mr-1"></i>가져오기</button>
       <input type="file" id="imp" accept=".json,.qclog" multiple class="hidden" onchange="importFiles(this.files)">
       <button class="btn bg-slate-200 text-slate-700" onclick="exportJson()"><i class="fa-solid fa-file-export mr-1"></i>내보내기</button>
       <button class="btn bg-rose-100 text-rose-600" onclick="clearAll()"><i class="fa-solid fa-trash mr-1"></i>비우기</button>
+      <button class="btn bg-slate-100 text-slate-500" onclick="doLogout()" title="로그아웃"><i class="fa-solid fa-right-from-bracket"></i></button>
     </div>
   </div>
 
-  <div class="bg-white rounded-2xl shadow-sm p-4 mb-4 flex flex-wrap items-end gap-3">
+  <!-- 제조회사별 요약 대시보드 -->
+  <div id="summary" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
+
+  <div class="card p-4 mb-4 flex flex-wrap items-end gap-3">
     <div><label class="block text-xs font-bold text-slate-500 mb-1">제조회사</label><select id="fMaker" class="fld" onchange="render()"><option value="">전체</option></select></div>
     <div><label class="block text-xs font-bold text-slate-500 mb-1">판정</label><select id="fVerdict" class="fld" onchange="render()"><option value="">전체</option><option value="○">○ 사용가능</option><option value="△">△ 보류</option><option value="×">× 불가</option></select></div>
     <div class="flex-1 min-w-[180px]"><label class="block text-xs font-bold text-slate-500 mb-1">검색(제품·대상·원산지·로트)</label><input id="fSearch" class="fld w-full" placeholder="검색어" oninput="render()"></div>
     <label class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" id="grp" class="w-4 h-4 accent-slate-700" onchange="render()"> 제조회사별 묶어보기</label>
   </div>
 
-  <div class="bg-white rounded-2xl shadow-sm overflow-auto" style="max-height:70vh">
+  <div class="card overflow-auto" style="max-height:64vh">
     <table class="w-full text-sm" id="tbl">
-      <thead class="bg-slate-100 text-slate-600 text-xs">
-        <tr id="headRow"></tr>
-      </thead>
+      <thead class="bg-slate-100 text-slate-600 text-xs"><tr id="headRow"></tr></thead>
       <tbody id="body"></tbody>
     </table>
     <div id="empty" class="p-10 text-center text-slate-400 text-sm hidden">아직 대장에 추가된 검증이 없습니다.<br>검증 파일에서 <b>[이 검증을 품질검증 대장에 추가]</b>를 눌러 보세요.</div>
   </div>
 </div>
 
-<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-5 py-2.5 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-5 py-2.5 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity z-50"></div>
 
 <script>
+// ===== Supabase 설정 =====
+const SB_URL='https://aosqvruvmhaumckwuidn.supabase.co';
+const SB_KEY='sb_publishable_snEBmk1dvtRdsd63a7ef2g_eqYdbmLk';
+const SB_EMAIL='qc@insaengfood.com';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
 const COLS=[
   {k:'date',t:'검증일'},{k:'ingredient',t:'제품'},{k:'target',t:'대상'},{k:'brand',t:'브랜드'},
   {k:'maker',t:'제조회사'},{k:'origin',t:'원산지'},{k:'spec',t:'규격'},
   {k:'exp',t:'유통기한'},{k:'lot',t:'로트'},{k:'verdict',t:'판정'},
   {k:'reason',t:'사유'},{k:'note',t:'특이사항'}
 ];
-let DATA=load(), sortK='date', sortDir=-1;
-function load(){ try{ return JSON.parse(localStorage.getItem('qc_ledger')||'[]'); }catch(e){ return []; } }
-function save(){ localStorage.setItem('qc_ledger', JSON.stringify(DATA)); }
-function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0',2000); }
+let DATA=[], sortK='date', sortDir=-1;
+
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0',2200); }
 function vClass(v){ return v==='○'?'v-o':v==='△'?'v-t':v==='×'?'v-x':''; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ===== 로그인 =====
+async function doLogin(){
+  const pw=document.getElementById('pw').value; const msg=document.getElementById('gateMsg');
+  if(!pw){ msg.textContent='비밀번호를 입력하세요.'; return; }
+  msg.textContent='확인 중…';
+  const {error}=await sb.auth.signInWithPassword({email:SB_EMAIL, password:pw});
+  if(error){ msg.textContent='비밀번호가 올바르지 않습니다.'; return; }
+  enterApp();
+}
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+function enterApp(){
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  buildHead(); loadData(); subscribeLive();
+}
+
+// ===== 데이터 =====
+async function loadData(){
+  setSync('불러오는 중…');
+  const {data,error}=await sb.from('qc_ledger').select('*');
+  if(error){ setSync('연결 오류'); toast('불러오기 오류: '+error.message); return; }
+  DATA=data||[]; setSync('동기화됨'); render();
+}
+function setSync(s){ const d=document.getElementById('syncDot'); if(d) d.textContent='● '+s; }
+
+let channel=null;
+function subscribeLive(){
+  if(channel) return;
+  channel=sb.channel('qc_ledger_live').on('postgres_changes',{event:'*',schema:'public',table:'qc_ledger'},()=>loadData()).subscribe();
+}
 
 function buildHead(){
   document.getElementById('headRow').innerHTML = COLS.map(c=>`<th class="th-btn text-left px-2.5 py-2 whitespace-nowrap" onclick="setSort('${c.k}')">${c.t} <span class="text-slate-300">${sortK===c.k?(sortDir>0?'▲':'▼'):''}</span></th>`).join('')+'<th class="px-2 py-2"></th>';
@@ -79,7 +135,17 @@ function filtered(){
   d.sort((a,b)=>{ const x=String(a[sortK]||''),y=String(b[sortK]||''); return x<y?-1*sortDir:x>y?1*sortDir:0; });
   return d;
 }
-function rowHtml(r,gi){
+function renderSummary(){
+  const box=document.getElementById('summary'); const by={};
+  DATA.forEach(r=>{ const m=r.maker||'(미입력)'; const o=(by[m]=by[m]||{o:0,t:0,x:0,n:0}); o.n++; if(r.verdict==='○')o.o++; else if(r.verdict==='△')o.t++; else if(r.verdict==='×')o.x++; });
+  const makers=Object.keys(by).sort((a,b)=>by[b].n-by[a].n);
+  const total={o:0,t:0,x:0,n:DATA.length}; DATA.forEach(r=>{ if(r.verdict==='○')total.o++; else if(r.verdict==='△')total.t++; else if(r.verdict==='×')total.x++; });
+  const cardMaker=(name,o)=>`<div class="card p-3"><p class="text-xs font-bold text-slate-700 truncate" title="${esc(name)}"><i class="fa-solid fa-industry text-slate-400 mr-1"></i>${esc(name)}</p><p class="mt-1 text-sm"><b class="v-o">○ ${o.o}</b> &nbsp;<b class="v-t">△ ${o.t}</b> &nbsp;<b class="v-x">× ${o.x}</b> <span class="text-slate-400 text-xs">/ ${o.n}건</span></p></div>`;
+  let html=`<div class="card p-3 border-l-4 border-slate-700"><p class="text-xs font-bold text-slate-700">전체</p><p class="mt-1 text-sm"><b class="v-o">○ ${total.o}</b> &nbsp;<b class="v-t">△ ${total.t}</b> &nbsp;<b class="v-x">× ${total.x}</b> <span class="text-slate-400 text-xs">/ ${total.n}건</span></p></div>`;
+  html+=makers.slice(0,7).map(m=>cardMaker(m,by[m])).join('');
+  box.innerHTML=html;
+}
+function rowHtml(r){
   const ed=`ondblclick="editCell('${r.id}','$K',this)" title="더블클릭하여 수정"`;
   return `<tr class="border-t border-slate-100 hover:bg-slate-50">`+COLS.map(c=>{
     let val=r[c.k]||''; let cls='px-2.5 py-2 align-top cursor-text'; const e=ed.replace('$K',c.k);
@@ -89,24 +155,10 @@ function rowHtml(r,gi){
     return `<td class="${cls} text-slate-700 whitespace-nowrap" ${e}>${esc(val)}</td>`;
   }).join('')+`<td class="px-2 py-2"><span class="text-slate-300 hover:text-rose-500 cursor-pointer" onclick="delRow('${r.id}')" title="행 삭제"><i class="fa-solid fa-xmark"></i></span></td></tr>`;
 }
-function editCell(id,k,td){
-  const r=DATA.find(x=>x.id===id); if(!r||td.dataset.edit) return;
-  td.dataset.edit='1';
-  const cur=r[k]==null?'':r[k]; let inp;
-  if(k==='verdict'){ inp=document.createElement('select'); ['','○','△','×'].forEach(o=>{ inp.add(new Option(o||'-',o, false, o===cur)); }); }
-  else { inp=document.createElement('input'); inp.value=cur; }
-  inp.className='fld w-full text-xs py-1'; td.textContent=''; td.appendChild(inp); inp.focus();
-  let done=false;
-  const commit=()=>{ if(done)return; done=true; r[k]=inp.value; save(); render(); };
-  const cancel=()=>{ if(done)return; done=true; render(); };
-  inp.addEventListener('blur', commit);
-  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } else if(e.key==='Escape'){ inp.removeEventListener('blur', commit); cancel(); } });
-}
 function render(){
-  buildHead();
+  buildHead(); renderSummary();
   const d=filtered();
   document.getElementById('cnt').textContent = `· 총 ${DATA.length}건 (표시 ${d.length}건)`;
-  // 제조회사 필터 옵션 갱신
   const makers=[...new Set(DATA.map(r=>r.maker).filter(Boolean))].sort();
   const sel=document.getElementById('fMaker'); const cur=sel.value;
   sel.innerHTML='<option value="">전체 제조회사</option>'+makers.map(m=>`<option ${m===cur?'selected':''}>${esc(m)}</option>`).join('');
@@ -119,9 +171,29 @@ function render(){
     body.innerHTML=d.map(r=>rowHtml(r)).join('');
   }
 }
-function delRow(id){ DATA=DATA.filter(r=>r.id!==id); save(); render(); }
-function clearAll(){ if(confirm('대장을 전부 비웁니다. 되돌릴 수 없습니다. 계속할까요?')){ DATA=[]; save(); render(); } }
-function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function editCell(id,k,td){
+  const r=DATA.find(x=>x.id===id); if(!r||td.dataset.edit) return;
+  td.dataset.edit='1';
+  const cur=r[k]==null?'':r[k]; let inp;
+  if(k==='verdict'){ inp=document.createElement('select'); ['','○','△','×'].forEach(o=>{ inp.add(new Option(o||'-',o, false, o===cur)); }); }
+  else { inp=document.createElement('input'); inp.value=cur; }
+  inp.className='fld w-full text-xs py-1'; td.textContent=''; td.appendChild(inp); inp.focus();
+  let done=false;
+  const commit=async()=>{ if(done)return; done=true; r[k]=inp.value; render();
+    const {error}=await sb.from('qc_ledger').update({[k]:inp.value}).eq('id',id); if(error) toast('수정 저장 오류: '+error.message); };
+  const cancel=()=>{ if(done)return; done=true; render(); };
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } else if(e.key==='Escape'){ inp.removeEventListener('blur', commit); cancel(); } });
+}
+async function delRow(id){
+  DATA=DATA.filter(r=>r.id!==id); render();
+  const {error}=await sb.from('qc_ledger').delete().eq('id',id); if(error) toast('삭제 오류: '+error.message);
+}
+async function clearAll(){
+  if(!confirm('대장 전체(모든 사람 데이터)를 비웁니다. 되돌릴 수 없습니다. 계속할까요?')) return;
+  const {error}=await sb.from('qc_ledger').delete().neq('id',''); if(error){ toast('비우기 오류: '+error.message); return; }
+  DATA=[]; render(); toast('대장을 비웠습니다');
+}
 
 function toExcel(){
   const d=filtered();
@@ -137,14 +209,15 @@ function toExcel(){
   XLSX.writeFile(wb,'품질검증_대장_'+new Date().toISOString().slice(0,10)+'.xlsx'); toast('엑셀 저장 완료');
 }
 function exportJson(){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(DATA,null,1)],{type:'application/json'})); a.download='품질검증_대장.json'; a.click(); }
-function importFiles(files){
-  let added=0, pend=files.length;
-  [...files].forEach(f=>{ const r=new FileReader(); r.onload=e=>{ try{ const j=JSON.parse(e.target.result); const arr=Array.isArray(j)?j:[j];
-    const ids=new Set(DATA.map(x=>x.id)); arr.forEach(x=>{ if(x&&x.id){ DATA=DATA.filter(y=>y.id!==x.id); DATA.push(x); added++; } });
-  }catch(err){} if(--pend===0){ save(); render(); toast('가져오기 완료 ('+added+'건)'); } }; r.readAsText(f); });
+async function importFiles(files){
+  let rows=[], pend=files.length;
+  [...files].forEach(f=>{ const r=new FileReader(); r.onload=async e=>{ try{ const j=JSON.parse(e.target.result); const arr=Array.isArray(j)?j:[j];
+    arr.forEach(x=>{ if(x&&x.id){ const {created_at,...clean}=x; rows.push(clean); } });
+  }catch(err){} if(--pend===0){ if(rows.length){ const {error}=await sb.from('qc_ledger').upsert(rows,{onConflict:'id'}); if(error){toast('가져오기 오류: '+error.message);return;} } loadData(); toast('가져오기 완료 ('+rows.length+'건)'); } }; r.readAsText(f); });
 }
-buildHead(); render();
-window.addEventListener('storage', ()=>{ DATA=load(); render(); });
+
+// 세션 있으면 바로 진입
+(async()=>{ const {data}=await sb.auth.getSession(); if(data && data.session){ enterApp(); } else { document.getElementById('pw').focus(); } })();
 </script>
 </body>
 </html>
