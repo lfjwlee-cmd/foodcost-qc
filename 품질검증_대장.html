@@ -220,37 +220,43 @@ async function importFiles(files){
 }
 
 // ===== 검증 파일(.docx / .xlsx) 가져오기 =====
-const MAKER_RE=/([가-힣A-Za-z]{2,}(?:수산|물산|유통|무역|트레이딩|씨푸드|식품|축산|상회|산업|㈜))/;
+const MAKER_RE=/([가-힣A-Za-z]{2,}(?:수산|물산|유통|무역|트레이딩|씨푸드|푸드|식품|축산|상회|산업|상사|㈜|F&B|에프앤비))/;
 function verdictFrom(t){ if(/사용\s*불가|부적합|불가능|불합격/.test(t))return'×'; if(/경우에\s*한해|주의가?\s*필요|조건부|보류|한해\s*사용/.test(t))return'△'; if(/사용\s*가능|변경\s*가능|차이가?\s*없|적합|무난|양호/.test(t))return'○'; return''; }
 function normDate(t){ const m=t.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/); return m?m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2):''; }
 function brandFrom(t){ const m=t.match(/(인생아구찜|삼대미역|어화락|메뉴개발팀)/g); if(!m)return''; return m.find(x=>x!=='메뉴개발팀')||''; }
+function specFrom(t){ return (t.match(/\d[\d.,]*\s*(?:kg|g|k|ea|L|ml|box|팩|곽|봉|개|미|마리)\b|\d+\s*\/\s*\d+|\d+\s*\*\s*\d+/gi)||[]).map(s=>s.replace(/\s+/g,'')).join(' '); }
+function priceFrom(t){ const m=(t.match(/[\d,]{3,}\s*원/g)||[]); return m.length?m[0].replace(/\s+/g,''):''; }
+function originFrom(t){ const m=(t.replace(new RegExp(MAKER_RE,'g'),'').match(/국내산|수입산|[가-힣]{2,3}산/g)||[]).filter(x=>!/수산|물산/.test(x)); return m.length?m[0]:''; }
 function parseDocxRows(xml, fname){
   const T=(xml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')).join(' ').replace(/\s+/g,' ');
   const g=(re)=>{ const x=T.match(re); return x?String(x[1]).trim():''; };
   let ing=g(/·\s*(?:식재료|재료)\s*([^|·]+?)\s*(?:신메뉴|레시피|\|)/);
   if(!ing) ing=(fname||'').replace(/\.docx$/i,'').replace(/^\d+_[\d.]+_?/,'').replace(/인생[^_]*_?D?_?/,'').replace(/\s*검증\s*리스트\s*/,'').trim();
   const date=normDate(T), brand=brandFrom(T);
-  const recipe=(T.match(/적용\s*상세\s*레시피(.*?)(?:📷|테스트\s*사진|사진)/)||[])[1]||'';
+  const recipe=(T.match(/적용\s*상세\s*레시피\s*(?:\d+\.\s*)?(.*?)(?:📷|테스트\s*사진|🔧|결과\s*정리|사진)/)||[])[1]||'';
+  const detail=recipe.replace(/\s+/g,' ').trim();
   const result=(T.match(/결과\s*정리(.*?)(?:📈|관능|회차별)/)||[])[1]||'';
-  const maker=(recipe.match(MAKER_RE)||[])[0]||'';
-  const origin=(recipe.match(/(?:^|[\s,/()])([가-힣]{2,3}산)(?=[\s,/)]|$)/)||[])[1]||'';
-  const spec=(recipe.match(/\d[\d.]*\s*kg|\d[\d.]*k\b|\d+\/\d+|\d+\s*box[^,]*/g)||[]).join(' ');
+  const maker=(detail.match(MAKER_RE)||[])[0]||'';
+  const origin=originFrom(detail);
+  const spec=specFrom(detail);
+  const price=priceFrom(detail)||priceFrom(T);
   const chg=(T.match(/\[(신규[^\]]*|변경[^\]]*|재검토[^\]]*)\]/)||[])[1]||'';
-  const verdict=verdictFrom(result), reason=result.trim().slice(0,200);
+  const verdict=verdictFrom(result), reason=result.trim().slice(0,220);
+  const note=[chg?('['+chg+']'):'', price?('단가 '+price):'', (!maker&&!origin&&!spec&&detail)?('적용: '+detail.slice(0,90)):''].filter(Boolean).join(' · ');
   if(!ing) return [];
-  return [{date, ingredient:ing, target:chg||'1차', brand, maker, origin, spec, exp:'', lot:'', verdict, reason, note:(chg?('['+chg+']'):''), cat:'', id:date+'|'+ing+'|doc'}];
+  return [{date, ingredient:ing, target:chg||'1차', brand, maker, origin, spec, exp:'', lot:'', verdict, reason, note, cat:'', id:date+'|'+ing+'|doc'}];
 }
 function parseXlsxRows(FULL, fname){
   const date=normDate(FULL), brand=brandFrom(FULL);
   let ing=(FULL.match(/제품명\s*\n?\s*([가-힣]+)/)||[])[1]||'';
-  const fm=FULL.match(/\[\s*최종\s*판정[:\s]*([○△×])[^\]]*\]([\s\S]{0,180})/);
+  const fm=FULL.match(/\[\s*최종\s*판정[:\s]*([○△×])[^\]]*\]([\s\S]{0,220})/);
   const finalV=fm?fm[1]:( (FULL.match(/최종\s*판정[:\s\]]*([○△×])/)||[])[1]||'' );
-  const reason=(fm?fm[2]:'').replace(/\s+/g,' ').trim().slice(0,200);
+  const reason=(fm?fm[2]:'').replace(/\s+/g,' ').trim().slice(0,220);
   const lines=[...FULL.matchAll(/([가-힣]+)\s*\(\s*([^/()]+?)\s*\/\s*([^()/]+?)\s*\)\s*\(([^()]*?)\)/g)];
   const rows=[];
-  lines.forEach((mm,i)=>{ const nm=mm[1],origin=mm[2].trim(),maker=mm[3].trim(),rest=mm[4]; const parts=rest.split('/').map(s=>s.trim()); const spec=parts[0]||''; const price=parts.find(p=>/원/.test(p))||''; if(!ing)ing=nm;
+  lines.forEach((mm,i)=>{ const nm=mm[1],origin=mm[2].trim(),maker=mm[3].trim(),rest=mm[4]; const spec=specFrom(rest)||rest.split('/')[0].trim(); const price=priceFrom(rest); if(!ing)ing=nm;
     rows.push({date, ingredient:ing||nm, target:(i===0?'변경(후보)':'기존'), brand, maker, origin, spec, exp:'', lot:'', verdict:(i===0?finalV:''), reason:(i===0?reason:''), note:(price?('단가 '+price):''), cat:'', id:date+'|'+(ing||nm)+'|'+maker}); });
-  if(!rows.length && ing) rows.push({date, ingredient:ing, target:'', brand, maker:'', origin:'', spec:'', exp:'', lot:'', verdict:finalV, reason, note:'', cat:'', id:date+'|'+ing+'|xls'});
+  if(!rows.length && ing){ const spec=specFrom(FULL.slice(0,4000)); const price=priceFrom(FULL); rows.push({date, ingredient:ing, target:'', brand, maker:'', origin:'', spec, exp:'', lot:'', verdict:finalV, reason, note:(price?('단가 '+price):''), cat:'', id:date+'|'+ing+'|xls'}); }
   return rows;
 }
 async function importDocx(files){
