@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
   body{ font-family:'Pretendard','Malgun Gothic',sans-serif; background:#f1f5f9; }
   .fld{ border:1.5px solid #e2e8f0; border-radius:10px; padding:8px 11px; font-size:13px; background:#fff; }
@@ -47,6 +48,8 @@
       <button class="btn bg-green-600 text-white" onclick="toExcel()"><i class="fa-solid fa-file-excel mr-1"></i>엑셀</button>
       <button class="btn bg-slate-200 text-slate-700" onclick="document.getElementById('imp').click()"><i class="fa-solid fa-file-import mr-1"></i>가져오기</button>
       <input type="file" id="imp" accept=".json,.qclog" multiple class="hidden" onchange="importFiles(this.files)">
+      <button class="btn bg-indigo-100 text-indigo-700" onclick="document.getElementById('impDoc').click()" title="워드 검증 리스트(.docx)를 대장에 정리"><i class="fa-solid fa-file-word mr-1"></i>Word 가져오기</button>
+      <input type="file" id="impDoc" accept=".docx" multiple class="hidden" onchange="importDocx(this.files)">
       <button class="btn bg-slate-200 text-slate-700" onclick="exportJson()"><i class="fa-solid fa-file-export mr-1"></i>내보내기</button>
       <button class="btn bg-rose-100 text-rose-600" onclick="clearAll()"><i class="fa-solid fa-trash mr-1"></i>비우기</button>
       <button class="btn bg-slate-100 text-slate-500" onclick="doLogout()" title="로그아웃"><i class="fa-solid fa-right-from-bracket"></i></button>
@@ -214,6 +217,35 @@ async function importFiles(files){
   [...files].forEach(f=>{ const r=new FileReader(); r.onload=async e=>{ try{ const j=JSON.parse(e.target.result); const arr=Array.isArray(j)?j:[j];
     arr.forEach(x=>{ if(x&&x.id){ const {created_at,...clean}=x; rows.push(clean); } });
   }catch(err){} if(--pend===0){ if(rows.length){ const {error}=await sb.from('qc_ledger').upsert(rows,{onConflict:'id'}); if(error){toast('가져오기 오류: '+error.message);return;} } loadData(); toast('가져오기 완료 ('+rows.length+'건)'); } }; r.readAsText(f); });
+}
+
+// ===== Word(.docx) 검증 리스트 가져오기 =====
+function parseDocx(xml, fname){
+  const T=(xml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')).join(' ').replace(/\s+/g,' ');
+  const m=(re)=>{ const x=T.match(re); return x?String(x[1]).trim():''; };
+  let brand=m(/^\s*([^·|]+?)\s*·/);
+  let ing=m(/·\s*(?:식재료|재료)\s*([^|·]+?)\s*(?:\||신메뉴|레시피)/);
+  if(!ing){ ing=(fname||'').replace(/\.docx$/i,'').replace(/^\d+_[\d.]+_/,'').replace(/인생[^_]*_?D?_?/,'').replace(/\s*검증\s*리스트\s*/,'').trim(); }
+  const date=m(/(\d{4}-\d{2}-\d{2})/);
+  const status=m(/판정\s*(진행중|사용\s*가능|사용가능|보류|조건부|불가|부적합|적합)/).replace(/\s/g,'');
+  let verdict=''; [['사용가능','○'],['적합','○'],['보류','△'],['조건부','△'],['불가','×'],['부적합','×']].forEach(([k,v])=>{ if(!verdict && status.indexOf(k)>=0) verdict=v; });
+  const chg=m(/\[(신규[^\]]*|변경[^\]]*|재검토[^\]]*)\]/);
+  let total=''; const sm=T.match(/종합[\s|]*1차[\s◀|]*\d{4}-\d{2}-\d{2}\s*([\d.\s|]+)/); if(sm){ const ns=(sm[1].match(/\d+(?:\.\d+)?/g)||[]); if(ns.length) total=ns[ns.length-1]; }
+  const note=[chg?('['+chg+']'):'', total?('관능 종합 '+total):'', status?('판정 '+status):''].filter(Boolean).join(' · ');
+  if(!ing) return null;
+  return {date:date||'', ingredient:ing, target:chg||'1차', brand:brand||'', maker:'',origin:'',spec:'',exp:'',lot:'', verdict, reason:'', note, cat:'', id:(date||'')+'|'+ing+'|doc'};
+}
+async function importDocx(files){
+  if(!window.JSZip){ toast('문서 라이브러리 로딩 중… 잠시 후 다시 시도하세요'); return; }
+  const rows=[];
+  for(const f of [...files]){
+    try{ const buf=await f.arrayBuffer(); const zip=await JSZip.loadAsync(buf); const xml=await zip.file('word/document.xml').async('string'); const r=parseDocx(xml,f.name); if(r) rows.push(r); }
+    catch(e){ console.warn('docx',f.name,e); }
+  }
+  if(!rows.length){ toast('추출된 항목이 없습니다 (양식이 다를 수 있어요)'); return; }
+  const {error}=await sb.from('qc_ledger').upsert(rows,{onConflict:'id'});
+  if(error){ toast('저장 오류: '+error.message); return; }
+  loadData(); toast('Word '+rows.length+'건 대장에 추가됨 — 제조회사·판정은 셀 더블클릭으로 채우세요');
 }
 
 // 세션 있으면 바로 진입
