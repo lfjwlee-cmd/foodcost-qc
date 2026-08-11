@@ -48,8 +48,8 @@
       <button class="btn bg-green-600 text-white" onclick="toExcel()"><i class="fa-solid fa-file-excel mr-1"></i>엑셀</button>
       <button class="btn bg-slate-200 text-slate-700" onclick="document.getElementById('imp').click()"><i class="fa-solid fa-file-import mr-1"></i>가져오기</button>
       <input type="file" id="imp" accept=".json,.qclog" multiple class="hidden" onchange="importFiles(this.files)">
-      <button class="btn bg-indigo-100 text-indigo-700" onclick="document.getElementById('impDoc').click()" title="워드 검증 리스트(.docx)를 대장에 정리"><i class="fa-solid fa-file-word mr-1"></i>Word 가져오기</button>
-      <input type="file" id="impDoc" accept=".docx" multiple class="hidden" onchange="importDocx(this.files)">
+      <button class="btn bg-indigo-100 text-indigo-700" onclick="document.getElementById('impDoc').click()" title="워드/엑셀 검증 파일(.docx/.xlsx)을 대장에 정리"><i class="fa-solid fa-file-arrow-up mr-1"></i>Word/Excel 가져오기</button>
+      <input type="file" id="impDoc" accept=".docx,.xlsx,.xls" multiple class="hidden" onchange="importDocx(this.files)">
       <button class="btn bg-slate-200 text-slate-700" onclick="exportJson()"><i class="fa-solid fa-file-export mr-1"></i>내보내기</button>
       <button class="btn bg-rose-100 text-rose-600" onclick="clearAll()"><i class="fa-solid fa-trash mr-1"></i>비우기</button>
       <button class="btn bg-slate-100 text-slate-500" onclick="doLogout()" title="로그아웃"><i class="fa-solid fa-right-from-bracket"></i></button>
@@ -219,33 +219,60 @@ async function importFiles(files){
   }catch(err){} if(--pend===0){ if(rows.length){ const {error}=await sb.from('qc_ledger').upsert(rows,{onConflict:'id'}); if(error){toast('가져오기 오류: '+error.message);return;} } loadData(); toast('가져오기 완료 ('+rows.length+'건)'); } }; r.readAsText(f); });
 }
 
-// ===== Word(.docx) 검증 리스트 가져오기 =====
-function parseDocx(xml, fname){
+// ===== 검증 파일(.docx / .xlsx) 가져오기 =====
+const MAKER_RE=/([가-힣A-Za-z]{2,}(?:수산|물산|유통|무역|트레이딩|씨푸드|식품|축산|상회|산업|㈜))/;
+function verdictFrom(t){ if(/사용\s*불가|부적합|불가능|불합격/.test(t))return'×'; if(/경우에\s*한해|주의가?\s*필요|조건부|보류|한해\s*사용/.test(t))return'△'; if(/사용\s*가능|변경\s*가능|차이가?\s*없|적합|무난|양호/.test(t))return'○'; return''; }
+function normDate(t){ const m=t.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/); return m?m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2):''; }
+function brandFrom(t){ const m=t.match(/(인생아구찜|삼대미역|어화락|메뉴개발팀)/g); if(!m)return''; return m.find(x=>x!=='메뉴개발팀')||''; }
+function parseDocxRows(xml, fname){
   const T=(xml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')).join(' ').replace(/\s+/g,' ');
-  const m=(re)=>{ const x=T.match(re); return x?String(x[1]).trim():''; };
-  let brand=m(/^\s*([^·|]+?)\s*·/);
-  let ing=m(/·\s*(?:식재료|재료)\s*([^|·]+?)\s*(?:\||신메뉴|레시피)/);
-  if(!ing){ ing=(fname||'').replace(/\.docx$/i,'').replace(/^\d+_[\d.]+_/,'').replace(/인생[^_]*_?D?_?/,'').replace(/\s*검증\s*리스트\s*/,'').trim(); }
-  const date=m(/(\d{4}-\d{2}-\d{2})/);
-  const status=m(/판정\s*(진행중|사용\s*가능|사용가능|보류|조건부|불가|부적합|적합)/).replace(/\s/g,'');
-  let verdict=''; [['사용가능','○'],['적합','○'],['보류','△'],['조건부','△'],['불가','×'],['부적합','×']].forEach(([k,v])=>{ if(!verdict && status.indexOf(k)>=0) verdict=v; });
-  const chg=m(/\[(신규[^\]]*|변경[^\]]*|재검토[^\]]*)\]/);
-  let total=''; const sm=T.match(/종합[\s|]*1차[\s◀|]*\d{4}-\d{2}-\d{2}\s*([\d.\s|]+)/); if(sm){ const ns=(sm[1].match(/\d+(?:\.\d+)?/g)||[]); if(ns.length) total=ns[ns.length-1]; }
-  const note=[chg?('['+chg+']'):'', total?('관능 종합 '+total):'', status?('판정 '+status):''].filter(Boolean).join(' · ');
-  if(!ing) return null;
-  return {date:date||'', ingredient:ing, target:chg||'1차', brand:brand||'', maker:'',origin:'',spec:'',exp:'',lot:'', verdict, reason:'', note, cat:'', id:(date||'')+'|'+ing+'|doc'};
+  const g=(re)=>{ const x=T.match(re); return x?String(x[1]).trim():''; };
+  let ing=g(/·\s*(?:식재료|재료)\s*([^|·]+?)\s*(?:신메뉴|레시피|\|)/);
+  if(!ing) ing=(fname||'').replace(/\.docx$/i,'').replace(/^\d+_[\d.]+_?/,'').replace(/인생[^_]*_?D?_?/,'').replace(/\s*검증\s*리스트\s*/,'').trim();
+  const date=normDate(T), brand=brandFrom(T);
+  const recipe=(T.match(/적용\s*상세\s*레시피(.*?)(?:📷|테스트\s*사진|사진)/)||[])[1]||'';
+  const result=(T.match(/결과\s*정리(.*?)(?:📈|관능|회차별)/)||[])[1]||'';
+  const maker=(recipe.match(MAKER_RE)||[])[0]||'';
+  const origin=(recipe.match(/(?:^|[\s,/()])([가-힣]{2,3}산)(?=[\s,/)]|$)/)||[])[1]||'';
+  const spec=(recipe.match(/\d[\d.]*\s*kg|\d[\d.]*k\b|\d+\/\d+|\d+\s*box[^,]*/g)||[]).join(' ');
+  const chg=(T.match(/\[(신규[^\]]*|변경[^\]]*|재검토[^\]]*)\]/)||[])[1]||'';
+  const verdict=verdictFrom(result), reason=result.trim().slice(0,200);
+  if(!ing) return [];
+  return [{date, ingredient:ing, target:chg||'1차', brand, maker, origin, spec, exp:'', lot:'', verdict, reason, note:(chg?('['+chg+']'):''), cat:'', id:date+'|'+ing+'|doc'}];
+}
+function parseXlsxRows(FULL, fname){
+  const date=normDate(FULL), brand=brandFrom(FULL);
+  let ing=(FULL.match(/제품명\s*\n?\s*([가-힣]+)/)||[])[1]||'';
+  const fm=FULL.match(/\[\s*최종\s*판정[:\s]*([○△×])[^\]]*\]([\s\S]{0,180})/);
+  const finalV=fm?fm[1]:( (FULL.match(/최종\s*판정[:\s\]]*([○△×])/)||[])[1]||'' );
+  const reason=(fm?fm[2]:'').replace(/\s+/g,' ').trim().slice(0,200);
+  const lines=[...FULL.matchAll(/([가-힣]+)\s*\(\s*([^/()]+?)\s*\/\s*([^()/]+?)\s*\)\s*\(([^()]*?)\)/g)];
+  const rows=[];
+  lines.forEach((mm,i)=>{ const nm=mm[1],origin=mm[2].trim(),maker=mm[3].trim(),rest=mm[4]; const parts=rest.split('/').map(s=>s.trim()); const spec=parts[0]||''; const price=parts.find(p=>/원/.test(p))||''; if(!ing)ing=nm;
+    rows.push({date, ingredient:ing||nm, target:(i===0?'변경(후보)':'기존'), brand, maker, origin, spec, exp:'', lot:'', verdict:(i===0?finalV:''), reason:(i===0?reason:''), note:(price?('단가 '+price):''), cat:'', id:date+'|'+(ing||nm)+'|'+maker}); });
+  if(!rows.length && ing) rows.push({date, ingredient:ing, target:'', brand, maker:'', origin:'', spec:'', exp:'', lot:'', verdict:finalV, reason, note:'', cat:'', id:date+'|'+ing+'|xls'});
+  return rows;
 }
 async function importDocx(files){
-  if(!window.JSZip){ toast('문서 라이브러리 로딩 중… 잠시 후 다시 시도하세요'); return; }
   const rows=[];
   for(const f of [...files]){
-    try{ const buf=await f.arrayBuffer(); const zip=await JSZip.loadAsync(buf); const xml=await zip.file('word/document.xml').async('string'); const r=parseDocx(xml,f.name); if(r) rows.push(r); }
-    catch(e){ console.warn('docx',f.name,e); }
+    const nm=f.name.toLowerCase();
+    try{
+      if(nm.endsWith('.docx')){
+        if(!window.JSZip){ toast('문서 라이브러리 로딩 중… 잠시 후 다시'); return; }
+        const buf=await f.arrayBuffer(); const zip=await JSZip.loadAsync(buf); const xml=await zip.file('word/document.xml').async('string');
+        rows.push(...parseDocxRows(xml,f.name));
+      } else if(nm.endsWith('.xlsx')||nm.endsWith('.xls')){
+        const buf=await f.arrayBuffer(); const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+        let txt=[]; wb.SheetNames.forEach(sn=>{ const ws=wb.Sheets[sn]; Object.keys(ws).forEach(k=>{ if(k[0]!=='!' && ws[k].v!=null) txt.push(String(ws[k].v)); }); });
+        rows.push(...parseXlsxRows(txt.join(' \n '), f.name));
+      }
+    }catch(e){ console.warn('import',f.name,e); }
   }
   if(!rows.length){ toast('추출된 항목이 없습니다 (양식이 다를 수 있어요)'); return; }
   const {error}=await sb.from('qc_ledger').upsert(rows,{onConflict:'id'});
   if(error){ toast('저장 오류: '+error.message); return; }
-  loadData(); toast('Word '+rows.length+'건 대장에 추가됨 — 제조회사·판정은 셀 더블클릭으로 채우세요');
+  loadData(); toast(rows.length+'건 대장에 추가됨 — 빈 칸(유통기한·로트 등)은 셀 더블클릭으로 보완하세요');
 }
 
 // 세션 있으면 바로 진입
