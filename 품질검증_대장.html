@@ -238,19 +238,18 @@ function priceFrom(t){ const m=(t.match(/[\d,]{3,}\s*원/g)||[]); return m.lengt
 function originFrom(t){ const m=(t.match(/국내산|수입산|[가-힣]{2,3}산/g)||[]).filter(x=>!/수산|물산|축산/.test(x)); return m.length?m[0]:''; }
 function makerFromLine(line){
   const slash=line.match(/\(\s*([^()/]+?)\s*\/\s*([^()/]+?)\s*\)/);
-  if(slash && /[가-힣]/.test(slash[2]) && !/\d/.test(slash[1]) && !/\d/.test(slash[2]) && !/찜|구이|냉동|냉장/.test(slash[1]+slash[2])) return {origin:slash[1].trim(), maker:slash[2].trim()};
+  if(slash && /[가-힣]/.test(slash[2]) && !/\d/.test(slash[1]) && !/\d/.test(slash[2]) && !/찜|구이|냉동|냉장/.test(slash[1]+slash[2]) && slash[2].length<=8) return {origin:slash[1].trim(), maker:slash[2].trim()};
   const parens=[...line.matchAll(/\(([^()]{2,20})\)/g)].map(m=>m[1].trim());
   for(const p of parens){ if(/\d/.test(p))continue; if(/^(탈피|홀크린|홀클린|냉동|냉장|국내작업|찜|구이|숙회)$/.test(p))continue;
     if(/무역|수산|물산|유통|트레이딩|씨푸드|푸드|식품|인터네셔널|글로벌|상사|코퍼|㈜|상회|산업|컴퍼니/.test(p) || (/^[가-힣]{3,}$/.test(p)&&!/산$/.test(p))) return {origin:'',maker:p}; }
+  const mm=line.match(MAKER_RE); if(mm) return {origin:'',maker:mm[0]};
   return {origin:'',maker:''};
 }
-function isCandidateLine(s){ if(s.length<4||s.length>85)return false;
-  if(/판정\s*기(준|호)|STEP|점검|확인\s*방법|수급|이슈|가능성\s*검토|판단됨|여부|때문|불안정|검토$/.test(s))return false;
-  const companyParen=/\([^()]*(?:무역|수산|물산|유통|트레이딩|씨푸드|푸드|식품|인터네셔널|글로벌|상사|코퍼|㈜|상회)[^()]*\)/.test(s);
-  const originDigit=originFrom(s)!==''&&/\d/.test(s);
-  const slashCompany=/\([가-힣]{2,}\s*\/\s*[가-힣]{2,}\)/.test(s)&&!/찜|구이|냉동|냉장|생물|자숙/.test(s);
-  return companyParen||originDigit||slashCompany;
-}
+const EXCL=/STEP|판정\s*기(준|호)|점검\s*항목|확인\s*방법|종합\s*판정|검증자|사진\s*첨부|테스트\s*목적|관능검사|공정\s*적합성|체크리스트|검증\s*조건|수급|이슈|불안정|가능성|검토|판단|때문|여부|미실시|미측정/;
+function isProductLine(s){ if(s.length<6||s.length>90)return false; if(!/^[가-힣]/.test(s))return false; if(EXCL.test(s))return false;
+  const og=originFrom(s), price=/[\d,]{3,}\s*원/.test(s), wt=/\d[\d.,]*\s*(kg|g|박스|box)\b/i.test(s), mk=makerFromLine(s).maker;
+  return (og||price||wt) && (mk||og); }
+function verdictForRow(maker,cz){ if(!maker)return''; try{ const m=cz.match(new RegExp(maker+'[^○△×]{0,18}([○△×])')); if(m)return m[1]; }catch(e){} return ''; }
 function parseDocxRows(xml, fname){
   const T=(xml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')).join(' ').replace(/\s+/g,' ');
   const g=(re)=>{ const x=T.match(re); return x?String(x[1]).trim():''; };
@@ -277,14 +276,16 @@ function parseXlsxRows(FULL, fname){
   if(!ing) ing=((FULL.match(/제품명\s*\n?\s*([가-힣][가-힣\s]{0,12}?)\s*\n/)||[])[1]||'').trim();
   const date=normDate(FULL), brand=brandFrom(FULL);
   const cz=FULL.search(/PART\s*C|종합\s*판정/); const concZone=cz>=0?FULL.slice(cz):FULL;
-  const conc=(concZone+' '+((FULL.match(/최종\s*판정([\s\S]{0,220})/)||[])[1]||'')).replace(/\s+/g,' ');
   const finalV=(concZone.match(/\[\s*최종\s*판정[:\s]*([○△×])/)||[])[1] || (concZone.match(/([○△×])\s*(?:적합|부적합|보통|사용)/)||[])[1] || verdictFrom(concZone) || '';
-  const reason=conc.trim().slice(0,200);
-  const cands=[...new Set(lines.filter(isCandidateLine))];
+  const reason=concZone.replace(/\s+/g,' ').trim().slice(0,200);
+  const cands=[...new Set(lines.filter(isProductLine))];
   let rows=cands.map((line,idx)=>{ const mk=makerFromLine(line); const origin=originFrom(line)||mk.origin; const maker=mk.maker; const spec=specFrom(line); const price=priceFrom(line);
     if(!maker && !spec && !origin) return null;
-    return {date, ingredient:ing||'(제품명 미상)', target:(maker||origin||''), brand, maker, origin, spec, exp:'', lot:'', verdict:'', reason:'',
-      note:[price?('단가 '+price):'', finalV?('파일판정 '+finalV):''].filter(Boolean).join(' · '), cat:'', id:date+'|'+(ing||fname)+'|'+(maker||origin||idx)+'|'+spec}; }).filter(Boolean);
+    return {date, ingredient:ing||'(제품명 미상)', target:(maker||origin||''), brand, maker, origin, spec, exp:'', lot:'',
+      verdict:verdictForRow(maker,concZone), reason:'', note:(price?('단가 '+price):''), cat:'',
+      id:date+'|'+(ing||fname)+'|'+(maker||origin||idx)+'|'+spec}; }).filter(Boolean);
+  const noV=rows.every(r=>!r.verdict);
+  if(noV && finalV) rows.forEach(r=>{ r.note=(r.note?r.note+' · ':'')+'파일판정 '+finalV; });
   if(rows.length){ rows[0].reason=reason; }
   else if(ing){ rows.push({date, ingredient:ing, target:'', brand, maker:'', origin:'', spec:specFrom(FULL.slice(0,4000)), exp:'', lot:'', verdict:finalV, reason, note:(priceFrom(FULL)?('단가 '+priceFrom(FULL)):''), cat:'', id:date+'|'+ing+'|xls'}); }
   return rows;
