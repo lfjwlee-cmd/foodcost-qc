@@ -1541,6 +1541,7 @@ const TYPE_ORDER=[
 /* ===================== 통합 셸 (로그인·목록·저장·기존제품) ===================== */
 const sb = (typeof sbGet==='function' ? sbGet() : supabase.createClient(SB_URL, SB_KEY));
 let CURRENT_ID=null, uploadedPhotos={}, saveTimer=null, DIRTY=false;
+function esc(s){ try{ if(typeof escapeHtml==='function') return escapeHtml(s); }catch(e){} return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* 유형 → config 생성 */
 function cfgFromType(key, product){
