@@ -47,7 +47,8 @@ tailwind.config = { theme: { extend: {
   .qc-ta{ min-height:16px !important; font-size:12.5px !important; }
   .iv{ padding:2px 0 !important; font-size:11px !important; }
   .qc-group{ margin-bottom:10px; }
-  .grp-items{ gap:6px !important; }
+  .grp-items{ display:grid !important; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)) !important; gap:8px !important; align-items:start; }
+  .grp-items > *{ margin-top:0 !important; }
   .acc-body{ padding-bottom:10px !important; }
   .photo-box:hover{ border-color:#16a34a; background:#f0fdf4; }
   .photo-box img{ position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:contain; background:#fff; }
@@ -213,7 +214,7 @@ tailwind.config = { theme: { extend: {
 
 <div id="appWrap" style="display:none">
 <header class="sticky top-0 z-40 bg-white shadow-md no-print">
-  <div class="max-w-3xl mx-auto px-4 py-3">
+  <div class="max-w-5xl mx-auto px-4 py-3">
     <div class="flex items-center justify-between gap-2">
       <div class="min-w-0">
         <p class="text-[11px] text-brand-600 font-bold flex items-center gap-1"><i class="fa-solid fa-shield-halved"></i> <span id="hdrBrand">스마트 식자재 품질 검증</span></p>
@@ -227,7 +228,7 @@ tailwind.config = { theme: { extend: {
     </div>
   </div>
   <div class="border-t border-slate-100">
-    <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-2 text-xs">
+    <div class="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2 text-xs">
       <span class="bg-brand-100 text-brand-700 font-bold px-2.5 py-1 rounded-full"><i class="fa-solid fa-tag mr-1"></i><span id="hdrCat">대분류</span></span>
       <span class="text-slate-400" id="hdrDept">소관부서</span>
       <button id="editBtn" onclick="toggleEdit()" class="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-200 text-slate-500 font-bold"><i class="fa-solid fa-pen"></i>편집</button>
@@ -235,7 +236,7 @@ tailwind.config = { theme: { extend: {
   </div>
 </header>
 
-<main id="report" class="max-w-3xl mx-auto px-3 sm:px-4 pt-4 space-y-3">
+<main id="report" class="max-w-5xl mx-auto px-3 sm:px-4 pt-4 space-y-3">
 
   <div id="viewBanner" class="bg-slate-800 text-white text-xs rounded-xl px-3 py-2 mb-1 text-center font-bold"><i class="fa-solid fa-eye mr-1"></i>보기 전용(공유본) — 편집할 수 없습니다.</div>
   <div id="editHint" class="no-print bg-brand-50 border border-brand-200 text-brand-700 text-xs rounded-xl px-3 py-2">✏️ 편집 모드: 초록 점선 부분(항목명·확인방법·그룹명·판정기준 등)을 눌러 직접 고칠 수 있어요. 다 되면 상단 <b>편집</b>을 다시 눌러 끕니다. 변경은 자동 저장됩니다.</div>
@@ -262,7 +263,7 @@ tailwind.config = { theme: { extend: {
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="lbl">검증 일자</label><input type="date" class="fld" data-k="date"></div>
-        <div><label class="lbl">매장명</label><input class="fld" data-k="store"></div>
+        <div style="display:none"><label class="lbl">매장명</label><input class="fld" data-k="store"></div>
         <div><label class="lbl">검증 담당자</label><input class="fld" data-k="inspector" placeholder="성명/직급"></div>
         <div style="display:none"><label class="lbl">제품명</label><input class="fld" data-k="product"></div>
       </div>
@@ -428,7 +429,7 @@ tailwind.config = { theme: { extend: {
 </main>
 
 <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-2xl z-40 no-print">
-  <div class="max-w-3xl mx-auto px-3 py-2.5 grid grid-cols-3 gap-2">
+  <div class="max-w-5xl mx-auto px-3 py-2.5 grid grid-cols-3 gap-2">
     <button onclick="exportPDF()" class="py-3 rounded-xl bg-rose-500 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-pdf"></i>PDF</button>
     <button onclick="exportExcel()" class="py-3 rounded-xl bg-green-600 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-excel"></i>Excel</button>
     <button onclick="saveShareFile()" class="py-3 rounded-xl bg-blue-500 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-share-nodes"></i>공유용</button>
@@ -601,7 +602,7 @@ function renderCols(){
       <span class="w-3 h-3 rounded-full shrink-0" style="background:${s.c}"></span>
       <input class="fld fld-sm col-name" data-ci="${i}" value="${escapeHtml(c.name)}" placeholder="열 이름" style="max-width:84px">
       <input class="fld fld-sm col-desc flex-1" data-ci="${i}" value="${escapeHtml(c.desc||'')}" placeholder="제품·거래처 설명(선택)">
-      <div class="photo-box" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:44px !important;width:44px;flex:0 0 44px;border-radius:8px;border-width:1.5px">
+      <div class="photo-box" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:64px !important;width:64px;flex:0 0 64px;border-radius:10px;border-width:1.5px">
         <div class="photo-del" onclick="event.stopPropagation();delPhoto('${pk}')"><i class="fa-solid fa-xmark"></i></div>
         <i class="fa-solid fa-camera" style="color:#cbd5e1;font-size:12px"></i>
         <input type="file" id="pf_${pk}" accept="image/*" class="hidden" onchange="onPhotoFiles('${pk}',this.files)">
@@ -1510,6 +1511,25 @@ const TYPES={
        {label:'상품성',method:'완성도'}]}],
    photos:['입고 상태','손질 후','조리 후']},
 
+ '농_나물':{cat:'농산물', label:'나물·새싹류 (콩나물·숙주·미나리·부추)', weight:false,
+   process:[
+     {group:'[1] 원물 상태', items:[
+       {label:'외관·신선도',method:'색·시듦·무름, 뿌리(꼬리) 상태'},
+       {label:'물러짐·변색',method:'짓무름·갈변·잔뿌리 과다'},
+       {label:'이물/잔류',method:'씨앗껍질·이물 잔여'}]},
+     {group:'[2] 전처리', items:[
+       {label:'손질·세척',method:'꼬리·껍질 제거·세척 상태'},
+       {label:'수율(가식부)',method:'다듬은 후 가식부 비율'}]}],
+   sensory:[
+     {group:'[1] 자체 상태', items:[
+       {label:'아삭함·식감',method:'아삭함·질김'},
+       {label:'비린내·이취',method:'콩비린내·풋내 등 이취'}]},
+     {group:'[2] 조리 적용', items:[
+       {label:'데침/무침 적합성',method:'데친 후 색·식감'},
+       {label:'변색·물빠짐',method:'조리 후 갈변·물러짐'}]},
+     {group:'[3] 최종 제품', items:[
+       {label:'상품성',method:'완성도'}]}],
+   photos:['입고 상태','손질 후','조리 후']},
  '농_버섯':{cat:'농산물', label:'버섯류 (느타리·표고·팽이)', weight:false,
    process:[
      {group:'[1] 원물 상태', items:[
@@ -1570,7 +1590,7 @@ const TYPES={
 const TYPE_ORDER=[
   ['해산물',['수산_연체류','수산_순살','수산_패류','수산_갑각','수산_건해산']],
   ['육류',['육_정육','육_가금','육_가공육']],
-  ['농산물',['농_엽채','농_근채','농_버섯']],
+  ['농산물',['농_엽채','농_근채','농_나물','농_버섯']],
   ['가공품',['가공_소스','가공_면분식']],
   ['기타',['기타']]
 ];
@@ -1661,7 +1681,7 @@ async function delReport(id){ if(!confirm('이 검증을 삭제할까요? (되�
 function openNew(){
   const sel=document.getElementById('newType');
   if(!sel.options.length && typeof TYPE_ORDER!=='undefined'){
-    sel.innerHTML=TYPE_ORDER.map(([g,keys])=>`<optgroup label="${g}">`+keys.map(k=>`<option value="${k}">${TYPES[k].label}</option>`).join('')+`</optgroup>`).join('');
+    sel.innerHTML=TYPE_ORDER.map(([g,keys])=>`<optgroup label="${g}">`+keys.map(k=>`<option value="${k}">${TYPES[k].label.split(' (')[0]}</option>`).join('')+`</optgroup>`).join('');
   }
   document.getElementById('newProd').value=''; document.getElementById('shNew').style.display='flex';
 }

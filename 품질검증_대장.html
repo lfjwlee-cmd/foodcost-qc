@@ -179,11 +179,18 @@ function render(){
   if(gk){
     const icon=gk==='ingredient'?'fa-box':'fa-industry';
     const groups={}; d.forEach(r=>{ const key=(r[gk]||'(미입력)'); (groups[key]=groups[key]||[]).push(r); });
-    body.innerHTML=Object.keys(groups).sort().map(m=>`<tr class="bg-slate-50"><td colspan="${COLS.length+1}" class="px-3 py-1.5 font-extrabold text-slate-700"><i class="fa-solid ${icon} text-slate-400 mr-1"></i>${esc(m)} <span class="text-xs font-normal text-slate-400">(${groups[m].length}건)</span></td></tr>`+groups[m].map(r=>rowHtml(r)).join('')).join('');
+    const keys=Object.keys(groups).sort(); window.__DKEYS=keys; window.__DCOLL=window.__DCOLL||{};
+    keys.forEach(k=>{ if(!(k in window.__DCOLL)) window.__DCOLL[k]=true; });   // 기본 접힘
+    body.innerHTML=keys.map((m,gi)=>{ const coll=!!window.__DCOLL[m];
+      const head=`<tr class="bg-slate-50 cursor-pointer select-none" onclick="toggleDGroup(${gi})"><td colspan="${COLS.length+1}" class="px-3 py-1.5 font-extrabold text-slate-700"><i class="fa-solid fa-chevron-${coll?'right':'down'} text-slate-400 mr-1.5 text-[11px]"></i><i class="fa-solid ${icon} text-slate-400 mr-1"></i>${esc(m)} <span class="text-xs font-normal text-slate-400">(${groups[m].length}건)</span></td></tr>`;
+      const rows=groups[m].map(r=>rowHtml(r).replace('<tr ',`<tr data-dg="${gi}"${coll?' style="display:none"':''} `)).join('');
+      return head+rows;
+    }).join('');
   } else {
     body.innerHTML=d.map(r=>rowHtml(r)).join('');
   }
 }
+function toggleDGroup(gi){ const m=(window.__DKEYS||[])[gi]; if(m==null)return; window.__DCOLL=window.__DCOLL||{}; window.__DCOLL[m]=!window.__DCOLL[m]; render(); }
 function editCell(id,k,td){
   const r=DATA.find(x=>x.id===id); if(!r||td.dataset.edit) return;
   td.dataset.edit='1';
