@@ -1582,11 +1582,15 @@ function showEditor(){ document.getElementById('shList').style.display='none'; d
 
 /* ---------- 목록 ---------- */
 let REPORTS=[];
+function withTimeout(p,ms){ return Promise.race([ Promise.resolve(p), new Promise((_,rej)=>setTimeout(()=>rej(new Error('시간 초과 — 네트워크/로그인/프로젝트 상태를 확인하세요')), ms||12000)) ]); }
 async function loadReports(){
   const box=document.getElementById('shListBody'); box.innerHTML='<p class="text-slate-400 text-sm p-6 text-center">불러오는 중…</p>';
-  const {data,error}=await sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at').order('updated_at',{ascending:false});
-  if(error){ box.innerHTML='<p class="text-rose-500 text-sm p-6">불러오기 오류: '+error.message+'</p>'; return; }
-  REPORTS=data||[]; renderReports();
+  try{
+    const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at').order('updated_at',{ascending:false});
+    const {data,error}=await withTimeout(q,12000);
+    if(error) throw error;
+    REPORTS=data||[]; renderReports();
+  }catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="loadReports()" style="margin-top:8px;text-decoration:underline;color:#0f172a">다시 시도</button></p>'; }
 }
 function vBadge(v){ const m={'○':['#16a34a','사용 가능'],'△':['#d97706','조건부'],'×':['#e11d48','사용 불가']}[v]; return m?`<span style="color:${m[0]};font-weight:800">${v} ${m[1]}</span>`:'<span class="text-slate-400">미정</span>'; }
 function renderReports(){
@@ -1674,8 +1678,9 @@ async function saveReport(){
 async function openBaseline(){
   const box=document.getElementById('blBody'); box.innerHTML='<p class="text-slate-400 text-sm p-6 text-center">불러오는 중…</p>';
   document.getElementById('shBase').style.display='flex';
-  const {data,error}=await sb.from('qc_reports').select('id,ingredient,brand,maker,updated_at').order('updated_at',{ascending:false});
-  if(error){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(error.message)+'</p>'; return; }
+  let data;
+  try{ const q=sb.from('qc_reports').select('id,ingredient,brand,maker,updated_at').order('updated_at',{ascending:false}); const res=await withTimeout(q,12000); if(res.error) throw res.error; data=res.data; }
+  catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="openBaseline()" style="margin-top:8px;text-decoration:underline;color:#0f172a">다시 시도</button></p>'; return; }
   const list=(data||[]).filter(r=>r.ingredient && r.id!==CURRENT_ID);
   window.__BL=list;
   box.innerHTML=list.length?list.map((r,i)=>`<div class="bg-white rounded-xl shadow-sm p-3 mb-2 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="pullBaselineIdx(${i})"><div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate">${esc(r.ingredient)}</p><p class="text-xs text-slate-500 truncate">${esc(r.maker||'')} · ${esc(r.brand||'')}</p></div><i class="fa-solid fa-arrow-right text-slate-300"></i></div>`).join(''):'<p class="text-slate-400 text-sm p-6 text-center">저장된 제품이 없습니다.</p>';
