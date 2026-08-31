@@ -1579,7 +1579,7 @@ async function shellLogout(){ await sb.auth.signOut(); location.reload(); }
 
 /* ---------- 화면 전환 ---------- */
 function showList(){ document.getElementById('shList').style.display='block'; document.getElementById('appWrap').style.display='none'; document.getElementById('edBar').style.display='none'; loadReports(); }
-function showEditor(){ document.getElementById('shList').style.display='none'; document.getElementById('appWrap').style.display=''; document.getElementById('edBar').style.display='flex'; window.scrollTo(0,0); }
+function showEditor(){ document.getElementById('shList').style.display='none'; document.getElementById('appWrap').style.display=''; document.getElementById('edBar').style.display='flex'; if(typeof populateEdType==='function') populateEdType(); window.scrollTo(0,0); }
 
 /* ---------- 목록 ---------- */
 let REPORTS=[];
@@ -1626,9 +1626,28 @@ function createNew(){
   if(!prod){ alert('제품명을 입력하세요.'); return; }
   document.getElementById('shNew').style.display='none';
   CURRENT_ID=null; uploadedPhotos={};
-  const init={ product:prod, date:new Date().toISOString().slice(0,10), store:'', inspector:'', brands:['인생아구찜'] };
+  const init={ product:prod, date:new Date().toISOString().slice(0,10), store:'', inspector:'', brands:['인생아구찜'], _type:key };
   applyConfig(cfgFromType(key, prod), init);
   showEditor(); toast('새 검증 시작 — 작성 후 자동 저장됩니다');
+}
+// 품목 유형 변경(항목만 다시 구성, 나머지 입력 유지)
+function populateEdType(){
+  const sel=document.getElementById('edType'); if(!sel||typeof TYPE_ORDER==='undefined')return;
+  sel.innerHTML='<option value="">유형 선택…</option>'+TYPE_ORDER.map(([g,keys])=>`<optgroup label="${g}">`+keys.map(k=>`<option value="${k}">${TYPES[k].label.split(' (')[0]}</option>`).join('')+`</optgroup>`).join('');
+  sel.value=state._type||'';
+}
+function changeType(key){
+  if(!key) return;
+  if(!confirm('품목 유형을 바꾸면 평가 항목이 그 유형에 맞게 다시 구성됩니다.\n(제품명·브랜드·비교대상·제조회사 스펙·사진·판정은 유지, 항목별 상태·판정은 초기화)\n계속할까요?')){ document.getElementById('edType').value=state._type||''; return; }
+  const savedPhotos={...(photosObj||{})};
+  const keep={ _type:key };
+  ['product','date','store','inspector','sign','note','purpose','measureMode','cols'].forEach(k=>{ if(state[k]!=null) keep[k]=state[k]; });
+  Object.keys(state).forEach(k=>{ if(/^spec_/.test(k)||/^final_/.test(k)||/^brand/.test(k)) keep[k]=state[k]; });
+  applyConfig(cfgFromType(key, keep.product||''), keep);
+  photosObj=savedPhotos; applyPhotos();
+  populateEdType();
+  scheduleSave();
+  toast('품목 유형을 바꿔 항목을 다시 구성했습니다');
 }
 
 /* ---------- 열기 ---------- */
@@ -1751,9 +1770,10 @@ function injectShell(){
   document.body.appendChild(bl);
 
   const bar=document.createElement('div'); bar.id='edBar'; bar.style.cssText='display:none;position:fixed;top:0;left:0;right:0;z-index:45;background:#1e293b;color:#fff;padding:8px 12px;align-items:center;justify-content:space-between;gap:8px';
-  bar.innerHTML=`<button onclick="showList()" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-arrow-left mr-1"></i>목록</button>
-    <span id="edStamp" style="font-size:12px;color:#cbd5e1"></span>
-    <div style="display:flex;gap:6px"><button onclick="openBaseline()" style="background:#475569;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-weight:700;font-size:12px;cursor:pointer">기존 제품 불러오기</button>
+  bar.innerHTML=`<div style="display:flex;align-items:center;gap:6px;min-width:0"><button onclick="showList()" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-arrow-left"></i></button>
+    <select id="edType" onchange="changeType(this.value)" title="품목 유형 변경(항목 다시 구성)" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:7px;font-size:12px;max-width:150px;cursor:pointer"></select></div>
+    <span id="edStamp" style="font-size:11px;color:#cbd5e1;white-space:nowrap"></span>
+    <div style="display:flex;gap:6px"><button onclick="openBaseline()" style="background:#475569;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-weight:700;font-size:12px;cursor:pointer">기존 불러오기</button>
     <button onclick="saveReport()" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-weight:800;font-size:13px;cursor:pointer"><i class="fa-solid fa-cloud-arrow-up mr-1"></i>저장</button></div>`;
   document.body.appendChild(bar);
   // 에디터 상단 여백(고정바)
