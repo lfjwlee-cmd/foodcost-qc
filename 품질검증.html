@@ -1595,14 +1595,17 @@ function renderReports(){
   document.getElementById('shCnt').textContent=REPORTS.length+'건';
   if(!d.length){ box.innerHTML='<p class="text-slate-400 text-sm p-8 text-center">저장된 검증이 없습니다. <b>[+ 새 검증]</b>으로 시작하세요.</p>'; return; }
   const grp={}; d.forEach(r=>{ (grp[r.maker||'(제조회사 미입력)']=grp[r.maker||'(제조회사 미입력)']||[]).push(r); });
+  window.__RFLAT=[];
   box.innerHTML=Object.keys(grp).sort().map(m=>`<div class="mb-4"><p class="text-xs font-extrabold text-slate-500 mb-2"><i class="fa-solid fa-industry mr-1"></i>${esc(m)} <span class="text-slate-400">(${grp[m].length})</span></p>`+
-    grp[m].map(r=>`<div class="bg-white rounded-xl shadow-sm p-3 mb-2 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="openReport('${r.id}')">
+    grp[m].map(r=>{ const i=window.__RFLAT.push(r)-1; return `<div class="bg-white rounded-xl shadow-sm p-3 mb-2 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="openReportIdx(${i})">
       <div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate">${esc(r.ingredient||'(제품명 없음)')}</p>
       <p class="text-xs text-slate-500 truncate">${esc(r.brand||'')} · ${esc(r.date||'')}</p></div>
       <div class="text-sm">${vBadge(r.verdict)}</div>
-      <span class="text-slate-300 hover:text-rose-500 px-1" onclick="event.stopPropagation();delReport('${r.id}')"><i class="fa-solid fa-trash"></i></span>
-    </div>`).join('')+`</div>`).join('');
+      <span class="text-slate-300 hover:text-rose-500 px-1" onclick="event.stopPropagation();delReportIdx(${i})"><i class="fa-solid fa-trash"></i></span>
+    </div>`; }).join('')+`</div>`).join('');
 }
+function openReportIdx(i){ const r=(window.__RFLAT||[])[i]; if(r) openReport(r.id); }
+function delReportIdx(i){ const r=(window.__RFLAT||[])[i]; if(r) delReport(r.id); }
 async function delReport(id){ if(!confirm('이 검증을 삭제할까요? (되돌릴 수 없음)'))return; await sb.from('qc_reports').delete().eq('id',id); loadReports(); }
 
 /* ---------- 새 검증 ---------- */
@@ -1669,29 +1672,30 @@ async function saveReport(){
 
 /* ---------- 기존 제품 불러오기 ---------- */
 async function openBaseline(){
-  const {data}=await sb.from('qc_reports').select('id,ingredient,brand,maker,updated_at').order('updated_at',{ascending:false});
-  const list=(data||[]).filter(r=>r.ingredient);
-  const box=document.getElementById('blBody');
-  box.innerHTML=list.length?list.map(r=>`<div class="bg-white rounded-xl shadow-sm p-3 mb-2 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="pullBaseline('${r.id}')"><div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate">${esc(r.ingredient)}</p><p class="text-xs text-slate-500 truncate">${esc(r.maker||'')} · ${esc(r.brand||'')}</p></div><i class="fa-solid fa-arrow-right text-slate-300"></i></div>`).join(''):'<p class="text-slate-400 text-sm p-6 text-center">저장된 제품이 없습니다.</p>';
+  const box=document.getElementById('blBody'); box.innerHTML='<p class="text-slate-400 text-sm p-6 text-center">불러오는 중…</p>';
   document.getElementById('shBase').style.display='flex';
+  const {data,error}=await sb.from('qc_reports').select('id,ingredient,brand,maker,updated_at').order('updated_at',{ascending:false});
+  if(error){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(error.message)+'</p>'; return; }
+  const list=(data||[]).filter(r=>r.ingredient && r.id!==CURRENT_ID);
+  window.__BL=list;
+  box.innerHTML=list.length?list.map((r,i)=>`<div class="bg-white rounded-xl shadow-sm p-3 mb-2 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="pullBaselineIdx(${i})"><div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate">${esc(r.ingredient)}</p><p class="text-xs text-slate-500 truncate">${esc(r.maker||'')} · ${esc(r.brand||'')}</p></div><i class="fa-solid fa-arrow-right text-slate-300"></i></div>`).join(''):'<p class="text-slate-400 text-sm p-6 text-center">저장된 제품이 없습니다.</p>';
 }
+function pullBaselineIdx(i){ const r=(window.__BL||[])[i]; if(r) pullBaseline(r.id); }
 async function pullBaseline(id){
-  const {data,error}=await sb.from('qc_reports').select('*').eq('id',id).single(); if(error){toast('오류');return;}
-  const d=data.data||{}; const src=d.state||{}; const srcCols=(d.config&&d.config.cols)||[{id:'old'}]; const scid=srcCols[0].id;
-  document.getElementById('shBase').style.display='none';
-  // 기존 열 추가(없으면)
-  let cols=activeCols(); if(cols.length<2){ if(typeof addCol==='function') addCol(); cols=activeCols(); }
-  // 마지막(변경) 열은 유지, 첫 열을 '기존'으로 채움
-  const bid=cols[0].id;
-  // 스펙 복사
-  if(SPEC_FIELDS){ SPEC_FIELDS.forEach((f,fi)=>{ if(src['spec_'+fi+'_'+scid]!=null) state['spec_'+fi+'_'+bid]=src['spec_'+fi+'_'+scid]; }); }
-  // 열 이름/설명
-  cols[0].name='기존'; if(d.state&&d.state.product) state['col_'+bid+'_desc']=d.state.product;
-  // 사진 복사(기존제품 id에서 다운로드 → 현재 기존열 셀)
-  for(const pk of (d.photoKeys||[])){ if(!pk.startsWith(scid+'_'))continue; const idx=pk.slice(scid.length+1); const npk=bid+'_'+idx;
-    try{ const {data:blob}=await sb.storage.from('qc-photos').download(id+'/'+pk+'.jpg'); if(blob){ photosObj[npk]=await blobToDataURL(blob); } }catch(e){} }
-  build(); applyPhotos(); toast('기존 제품 정보를 기존 열로 불러왔습니다 (회사·스펙·사진)');
-  scheduleSave();
+  try{
+    const {data,error}=await sb.from('qc_reports').select('*').eq('id',id).single(); if(error){toast('불러오기 오류: '+error.message);return;}
+    const d=data.data||{}; const src=d.state||{}; const srcCols=(d.config&&d.config.cols)||[{id:'old'}]; const scid=srcCols[0].id;
+    document.getElementById('shBase').style.display='none';
+    let cols=activeCols(); if(cols.length<2){ if(typeof addCol==='function') addCol(); cols=activeCols(); }
+    const bid=cols[0].id;
+    if(SPEC_FIELDS){ SPEC_FIELDS.forEach((f,fi)=>{ const v=src['spec_'+fi+'_'+scid]; if(v!=null&&v!=='') state['spec_'+fi+'_'+bid]=v; }); }
+    cols[0].name='기존'; if(src.product) cols[0].desc=src.product;
+    if(src['final_'+scid+'_note'] && !state['final_'+bid+'_note']) state['final_'+bid+'_note']='(기존) '+src['final_'+scid+'_note'];
+    for(const pk of (d.photoKeys||[])){ if(!pk.startsWith(scid+'_'))continue; const npk=bid+'_'+pk.slice(scid.length+1);
+      try{ const {data:blob}=await sb.storage.from('qc-photos').download(id+'/'+pk+'.jpg'); if(blob){ photosObj[npk]=await blobToDataURL(blob); } }catch(e){} }
+    build(); applyPhotos(); persist();
+    toast('기존 제품 정보를 "기존" 열로 불러왔습니다 (회사·스펙·사진)');
+  }catch(e){ toast('불러오기 실패: '+e.message); }
 }
 
 /* ---------- UI 주입 ---------- */
