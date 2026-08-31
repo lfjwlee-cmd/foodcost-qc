@@ -682,12 +682,34 @@ function renderGroups(groups,prefix){
     return `<div class="qc-group" data-gp="${prefix}" data-gi="${gi}">
       <div class="flex items-center justify-between bg-brand-50 rounded-lg px-2.5 py-1.5 mb-2">
         ${head}
-        <button type="button" class="grp-tgl no-print text-[11px] font-bold text-slate-500 flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 bg-white" onclick="toggleGroup('${prefix}',${gi})"><i class="fa-solid fa-xmark"></i>제외</button>
+        <div class="flex items-center gap-1">
+          <button type="button" class="no-print text-[11px] font-bold text-slate-400 hover:text-rose-500 px-2 py-0.5 rounded-md border border-slate-200 bg-white" onclick="delGroup('${prefix}',${gi})" title="그룹 삭제"><i class="fa-solid fa-trash-can"></i></button>
+          <button type="button" class="grp-tgl no-print text-[11px] font-bold text-slate-500 flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 bg-white" onclick="toggleGroup('${prefix}',${gi})"><i class="fa-solid fa-xmark"></i>제외</button>
+        </div>
       </div>
       <div class="grp-offnote items-center gap-2 text-[11px] text-slate-400 bg-slate-50 rounded-lg px-2.5 py-2 mb-2"><i class="fa-solid fa-ban"></i>이 항목은 사용 안 함 — 인쇄·집계에서 제외됩니다.</div>
       <div class="grp-items space-y-2">${items}</div>
+      <button type="button" class="no-print w-full mt-2 py-1.5 rounded-lg text-xs font-bold text-brand-600 border border-dashed border-brand-300 bg-white" onclick="addItem('${prefix}',${gi})"><i class="fa-solid fa-plus mr-1"></i>항목 추가</button>
     </div>`;
-  }).join('');
+  }).join('')
+  + `<button type="button" class="no-print w-full mt-1 py-2 rounded-lg text-xs font-bold text-slate-500 border border-dashed border-slate-300 bg-white" onclick="addGroup('${prefix}')"><i class="fa-solid fa-plus mr-1"></i>그룹 추가</button>`;
+}
+function _sectArr(prefix){ return prefix==='proc'?PROC:SENS; }
+function addItem(prefix,gi){ const gs=_sectArr(prefix); if(!gs[gi])return; gs[gi].items.push({label:'새 항목(눌러서 편집)',method:''}); build(); applyPhotos(); persist(); toast('항목을 추가했습니다 — ✏️편집으로 이름을 고치세요'); }
+function addGroup(prefix){ const gs=_sectArr(prefix); gs.push({group:'[새 그룹]',items:[{label:'새 항목(눌러서 편집)',method:''}]}); build(); applyPhotos(); persist(); toast('그룹을 추가했습니다'); }
+function delItemByKey(key){ const m=key.match(/^(proc|sens)_(\d+)_(\d+)$/); if(!m)return; const prefix=m[1], gi=+m[2], ii=+m[3]; const gs=_sectArr(prefix); const items=gs[gi]&&gs[gi].items; if(!items)return;
+  if(items.length<=1){ toast('그룹의 마지막 항목은 못 지워요 — 그룹 삭제를 쓰세요'); return; }
+  if(!confirm('이 항목을 삭제할까요?'))return;
+  const cols=activeCols();
+  for(let j=ii;j<items.length-1;j++){ cols.forEach(c=>['_v',''].forEach(sfx=>{ const f=`${prefix}_${gi}_${j+1}_${c.id}${sfx}`, t=`${prefix}_${gi}_${j}_${c.id}${sfx}`; if(state[f]!=null)state[t]=state[f]; else delete state[t]; })); }
+  const last=items.length-1; cols.forEach(c=>{ delete state[`${prefix}_${gi}_${last}_${c.id}_v`]; delete state[`${prefix}_${gi}_${last}_${c.id}`]; });
+  items.splice(ii,1); build(); applyPhotos(); persist();
+}
+function delGroup(prefix,gi){ const gs=_sectArr(prefix); if(gs.length<=1){ toast('마지막 그룹은 못 지워요'); return; } if(!confirm('이 그룹 전체를 삭제할까요?'))return;
+  const cols=activeCols();
+  for(let g=gi; g<gs.length-1; g++){ const n=gs[g+1].items.length; for(let j=0;j<n;j++){ cols.forEach(c=>['_v',''].forEach(sfx=>{ const f=`${prefix}_${g+1}_${j}_${c.id}${sfx}`, t=`${prefix}_${g}_${j}_${c.id}${sfx}`; if(state[f]!=null)state[t]=state[f]; else delete state[t]; })); } if(state[grpKey(prefix,g+1)]!=null)state[grpKey(prefix,g)]=state[grpKey(prefix,g+1)]; else delete state[grpKey(prefix,g)]; }
+  const lg=gs.length-1; for(let j=0;j<60;j++){ cols.forEach(c=>{ delete state[`${prefix}_${lg}_${j}_${c.id}_v`]; delete state[`${prefix}_${lg}_${j}_${c.id}`]; }); } delete state[grpKey(prefix,lg)];
+  gs.splice(gi,1); build(); applyPhotos(); persist();
 }
 
 function rowItem(key,it){
@@ -702,8 +724,11 @@ function rowItem(key,it){
     </div>`;
   }).join('');
   return `<div class="qc-item border border-slate-100 rounded-xl p-3">
-    <div class="min-w-0"><p class="text-sm font-semibold text-slate-700" data-ek="${key}.label">${it.label}</p>
+    <div class="flex items-start justify-between gap-2">
+      <div class="min-w-0"><p class="text-sm font-semibold text-slate-700" data-ek="${key}.label">${it.label}</p>
       <p class="text-[11px] text-slate-400 mt-0.5 leading-snug" data-ek="${key}.method">${it.method||''}</p></div>
+      <button type="button" onclick="delItemByKey('${key}')" class="no-print text-slate-300 hover:text-rose-500 px-1 shrink-0" title="이 항목 삭제"><i class="fa-solid fa-xmark"></i></button>
+    </div>
     <div class="grid gap-2 mt-2" style="grid-template-columns:repeat(${cols.length},minmax(0,1fr))">${boxes}</div>
   </div>`;
 }
@@ -1557,7 +1582,7 @@ function cfgFromType(key, product){
 /* 설정 적용 + 에디터 리빌드 */
 function applyConfig(cfg, newState){
   C=cfg; RADAR_AXES=C.radarAxes||RADAR_AXES;
-  PROC=normGroups(C.process); SENS=normGroups(C.sensory);
+  PROC=normGroups(C.process); SENS=normGroups(C.sensory); C.process=PROC; C.sensory=SENS;
   WUNIT=(C.weight&&C.weight.unit)||'g';
   WSTATS=(C.weight&&Array.isArray(C.weight.stats)&&C.weight.stats.length)?C.weight.stats:['n','min','max','range'];
   SPEC_FIELDS=(C.specFields===false)?null:((Array.isArray(C.specFields)&&C.specFields.length)?C.specFields:SPEC_FIELDS_DEFAULT);
