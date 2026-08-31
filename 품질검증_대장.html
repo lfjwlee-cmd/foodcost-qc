@@ -63,7 +63,8 @@
   </div>
 
   <!-- 제조회사별 요약 대시보드 -->
-  <div id="summary" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
+  <div class="mb-2"><button onclick="var s=document.getElementById('summary');s.style.display=s.style.display==='none'?'':'none';this.querySelector('i').className=s.style.display==='none'?'fa-solid fa-chevron-down':'fa-solid fa-chevron-up';" class="text-xs font-bold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-chevron-down"></i> 제조회사별 요약 보기</button></div>
+  <div id="summary" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4" style="display:none"></div>
 
   <div class="card p-4 mb-4 flex flex-wrap items-end gap-3">
     <div><label class="block text-xs font-bold text-slate-500 mb-1">제조회사</label><select id="fMaker" class="fld" onchange="render()"><option value="">전체</option></select></div>
