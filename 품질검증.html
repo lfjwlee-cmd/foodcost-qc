@@ -1654,6 +1654,15 @@ async function saveReport(){
     verdict:(cols.map(c=>state['final_'+c.id+'_v']).find(Boolean)||''),
     data:{ config:C, state:state, photoKeys:keys }, updated_at:new Date().toISOString() };
   const {error}=await sb.from('qc_reports').upsert(rec,{onConflict:'id'});
+  // 제조회사별 대시보드(qc_ledger)에도 요약 동기화
+  try{
+    const gi=(n)=>{ const i=(typeof specIdx==='function')?specIdx(n):-1; return i; };
+    const iM=gi('제조회사'), iO=gi('원산지'), iS=gi('규격');
+    const led=cols.map(c=>({ id:CURRENT_ID+'|'+c.id, date:rec.date, ingredient:rec.ingredient, target:c.name, brand:rec.brand, cat:rec.category,
+      maker:(iM>=0?(state['spec_'+iM+'_'+c.id]||''):''), origin:(iO>=0?(state['spec_'+iO+'_'+c.id]||''):''), spec:(iS>=0?(state['spec_'+iS+'_'+c.id]||''):''),
+      exp:'', lot:'', verdict:state['final_'+c.id+'_v']||'', reason:state['final_'+c.id+'_note']||'', note:state.note||'' }));
+    await sb.from('qc_ledger').upsert(led,{onConflict:'id'});
+  }catch(e){}
   document.getElementById('edStamp').textContent = error?('저장 오류'):('저장됨 '+new Date().toLocaleTimeString('ko-KR'));
   DIRTY=false;
 }
