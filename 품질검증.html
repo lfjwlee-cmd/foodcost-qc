@@ -603,14 +603,14 @@ function renderCols(){
   document.getElementById('colBox').innerHTML = cols.map((c,i)=>{ const s=colStyle(i);
     const pk='colpic_'+c.id;
     return `<div class="flex items-center gap-2">
+      <div class="photo-box shrink-0" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:60px !important;width:60px;flex:0 0 60px;border-radius:10px;border-width:1.5px">
+        <div class="photo-del" onclick="event.stopPropagation();delPhoto('${pk}')"><i class="fa-solid fa-xmark"></i></div>
+        <div class="photo-add"><i class="fa-solid fa-camera" style="font-size:15px"></i><span style="font-size:8px">사진</span></div>
+        <input type="file" id="pf_${pk}" accept="image/*" class="hidden" onchange="onPhotoFiles('${pk}',this.files)">
+      </div>
       <span class="w-3 h-3 rounded-full shrink-0" style="background:${s.c}"></span>
       <input class="fld fld-sm col-name" data-ci="${i}" value="${escapeHtml(c.name)}" placeholder="열 이름" style="max-width:84px">
       <input class="fld fld-sm col-desc flex-1" data-ci="${i}" value="${escapeHtml(c.desc||'')}" placeholder="제품·거래처 설명(선택)">
-      <div class="photo-box" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:64px !important;width:64px;flex:0 0 64px;border-radius:10px;border-width:1.5px">
-        <div class="photo-del" onclick="event.stopPropagation();delPhoto('${pk}')"><i class="fa-solid fa-xmark"></i></div>
-        <i class="fa-solid fa-camera" style="color:#cbd5e1;font-size:12px"></i>
-        <input type="file" id="pf_${pk}" accept="image/*" class="hidden" onchange="onPhotoFiles('${pk}',this.files)">
-      </div>
       ${cols.length>1?`<button type="button" class="no-print text-slate-300 hover:text-rose-500 px-1" onclick="delCol(${i})" title="이 열 삭제"><i class="fa-solid fa-xmark"></i></button>`:''}
     </div>`;
   }).join('');
