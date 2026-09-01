@@ -49,6 +49,8 @@ tailwind.config = { theme: { extend: {
   .qc-group{ margin-bottom:10px; }
   .grp-items{ display:grid !important; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)) !important; gap:8px !important; align-items:start; }
   .grp-items > *{ margin-top:0 !important; }
+  /* 각 항목 밑 확인방법 설명 화면에서 숨김(작업자용 화면 간결화) */
+  .qc-item [data-ek$=".method"]{ display:none !important; }
   /* 개별 무게: 개수 많아도 세로로 안 늘어지게 여러 칸을 한 줄에 */
   .wt-list{ display:grid !important; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:4px; }
   .wt-list > *{ margin-bottom:0 !important; }
@@ -277,7 +279,7 @@ tailwind.config = { theme: { extend: {
   </section>
 
   <!-- STEP 2 판정 기준 -->
-  <section class="bg-white rounded-2xl shadow-sm overflow-hidden detail-only" id="criteriaSection">
+  <section class="bg-white rounded-2xl shadow-sm overflow-hidden detail-only" id="criteriaSection" style="display:none">
     <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
       <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-brand-500"></i>STEP 2. 판정 기준</span>
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
@@ -534,7 +536,8 @@ function setMeasureMode(mode){ applyMeasureMode(mode); }
 // 제품별 종합 판정 (엑셀의 종합판정 ①②③)
 function renderFinalVerdicts(){
   const cols=activeCols(); const box=document.getElementById('finalVerdicts'); if(!box)return;
-  box.innerHTML = cols.map((c,ci)=>{ const s=colStyle(ci);
+  box.innerHTML = cols.map((c,ci)=>{ if(cols.length>=2 && ci===0) return '';   // 기존(첫 열)은 판정 불필요
+    const s=colStyle(ci);
     return `<div class="rounded-xl p-2.5" style="background:#fff;border:1px solid #e5e7eb;border-left:3px solid ${s.c}">
       <div class="flex items-center justify-between gap-2 mb-1.5">
         <span class="text-sm font-bold colname" data-ci="${ci}" style="color:${s.c}">${escapeHtml(c.name)}</span>
@@ -553,7 +556,8 @@ function renderFinalVerdicts(){
 function renderVerdictBanner(){
   const el=document.getElementById('verdictBanner'); if(!el)return; const cols=activeCols();
   const MAP={'○':{t:'사용 가능',c:'#16a34a',bg:'#f0fdf4',ic:'fa-circle-check'},'△':{t:'조건부 사용 가능',c:'#d97706',bg:'#fffbeb',ic:'fa-triangle-exclamation'},'×':{t:'사용 불가',c:'#e11d48',bg:'#fef2f2',ic:'fa-circle-xmark'}};
-  el.innerHTML=cols.map(c=>{ const v=state['final_'+c.id+'_v']; const m=MAP[v];
+  el.innerHTML=cols.map((c,ci)=>{ if(cols.length>=2 && ci===0) return '';   // 기존(첫 열) 제외
+    const v=state['final_'+c.id+'_v']; const m=MAP[v];
     if(!m) return `<div style="border:2px dashed #e5e7eb;border-radius:14px;padding:12px 16px;text-align:center;color:#94a3b8;font-weight:700;margin-bottom:6px">${escapeHtml(c.name)} · 판정 미입력</div>`;
     return `<div style="border:2px solid ${m.c};background:${m.bg};border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:6px">
       <i class="fa-solid ${m.ic}" style="color:${m.c};font-size:26px"></i>
@@ -565,7 +569,8 @@ function fillFinalPrint(){
   const el=document.getElementById('finalVerdictsPrint'); if(!el)return; const cols=activeCols();
   const VC={'○':'#16a34a','△':'#d97706','×':'#e11d48','생략':'#94a3b8'};
   el.innerHTML='<p style="font-size:13px;font-weight:800;margin:2px 0 6px;">■ 제품별 종합 판정</p>'+
-    cols.map(c=>{ const v=state['final_'+c.id+'_v']||'-'; return `<p style="font-size:11.5px;margin:1px 0;"><b>${escapeHtml(c.name)}</b> : <b style="color:${VC[v]||'#111'}">${v}</b> ${escapeHtml(state['final_'+c.id+'_note']||'')}</p>`; }).join('');
+    cols.map((c,ci)=>{ if(cols.length>=2 && ci===0) return '';   // 기존(첫 열) 제외
+      const v=state['final_'+c.id+'_v']||'-'; return `<p style="font-size:11.5px;margin:1px 0;"><b>${escapeHtml(c.name)}</b> : <b style="color:${VC[v]||'#111'}">${v}</b> ${escapeHtml(state['final_'+c.id+'_note']||'')}</p>`; }).join('');
 }
 
 // ── 브랜드 다중 선택 ──
@@ -603,7 +608,7 @@ function renderCols(){
   document.getElementById('colBox').innerHTML = cols.map((c,i)=>{ const s=colStyle(i);
     const pk='colpic_'+c.id;
     return `<div class="flex items-center gap-2">
-      <div class="photo-box shrink-0" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:84px !important;width:84px;flex:0 0 84px;border-radius:10px;border-width:1.5px">
+      <div class="photo-box shrink-0" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:96px !important;width:140px;flex:0 0 140px;border-radius:10px;border-width:1.5px">
         <div class="photo-del" onclick="event.stopPropagation();delPhoto('${pk}')"><i class="fa-solid fa-xmark"></i></div>
         <div class="photo-add"><i class="fa-solid fa-camera" style="font-size:15px"></i><span style="font-size:8px">사진</span></div>
         <input type="file" id="pf_${pk}" accept="image/*" class="hidden" onchange="onPhotoFiles('${pk}',this.files)">
@@ -692,7 +697,7 @@ function fillSpecPrint(){
   let h='<p style="font-size:13px;font-weight:800;margin:6px 0 4px;">■ 제조회사 · 상세 스펙</p><table class="ptbl"><colgroup><col style="width:16%">'+cols.map(()=>'<col>').join('')+'</colgroup><thead><tr><th>항목</th>'+cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join('')+'</tr></thead><tbody>';
   // 대표 사진 행 (한 열이라도 사진이 있으면 표시)
   if(cols.some(c=>photosObj['colpic_'+c.id])){
-    h+='<tr><td style="font-weight:700">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;padding:2px">${src?`<img src="${src}" style="max-width:100%;max-height:42mm;object-fit:contain">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
+    h+='<tr><td style="font-weight:700;vertical-align:middle">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;vertical-align:middle;padding:1.5mm">${src?`<img src="${src}" style="display:block;width:100%;height:auto;max-height:48mm;object-fit:contain;margin:0 auto">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
   }
   SPEC_FIELDS.forEach((f,fi)=>{ h+='<tr><td style="font-weight:700">'+escapeHtml(ekv('spec.'+fi,f))+'</td>'+cols.map(c=>`<td>${escapeHtml(state['spec_'+fi+'_'+c.id]||'')}</td>`).join('')+'</tr>'; });
   el.innerHTML=h+'</tbody></table>';
