@@ -49,6 +49,10 @@ tailwind.config = { theme: { extend: {
   .qc-group{ margin-bottom:10px; }
   .grp-items{ display:grid !important; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)) !important; gap:8px !important; align-items:start; }
   .grp-items > *{ margin-top:0 !important; }
+  /* 개별 무게: 개수 많아도 세로로 안 늘어지게 여러 칸을 한 줄에 */
+  .wt-list{ display:grid !important; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:4px; }
+  .wt-list > *{ margin-bottom:0 !important; }
+  .wt-in{ min-width:0; padding:4px 6px !important; font-size:12px !important; }
   .acc-body{ padding-bottom:10px !important; }
   .photo-box:hover{ border-color:#16a34a; background:#f0fdf4; }
   .photo-box img{ position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:contain; background:#fff; }
@@ -647,7 +651,7 @@ function statHTML(colId,colIdx){ const s=weightStats(weightArr(colId)); const c=
 }
 function renderWeightSide(colId,colIdx){
   const arr=weightArr(colId); const s=colStyle(colIdx); const name=activeCols()[colIdx].name;
-  const inputs=arr.map((v,i)=>`<div class="flex items-center gap-1 mb-1"><span class="text-[10px] text-slate-400 w-5 text-right">${i+1}</span><input type="number" inputmode="decimal" class="fld fld-sm flex-1 wt-in" data-wside="${colId}" data-wi="${i}" value="${v==null?'':escapeHtml(String(v))}" placeholder="무게(${WUNIT})"><button type="button" class="no-print text-slate-300 hover:text-rose-500 px-1" onclick="delWeight('${colId}',${i})"><i class="fa-solid fa-xmark"></i></button></div>`).join('');
+  const inputs=arr.map((v,i)=>`<div class="flex items-center gap-0.5" style="position:relative"><span class="text-[9px] text-slate-400 shrink-0" style="width:14px;text-align:right">${i+1}</span><input type="number" inputmode="decimal" class="fld fld-sm flex-1 wt-in" data-wside="${colId}" data-wi="${i}" value="${v==null?'':escapeHtml(String(v))}" placeholder="${WUNIT}"><button type="button" class="no-print text-slate-300 hover:text-rose-500 shrink-0" style="font-size:10px;padding:0 2px" onclick="delWeight('${colId}',${i})"><i class="fa-solid fa-xmark"></i></button></div>`).join('');
   return `<div class="rounded-xl p-3" style="background:#fff;border:1px solid #e5e7eb;border-left:3px solid ${s.c}">
     <p class="text-xs font-bold mb-2" style="color:${s.c}"><span class="colname" data-ci="${colIdx}">${escapeHtml(name)}</span> 개별 무게 <span class="font-normal text-slate-400">(${WUNIT})</span></p>
     <div class="wt-list">${inputs}</div>
@@ -1661,6 +1665,7 @@ function renderReports(){
   const grp={}; d.forEach(r=>{ (grp[r.maker||'(제조회사 미입력)']=grp[r.maker||'(제조회사 미입력)']||[]).push(r); });
   window.__RFLAT=[]; window.__COLLAPSED=window.__COLLAPSED||{};
   const mkeys=Object.keys(grp).sort(); window.__MKEYS=mkeys;
+  if(!window.__COLLINIT){ mkeys.forEach(m=>{ window.__COLLAPSED[m]=true; }); window.__COLLINIT=1; }  // 처음엔 전부 접힘
   box.innerHTML=mkeys.map((m,mi)=>{
     const collapsed=!!window.__COLLAPSED[m];
     const items=grp[m].map(r=>{ const i=window.__RFLAT.push(r)-1; return `<div class="bg-white rounded-xl shadow-sm p-2.5 mb-1.5 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="openReportIdx(${i})">
