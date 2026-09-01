@@ -176,7 +176,7 @@ tailwind.config = { theme: { extend: {
     .ptbl .pt-v{ text-align:center; font-weight:800; font-size:11px; }
     .ptbl .pt-no{ text-align:center; color:#64748b; }
     .ptbl .pt-m{ color:#64748b; }
-    .ptbl col.c-no{ width:6%; } .ptbl col.c-item{ width:20%; } .ptbl col.c-method{ width:28%; }
+    .ptbl col.c-no{ width:6%; } .ptbl col.c-item{ width:26%; }
     .ptbl col.c-old{ width:19%; } .ptbl col.c-new{ width:19%; } .ptbl col.c-v{ width:8%; }
     .print-only h4{ font-size:11px; font-weight:800; color:#166534; margin:2px 0 4px; }
     /* 인쇄: 사진 섹션 컴팩트 + 빈 줄 숨김 */
@@ -884,7 +884,7 @@ function applySkips(){ document.querySelectorAll('.qc-item').forEach(item=>{ con
 // ── 인쇄용 표(엑셀식) 생성 ──
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function tableFor(groups,prefix){
-  const cols=activeCols(); const total=3+cols.length;
+  const cols=activeCols(); const total=2+cols.length;
   let body='';
   groups.forEach((g,gi)=>{
     if(isGroupOff(prefix,gi))return;
@@ -892,13 +892,13 @@ function tableFor(groups,prefix){
     const VC={'○':'#16a34a','△':'#d97706','×':'#e11d48','생략':'#94a3b8'};
     g.items.forEach((it,ii)=>{ const k=`${prefix}_${gi}_${ii}`;
       const cells=cols.map(c=>{ const v=state[k+'_'+c.id+'_v']||''; const txt=escapeHtml(state[k+'_'+c.id]||''); return `<td>${v?('<b style="color:'+(VC[v]||'#111')+'">'+v+'</b> '):''}${txt}</td>`; }).join('');
-      body+=`<tr><td class="pt-no">${ii+1}</td><td>${escapeHtml(ekv(k+'.label',it.label))}</td><td class="pt-m">${escapeHtml(ekv(k+'.method',it.method||''))}</td>${cells}</tr>`;
+      body+=`<tr><td class="pt-no">${ii+1}</td><td>${escapeHtml(ekv(k+'.label',it.label))}</td>${cells}</tr>`;
     });
   });
-  const colg=`<col class="c-no"><col class="c-item"><col class="c-method">`+cols.map(()=>'<col>').join('');
+  const colg=`<col class="c-no"><col class="c-item">`+cols.map(()=>'<col>').join('');
   const head=cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join('');
   return `<table class="ptbl"><colgroup>${colg}</colgroup>
-    <thead><tr><th>No</th><th>점검 항목</th><th>확인 방법</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    <thead><tr><th>No</th><th>점검 항목</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 function buildPrintTables(){
   document.getElementById('processPrint').innerHTML = tableFor(PROC,'proc');
@@ -1192,7 +1192,7 @@ function exportPDF(){
 }
 async function exportExcel(){
   collect();
-  const cols=activeCols(); const NC=cols.length; const W=3+NC;
+  const cols=activeCols(); const NC=cols.length; const W=2+NC;
   const R=[]; const pad=a=>{ const r=a.slice(); while(r.length<W)r.push(''); return r; };
   const push=(t,cells,extra)=>R.push(Object.assign({t,cells:pad(cells)},extra||{}));
   // 제목 · 메타
@@ -1204,17 +1204,17 @@ async function exportExcel(){
   if(state.purpose) meta('검증 목적', state.purpose);
   push('section',['■ 비교 대상']);
   cols.forEach(c=> push('meta',[c.name,'',c.desc||''],{metaRow:true}));
-  if(SPEC_FIELDS){ push('section',['■ 제조회사 · 상세 스펙']); push('head',['','항목','', ...cols.map(c=>c.name)]);
-    SPEC_FIELDS.forEach((f,fi)=> push('item',['', ekv('spec.'+fi,f), '', ...cols.map(c=>state['spec_'+fi+'_'+c.id]||'')]));
+  if(SPEC_FIELDS){ push('section',['■ 제조회사 · 상세 스펙']); push('head',['','항목', ...cols.map(c=>c.name)]);
+    SPEC_FIELDS.forEach((f,fi)=> push('item',['', ekv('spec.'+fi,f), ...cols.map(c=>state['spec_'+fi+'_'+c.id]||'')]));
   }
   if(state.note){ meta('특이사항', state.note); }
   const dumpT=(gs,p,title)=>{
     push('section',['■ '+title]);
-    push('head',['No','점검 항목','확인 방법', ...cols.map(c=>c.name)]);
+    push('head',['No','점검 항목', ...cols.map(c=>c.name)]);
     gs.forEach((g,gi)=>{ if(isGroupOff(p,gi))return;
       if(g.group) push('group',[ekv('g.'+p+'.'+gi,g.group)],{mergeAll:true});
       g.items.forEach((it,ii)=>{ const k=`${p}_${gi}_${ii}`;
-        push('item',[String(ii+1), ekv(k+'.label',it.label), ekv(k+'.method',it.method||''), ...cols.map(c=>{ const v=state[k+'_'+c.id+'_v']||''; return (v?v+' ':'')+(state[k+'_'+c.id]||''); })], {verdicts:cols.map(c=>state[k+'_'+c.id+'_v']||'')});
+        push('item',[String(ii+1), ekv(k+'.label',it.label), ...cols.map(c=>{ const v=state[k+'_'+c.id+'_v']||''; return (v?v+' ':'')+(state[k+'_'+c.id]||''); })], {verdicts:cols.map(c=>state[k+'_'+c.id+'_v']||'')});
       });
     });
   };
@@ -1226,8 +1226,8 @@ async function exportExcel(){
   }
   push('section',['■ 제품별 종합 판정']);
   push('head',['','구분','', ...cols.map(c=>c.name)]);
-  push('item',['','판정','', ...cols.map(c=>state['final_'+c.id+'_v']||'')], {verdicts:cols.map(c=>state['final_'+c.id+'_v']||'')});
-  push('item',['','사유','', ...cols.map(c=>state['final_'+c.id+'_note']||'')]);
+  push('item',['','판정', ...cols.map(c=>state['final_'+c.id+'_v']||'')], {verdicts:cols.map(c=>state['final_'+c.id+'_v']||'')});
+  push('item',['','사유', ...cols.map(c=>state['final_'+c.id+'_note']||'')]);
   if(state.comment){ meta('종합 평가', state.comment); }
   meta('검증자 서명', state.sign||'');
 
@@ -1240,20 +1240,19 @@ async function exportExcel(){
   function sty(r,c){
     if(r.t==='title') return {font:F(14,true,'FFFFFF'),fill:FILL('166534'),alignment:{vertical:'middle'}};
     if(r.t==='section') return {font:F(11,true,'166534'),fill:FILL('ECFDF5'),alignment:{vertical:'middle'},border:bd};
-    if(r.t==='head') return {font:F(10,true,'334155'),fill:FILL('F1F5F9'),alignment:{vertical:'middle',horizontal:c<3?'left':'center',wrapText:true},border:bd};
+    if(r.t==='head') return {font:F(10,true,'334155'),fill:FILL('F1F5F9'),alignment:{vertical:'middle',horizontal:c<2?'left':'center',wrapText:true},border:bd};
     if(r.t==='group') return {font:F(10,true,'166534'),fill:FILL('F0FDF4'),alignment:{vertical:'middle'},border:bd};
     if(r.t==='meta'){ if(c<=1) return {font:F(10,true,'475569'),fill:FILL('F8FAFC'),alignment:{vertical:'middle',horizontal:'left',wrapText:true},border:bd}; return {font:F(10),alignment:{vertical:'middle',horizontal:'left',wrapText:true},border:bd}; }
     if(r.t==='item'){
       if(c===0) return {font:F(10,false,'64748B'),alignment:{horizontal:'center',vertical:'top'},border:bd};
       if(c===1) return {font:F(10,true,'334155'),alignment:{vertical:'top',wrapText:true},border:bd};
-      if(c===2) return {font:F(9,false,'64748B'),alignment:{vertical:'top',wrapText:true},border:bd};
-      const v=r.verdicts?r.verdicts[c-3]:''; return {font:F(10,!!v,VC[v]||'1F2937'),alignment:{vertical:'top',wrapText:true},border:bd};
+      const v=r.verdicts?r.verdicts[c-2]:''; return {font:F(10,!!v,VC[v]||'1F2937'),alignment:{vertical:'top',wrapText:true},border:bd};
     }
     return {font:F(10),alignment:{vertical:'top',wrapText:true},border:bd};
   }
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet('품질검증');
-  ws.columns=[{width:6},{width:22},{width:34}, ...cols.map(()=>({width:22}))];
+  ws.columns=[{width:6},{width:28}, ...cols.map(()=>({width:24}))];
   R.forEach(r=>{
     const row=ws.addRow(r.cells); const rn=row.number;
     if(r.t==='title') row.height=26;
