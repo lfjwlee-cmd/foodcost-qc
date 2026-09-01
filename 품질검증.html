@@ -40,7 +40,7 @@ tailwind.config = { theme: { extend: {
   .switch{ position:relative; width:128px; height:38px; background:#e2e8f0; border-radius:999px; cursor:pointer; }
   .switch-knob{ position:absolute; top:3px; left:3px; width:62px; height:32px; background:#16a34a; border-radius:999px; transition:transform .28s cubic-bezier(.4,0,.2,1); }
   .switch.detail .switch-knob{ transform:translateX(60px); background:#2563eb; }
-  .photo-box{ border:2px dashed #cbd5e1; border-radius:14px; height:96px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:.2s; overflow:hidden; position:relative; background:#f8fafc; }
+  .photo-box{ border:2px dashed #cbd5e1; border-radius:14px; height:170px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:.2s; overflow:hidden; position:relative; background:#f8fafc; }
   /* 컴팩트: 스크롤 줄이기 */
   .qc-item{ padding:8px 9px !important; }
   .qc-item .rounded-lg{ padding:3px 6px !important; }
@@ -180,7 +180,7 @@ tailwind.config = { theme: { extend: {
     /* 인쇄: 사진 섹션 컴팩트 + 빈 줄 숨김 */
     .hide-print{ display:none !important; }
     /* 사진: 모든 칸 동일 높이, 전체 표시(contain), 잘림 없음 */
-    #photoBox .photo-box{ height:50mm !important; border:1px solid #cbd5e1 !important; background:#fff !important; }
+    #photoBox .photo-box{ height:65mm !important; border:1px solid #cbd5e1 !important; background:#fff !important; }
     #photoBox .photo-box img{ object-fit:contain !important; }
     #photoBox .photo-add{ display:none !important; }
     #photoBox .pcap{ border:none !important; background:transparent !important; padding:1px 0 !important; font-size:11px !important; font-weight:700 !important; }
@@ -603,7 +603,7 @@ function renderCols(){
   document.getElementById('colBox').innerHTML = cols.map((c,i)=>{ const s=colStyle(i);
     const pk='colpic_'+c.id;
     return `<div class="flex items-center gap-2">
-      <div class="photo-box shrink-0" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:60px !important;width:60px;flex:0 0 60px;border-radius:10px;border-width:1.5px">
+      <div class="photo-box shrink-0" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:84px !important;width:84px;flex:0 0 84px;border-radius:10px;border-width:1.5px">
         <div class="photo-del" onclick="event.stopPropagation();delPhoto('${pk}')"><i class="fa-solid fa-xmark"></i></div>
         <div class="photo-add"><i class="fa-solid fa-camera" style="font-size:15px"></i><span style="font-size:8px">사진</span></div>
         <input type="file" id="pf_${pk}" accept="image/*" class="hidden" onchange="onPhotoFiles('${pk}',this.files)">
@@ -690,6 +690,10 @@ function fillSpecPrint(){
   if(!SPEC_FIELDS){ el.innerHTML=''; return; }
   const cols=activeCols();
   let h='<p style="font-size:13px;font-weight:800;margin:6px 0 4px;">■ 제조회사 · 상세 스펙</p><table class="ptbl"><colgroup><col style="width:16%">'+cols.map(()=>'<col>').join('')+'</colgroup><thead><tr><th>항목</th>'+cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join('')+'</tr></thead><tbody>';
+  // 대표 사진 행 (한 열이라도 사진이 있으면 표시)
+  if(cols.some(c=>photosObj['colpic_'+c.id])){
+    h+='<tr><td style="font-weight:700">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;padding:2px">${src?`<img src="${src}" style="max-width:100%;max-height:42mm;object-fit:contain">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
+  }
   SPEC_FIELDS.forEach((f,fi)=>{ h+='<tr><td style="font-weight:700">'+escapeHtml(ekv('spec.'+fi,f))+'</td>'+cols.map(c=>`<td>${escapeHtml(state['spec_'+fi+'_'+c.id]||'')}</td>`).join('')+'</tr>'; });
   el.innerHTML=h+'</tbody></table>';
 }
