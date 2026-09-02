@@ -58,6 +58,9 @@ tailwind.config = { theme: { extend: {
   .acc-body{ padding-bottom:10px !important; }
   .photo-box:hover{ border-color:#16a34a; background:#f0fdf4; }
   .photo-box img{ position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; background:#fff; }
+  /* 첨부 사진: 사진이 있으면 칸을 사진 비율에 맞춰(자르지 않고 꽉 차게) */
+  #photoBox .photo-box.has-img{ height:auto !important; min-height:0 !important; }
+  #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:100% !important; height:auto !important; max-height:460px; object-fit:contain; }
   .ptag{ position:absolute; top:6px; left:6px; z-index:20; font-size:9px; color:#fff; padding:2px 7px; border-radius:999px; font-weight:700; }
   .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#94a3b8; font-size:10px; text-align:center; pointer-events:none; }
   .photo-add i{ font-size:20px; }
@@ -185,7 +188,8 @@ tailwind.config = { theme: { extend: {
     #autoVerdict, #costSummary{ background:transparent !important; padding:0 !important; margin:0 !important; }
     /* 사진: 모든 칸 동일 높이, 전체 표시(contain), 잘림 없음 */
     #photoBox .photo-box{ height:65mm !important; border:1px solid #cbd5e1 !important; background:#fff !important; }
-    #photoBox .photo-box img{ object-fit:cover !important; }
+    #photoBox .photo-box.has-img{ height:auto !important; }
+    #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:100% !important; height:auto !important; max-height:90mm !important; object-fit:contain !important; }
     #photoBox .photo-add{ display:none !important; }
     #photoBox .pcap{ border:none !important; background:transparent !important; padding:1px 0 !important; font-size:11px !important; font-weight:700 !important; }
     #photoBox > div.pdf-keep{ padding:2px 0 !important; border:none !important; }
@@ -699,7 +703,7 @@ function fillSpecPrint(){
   let h='<p style="font-size:13px;font-weight:800;margin:6px 0 4px;">■ 제조회사 · 상세 스펙</p><table class="ptbl"><colgroup><col style="width:16%">'+cols.map(()=>'<col>').join('')+'</colgroup><thead><tr><th>항목</th>'+cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join('')+'</tr></thead><tbody>';
   // 대표 사진 행 (한 열이라도 사진이 있으면 표시)
   if(cols.some(c=>photosObj['colpic_'+c.id])){
-    h+='<tr><td style="font-weight:700;vertical-align:middle">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;vertical-align:middle;padding:0">${src?`<img src="${src}" style="display:block;width:100%;height:40mm;object-fit:cover">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
+    h+='<tr><td style="font-weight:700;vertical-align:middle">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;vertical-align:middle;padding:1mm">${src?`<img src="${src}" style="display:block;width:100%;height:auto;max-height:55mm;object-fit:contain;margin:0 auto">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
   }
   SPEC_FIELDS.forEach((f,fi)=>{ h+='<tr><td style="font-weight:700">'+escapeHtml(ekv('spec.'+fi,f))+'</td>'+cols.map(c=>`<td>${escapeHtml(state['spec_'+fi+'_'+c.id]||'')}</td>`).join('')+'</tr>'; });
   el.innerHTML=h+'</tbody></table>';
@@ -910,7 +914,8 @@ function fillReportHead(){
   const el=document.getElementById('reportHead'); if(!el)return;
   const g=k=>escapeHtml(state[k]||'');
   const cols=activeCols(); const brands=escapeHtml(selectedBrands().join(' · '));
-  const v=cols.map(c=>`${escapeHtml(c.name)} <b>${state['final_'+c.id+'_v']||'-'}</b>`).join(' · ');
+  const vcols=cols.length>=2?cols.slice(1):cols;   // 기존(첫 열) 제외 — 판정 대상만
+  const v=vcols.map(c=>`${escapeHtml(c.name)} <b>${state['final_'+c.id+'_v']||'-'}</b>`).join(' · ');
   const way = cols.length<=1?'단일(신규)':(cols.length+'개 비교');
   const colRows=cols.map(c=>`<tr><td class="k">${escapeHtml(c.name)}</td><td colspan="3">${escapeHtml(c.desc||'')}</td></tr>`).join('');
   el.innerHTML=`<div class="rh-title">식자재 품질 검증 보고서</div>
