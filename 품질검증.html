@@ -40,7 +40,7 @@ tailwind.config = { theme: { extend: {
   .switch{ position:relative; width:128px; height:38px; background:#e2e8f0; border-radius:999px; cursor:pointer; }
   .switch-knob{ position:absolute; top:3px; left:3px; width:62px; height:32px; background:#16a34a; border-radius:999px; transition:transform .28s cubic-bezier(.4,0,.2,1); }
   .switch.detail .switch-knob{ transform:translateX(60px); background:#2563eb; }
-  .photo-box{ border:2px dashed #cbd5e1; border-radius:14px; height:170px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:.2s; overflow:hidden; position:relative; background:#f8fafc; }
+  .photo-box{ border:2px dashed #cbd5e1; border-radius:14px; height:150px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:.2s; overflow:hidden; position:relative; background:#f8fafc; }
   /* 컴팩트: 스크롤 줄이기 */
   .qc-item{ padding:8px 9px !important; }
   .qc-item .rounded-lg{ padding:3px 6px !important; }
@@ -57,7 +57,7 @@ tailwind.config = { theme: { extend: {
   .wt-in{ min-width:0; padding:4px 6px !important; font-size:12px !important; }
   .acc-body{ padding-bottom:10px !important; }
   .photo-box:hover{ border-color:#16a34a; background:#f0fdf4; }
-  .photo-box img{ position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:contain; background:#fff; }
+  .photo-box img{ position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; background:#fff; }
   .ptag{ position:absolute; top:6px; left:6px; z-index:20; font-size:9px; color:#fff; padding:2px 7px; border-radius:999px; font-weight:700; }
   .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#94a3b8; font-size:10px; text-align:center; pointer-events:none; }
   .photo-add i{ font-size:20px; }
@@ -181,9 +181,11 @@ tailwind.config = { theme: { extend: {
     .print-only h4{ font-size:11px; font-weight:800; color:#166534; margin:2px 0 4px; }
     /* 인쇄: 사진 섹션 컴팩트 + 빈 줄 숨김 */
     .hide-print{ display:none !important; }
+    /* 빈 안내 박스: 인쇄 시 투명 처리(내용 있으면 그대로) */
+    #autoVerdict, #costSummary{ background:transparent !important; padding:0 !important; margin:0 !important; }
     /* 사진: 모든 칸 동일 높이, 전체 표시(contain), 잘림 없음 */
     #photoBox .photo-box{ height:65mm !important; border:1px solid #cbd5e1 !important; background:#fff !important; }
-    #photoBox .photo-box img{ object-fit:contain !important; }
+    #photoBox .photo-box img{ object-fit:cover !important; }
     #photoBox .photo-add{ display:none !important; }
     #photoBox .pcap{ border:none !important; background:transparent !important; padding:1px 0 !important; font-size:11px !important; font-weight:700 !important; }
     #photoBox > div.pdf-keep{ padding:2px 0 !important; border:none !important; }
@@ -317,7 +319,7 @@ tailwind.config = { theme: { extend: {
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
     </button>
     <div class="acc-body px-4 pb-4">
-      <p class="text-[11px] text-slate-400 mb-3">시간 · 온도 · 작업성 — 항목별 기존/변경 비교 후 ○ △ × 판정</p>
+      <p class="text-[11px] text-slate-400 mb-3" style="display:none">시간 · 온도 · 작업성 — 항목별 기존/변경 비교 후 ○ △ × 판정</p>
       <div id="processBox" class="screen-only space-y-4"></div>
       <div id="processPrint" class="print-only"></div>
     </div>
@@ -385,7 +387,7 @@ tailwind.config = { theme: { extend: {
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
     </button>
     <div class="acc-body px-4 pb-4">
-      <p class="text-[11px] text-slate-400 mb-3">맛 · 냄새 · 식감 — 제품별 상태 입력 후 ○ △ × 판정</p>
+      <p class="text-[11px] text-slate-400 mb-3" style="display:none">맛 · 냄새 · 식감 — 제품별 상태 입력 후 ○ △ × 판정</p>
       <div id="sensoryBox" class="screen-only space-y-4"></div>
       <div id="sensoryPrint" class="print-only"></div>
     </div>
@@ -412,8 +414,8 @@ tailwind.config = { theme: { extend: {
     </button>
     <div class="acc-body open px-4 pb-4">
       <button type="button" onclick="fillDefaults()" class="no-print w-full mb-3 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-bold"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>전 항목 '적합' 기본값 자동입력 <span class="font-normal text-brand-50">(특이사항만 직접 작성)</span></button>
-      <div id="autoVerdict" class="mb-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">항목 판정을 입력하면 자동 집계가 표시됩니다.</div>
-      <div id="costSummary" class="mb-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">원가(수율&실원가) 입력 시 증감이 표시됩니다.</div>
+      <div id="autoVerdict" class="mb-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500"><span class="no-print">항목 판정을 입력하면 자동 집계가 표시됩니다.</span></div>
+      <div id="costSummary" class="mb-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500"><span class="no-print">원가(수율&실원가) 입력 시 증감이 표시됩니다.</span></div>
       <div id="verdictBanner" class="mb-3"></div>
       <label class="lbl">제품별 종합 판정</label>
       <div id="finalVerdicts" class="space-y-2 mb-3 screen-only"></div>
@@ -697,7 +699,7 @@ function fillSpecPrint(){
   let h='<p style="font-size:13px;font-weight:800;margin:6px 0 4px;">■ 제조회사 · 상세 스펙</p><table class="ptbl"><colgroup><col style="width:16%">'+cols.map(()=>'<col>').join('')+'</colgroup><thead><tr><th>항목</th>'+cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join('')+'</tr></thead><tbody>';
   // 대표 사진 행 (한 열이라도 사진이 있으면 표시)
   if(cols.some(c=>photosObj['colpic_'+c.id])){
-    h+='<tr><td style="font-weight:700;vertical-align:middle">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;vertical-align:middle;padding:1.5mm">${src?`<img src="${src}" style="display:block;width:100%;height:auto;max-height:48mm;object-fit:contain;margin:0 auto">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
+    h+='<tr><td style="font-weight:700;vertical-align:middle">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;vertical-align:middle;padding:0">${src?`<img src="${src}" style="display:block;width:100%;height:40mm;object-fit:cover">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
   }
   SPEC_FIELDS.forEach((f,fi)=>{ h+='<tr><td style="font-weight:700">'+escapeHtml(ekv('spec.'+fi,f))+'</td>'+cols.map(c=>`<td>${escapeHtml(state['spec_'+fi+'_'+c.id]||'')}</td>`).join('')+'</tr>'; });
   el.innerHTML=h+'</tbody></table>';
@@ -1109,7 +1111,7 @@ function updateAutoVerdict(){
     ks.forEach(k=>{ const v=state[`${k}_${c.id}_v`]; if(v){done++;anyDone=true; if(v==='○')o++; else if(v==='△')t++; else if(v==='×'){x++;anyX=true;} else if(v==='생략')sk++;} });
     if(done) lines.push(`<b style="color:${colStyle(ci).c}">${escapeHtml(c.name)}</b> <b class="text-green-600">○${o}</b> <b class="text-amber-600">△${t}</b> <b class="text-rose-600">×${x}</b>`+(sk?` <span class="text-slate-500">생략${sk}</span>`:'')+` <span class="text-slate-400">(${done}/${ks.length})</span>`);
   });
-  if(!anyDone){ box.innerHTML='제품별 항목 판정을 입력하면 자동 집계가 표시됩니다.'; return; }
+  if(!anyDone){ box.innerHTML='<span class="no-print">제품별 항목 판정을 입력하면 자동 집계가 표시됩니다.</span>'; return; }
   box.innerHTML=lines.join('<br>')+'<br>'+(anyX?'<b class="text-rose-600">× 있는 제품 → 본사 재검토</b>':'<b class="text-green-600">전 제품 ○/△ → 사용 가능 기준 충족</b>');
 }
 
@@ -1134,7 +1136,7 @@ function calcCost(){
       const tone = d>0?'text-rose-600':(d<0?'text-green-600':'text-slate-600');
       const word = d>0?'상승 ⚠️ 수익성 검토 필요':(d<0?'절감 ✅':'동일');
       cs.innerHTML=`원가(실원가): <b>${fmt(oReal,oEst)}</b> → <b>${fmt(nReal,nEst)}</b> · <b class="${tone}">${(d>0?'+':'')+d.toFixed(1)}% ${word}</b>${est}`;
-    } else cs.innerHTML='원가(수율&실원가) 입력 시 증감이 표시됩니다.';
+    } else cs.innerHTML='<span class="no-print">원가(수율&실원가) 입력 시 증감이 표시됩니다.</span>';
   }
 }
 
@@ -1846,7 +1848,7 @@ function injectShell(){
     <div id="blBody"></div></div>`;
   document.body.appendChild(bl);
 
-  const bar=document.createElement('div'); bar.id='edBar'; bar.style.cssText='display:none;position:fixed;top:0;left:0;right:0;z-index:45;background:#1e293b;color:#fff;padding:8px 12px;align-items:center;justify-content:space-between;gap:8px';
+  const bar=document.createElement('div'); bar.id='edBar'; bar.className='no-print'; bar.style.cssText='display:none;position:fixed;top:0;left:0;right:0;z-index:45;background:#1e293b;color:#fff;padding:8px 12px;align-items:center;justify-content:space-between;gap:8px';
   bar.innerHTML=`<div style="display:flex;align-items:center;gap:6px;min-width:0"><button onclick="showList()" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-arrow-left"></i></button>
     <select id="edType" onchange="changeType(this.value)" title="품목 유형 변경(항목 다시 구성)" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:7px;font-size:12px;max-width:150px;cursor:pointer"></select></div>
     <span id="edStamp" style="font-size:11px;color:#cbd5e1;white-space:nowrap"></span>
