@@ -58,10 +58,10 @@ tailwind.config = { theme: { extend: {
   .acc-body{ padding-bottom:10px !important; }
   .photo-box:hover{ border-color:#16a34a; background:#f0fdf4; }
   .photo-box img{ position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; background:#fff; }
-  /* 첨부 사진: 빈 칸은 고정, 사진이 있으면 칸이 사진에 맞춰(폭 제한·자름없음) 크게 */
-  #photoBox .photo-box{ height:150px !important; }
+  /* 첨부 사진: 빈 칸은 작게, 사진이 있으면 칸이 사진에 맞춰 커짐(자름없음) */
+  #photoBox .photo-box{ height:100px !important; max-width:210px; }
   #photoBox .photo-box img{ object-fit:contain !important; }
-  #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; padding:2px; }
+  #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; max-width:none !important; padding:2px; }
   #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:auto !important; height:auto !important; max-width:min(420px,44vw) !important; max-height:300px !important; object-fit:contain !important; }
   .ptag{ position:absolute; top:6px; left:6px; z-index:20; font-size:9px; color:#fff; padding:2px 7px; border-radius:999px; font-weight:700; }
   .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#94a3b8; font-size:10px; text-align:center; pointer-events:none; }
@@ -1270,11 +1270,26 @@ async function exportExcel(){
     if(r.t==='title'||r.t==='section'||r.mergeAll) ws.mergeCells(rn,1,rn,W);
     else if(r.metaRow){ ws.mergeCells(rn,1,rn,2); ws.mergeCells(rn,3,rn,W); }
   });
-  // 사진 시트(이미지 있을 때만)
+  // 사진 시트(이미지 있을 때만) — 대표사진 + 첨부사진
   const prows=photoRowsArr();
-  const anyImg=prows.some((_,i)=>cols.some(c=>photosObj[c.id+'_'+i]));
+  const imgDims=(u)=>new Promise(r=>{ const im=new Image(); im.onload=()=>r({w:im.naturalWidth||200,h:im.naturalHeight||150}); im.onerror=()=>r({w:200,h:150}); im.src=u; });
+  const fitBox=(w,h,mw,mh)=>{ const s=Math.min(mw/w,mh/h,1); return {width:Math.round(w*s),height:Math.round(h*s)}; };
+  const anyColpic=cols.some(c=>photosObj['colpic_'+c.id]);
+  const anySection=prows.some((_,i)=>cols.some(c=>photosObj[c.id+'_'+i]));
+  const anyImg=anyColpic||anySection;
   if(anyImg){
     const ps=wb.addWorksheet('사진'); ps.columns=cols.map(()=>({width:26}));
+    // 대표 사진 블록(비율 유지)
+    if(anyColpic){
+      const cap=ps.addRow(['대표 사진']); ps.mergeCells(cap.number,1,cap.number,cols.length); cap.getCell(1).font=F(11,true,'166534'); cap.getCell(1).fill=FILL('ECFDF5'); cap.getCell(1).alignment={vertical:'middle'};
+      const hdr=ps.addRow(cols.map(c=>c.name)); hdr.eachCell(cel=>{cel.font=F(10,true,'334155'); cel.fill=FILL('F1F5F9'); cel.alignment={horizontal:'center'}; cel.border=bd;});
+      const imgRow=ps.addRow(cols.map(()=>'')); imgRow.height=150;
+      for(let ci=0;ci<cols.length;ci++){ const c=cols[ci]; const cell=imgRow.getCell(ci+1); cell.border=bd; const data=photosObj['colpic_'+c.id];
+        if(data){ const m=/^data:image\/(\w+);base64,(.+)$/.exec(data); if(m){ const d=await imgDims(data); const e=fitBox(d.w,d.h,180,190); const id=wb.addImage({base64:m[2],extension:m[1]}); ps.addImage(id,{tl:{col:ci+0.05,row:imgRow.number-1+0.05},ext:e}); } }
+        else { cell.value='—'; cell.alignment={vertical:'middle',horizontal:'center'}; cell.font=F(11,false,'94A3B8'); }
+      }
+      ps.addRow([]);
+    }
     prows.forEach((label,i)=>{
       const hasRow=cols.some(c=>photosObj[c.id+'_'+i]||(state['pmemo_'+c.id+'_'+i]||'').trim());
       if(!hasRow) return;
