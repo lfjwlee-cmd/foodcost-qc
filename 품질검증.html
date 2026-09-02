@@ -18,7 +18,7 @@
    QC_CONFIG — 이 블록만 식자재에 맞게 교체하면 됩니다.
    (스킬이 자동 생성하는 부분)
    ============================================================ */
-const QC_CONFIG = {"ingredient":"","category":"해산물","brands":["인생아구찜","어화락","삼대미역"],"brand":"인생아구찜","dept":"메뉴개발팀","purpose":"","cols":[{"id":"old","name":"제품","desc":""}],"compliance":[],"showCost":false,"process":[],"sensory":[],"photoRows":[],"radarAxes":["풍미","이취","식감","형태유지","볼륨감"],"criteria":{"symbols":"○ 사용 가능  △ 조건부 사용 가능  × 사용 불가","rules":["관능이 현행 제품과 명확한 차이가 없을 것"]}};
+const QC_CONFIG = {"ingredient":"","category":"해산물","brands":["인생아구찜","어화락","삼대미역"],"brand":"인생아구찜","dept":"메뉴개발팀","purpose":"","cols":[{"id":"old","name":"기존","desc":""},{"id":"new","name":"변경","desc":""}],"compliance":[],"showCost":false,"process":[],"sensory":[],"photoRows":[],"radarAxes":["풍미","이취","식감","형태유지","볼륨감"],"criteria":{"symbols":"○ 사용 가능  △ 조건부 사용 가능  × 사용 불가","rules":["관능이 현행 제품과 명확한 차이가 없을 것"]}};
 </script>
 
 <script>
@@ -229,7 +229,7 @@ tailwind.config = { theme: { extend: {
 
 <div id="appWrap" style="display:none">
 <header class="sticky top-0 z-40 bg-white shadow-md no-print">
-  <div class="max-w-5xl mx-auto px-4 py-3">
+  <div class="max-w-3xl mx-auto px-4 py-3">
     <div class="flex items-center justify-between gap-2">
       <div class="min-w-0">
         <p class="text-[11px] text-brand-600 font-bold flex items-center gap-1"><i class="fa-solid fa-shield-halved"></i> <span id="hdrBrand">스마트 식자재 품질 검증</span></p>
@@ -243,7 +243,7 @@ tailwind.config = { theme: { extend: {
     </div>
   </div>
   <div class="border-t border-slate-100">
-    <div class="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2 text-xs">
+    <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-2 text-xs">
       <span class="bg-brand-100 text-brand-700 font-bold px-2.5 py-1 rounded-full"><i class="fa-solid fa-tag mr-1"></i><span id="hdrCat">대분류</span></span>
       <span class="text-slate-400" id="hdrDept">소관부서</span>
       <button id="editBtn" onclick="toggleEdit()" class="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-200 text-slate-500 font-bold"><i class="fa-solid fa-pen"></i>편집</button>
@@ -251,7 +251,7 @@ tailwind.config = { theme: { extend: {
   </div>
 </header>
 
-<main id="report" class="max-w-5xl mx-auto px-3 sm:px-4 pt-4 space-y-3">
+<main id="report" class="max-w-3xl mx-auto px-3 sm:px-4 pt-4 space-y-3">
 
   <div id="viewBanner" class="bg-slate-800 text-white text-xs rounded-xl px-3 py-2 mb-1 text-center font-bold"><i class="fa-solid fa-eye mr-1"></i>보기 전용(공유본) — 편집할 수 없습니다.</div>
   <div id="editHint" class="no-print bg-brand-50 border border-brand-200 text-brand-700 text-xs rounded-xl px-3 py-2">✏️ 편집 모드: 초록 점선 부분(항목명·그룹명 등)을 눌러 직접 고칠 수 있어요. 다 되면 상단 <b>편집</b>을 다시 눌러 끕니다. 변경은 자동 저장됩니다.</div>
@@ -272,7 +272,7 @@ tailwind.config = { theme: { extend: {
         <div id="brandBox" class="flex flex-wrap gap-2"></div>
       </div>
       <div class="mb-3">
-        <label class="lbl">비교 대상 <span class="text-slate-400 font-normal">(열 이름·설명 편집 · 2~4개, 신규 품목은 1개)</span></label>
+        <label class="lbl">비교 대상 <span class="text-slate-400 font-normal">(기존 · 변경)</span></label>
         <div id="colBox" class="space-y-2"></div>
         <button type="button" id="addColBtn" onclick="addCol()" class="no-print mt-2 w-full py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm font-bold"><i class="fa-solid fa-plus mr-1"></i>비교 대상(열) 추가</button>
       </div>
@@ -314,7 +314,7 @@ tailwind.config = { theme: { extend: {
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
     </button>
     <div class="acc-body px-4 pb-4">
-      <p class="text-[11px] text-slate-400 mb-3">입고 제품 이력관리용 — 제품별 제조회사·규격·유통기한·로트 등을 각 칸에 입력하세요.</p>
+      <p class="text-[11px] text-slate-400 mb-3" style="display:none">입고 제품 이력관리용</p>
       <div id="specBox" class="overflow-x-auto"></div>
     </div>
   </section>
@@ -407,7 +407,7 @@ tailwind.config = { theme: { extend: {
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
     </button>
     <div class="acc-body px-4 pb-4">
-      <p class="no-print text-[11px] text-slate-400 mb-2"><i class="fa-solid fa-paste mr-1"></i>칸을 한 번 누른 뒤 <b>Ctrl+V</b> 로 붙여넣기 / 탭·드래그로도 첨부됩니다.</p>
+      <p class="no-print text-[11px] text-slate-400 mb-2" style="display:none"><i class="fa-solid fa-paste mr-1"></i>칸을 한 번 누른 뒤 <b>Ctrl+V</b> 로 붙여넣기 / 탭·드래그로도 첨부됩니다.</p>
       <div id="photoBox" class="space-y-4"></div>
       <button type="button" onclick="addPhotoRow()" class="no-print mt-2 w-full py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm font-bold hover:border-brand-500 hover:text-brand-600"><i class="fa-solid fa-plus mr-1"></i>사진 항목 추가</button>
     </div>
@@ -438,13 +438,13 @@ tailwind.config = { theme: { extend: {
       <label class="lbl mt-3">검증자 서명</label>
       <input class="fld" data-k="sign" placeholder="서명/성명 입력">
       <button type="button" onclick="saveToLedger()" class="no-print w-full mt-4 py-3 rounded-xl bg-slate-800 text-white text-sm font-bold"><i class="fa-solid fa-book mr-1"></i>이 검증을 품질검증 대장에 추가 <span class="font-normal text-slate-300">(제조회사별 정리)</span></button>
-      <p class="no-print text-[11px] text-slate-400 mt-1 text-center">여러 검증을 모아 대장에서 제조회사·제품·판정별로 정리해 볼 수 있습니다.</p>
+      <p class="no-print text-[11px] text-slate-400 mt-1 text-center" style="display:none">여러 검증을 모아 대장에서 제조회사·제품·판정별로 정리해 볼 수 있습니다.</p>
     </div>
   </section>
 </main>
 
 <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-2xl z-40 no-print">
-  <div class="max-w-5xl mx-auto px-3 py-2.5 grid grid-cols-3 gap-2">
+  <div class="max-w-3xl mx-auto px-3 py-2.5 grid grid-cols-3 gap-2">
     <button onclick="exportPDF()" class="py-3 rounded-xl bg-rose-500 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-pdf"></i>PDF</button>
     <button onclick="exportExcel()" class="py-3 rounded-xl bg-green-600 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-excel"></i>Excel</button>
     <button onclick="saveShareFile()" class="py-3 rounded-xl bg-blue-500 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-share-nodes"></i>공유용</button>
@@ -617,7 +617,7 @@ function renderCols(){
   document.getElementById('colBox').innerHTML = cols.map((c,i)=>{ const s=colStyle(i);
     const pk='colpic_'+c.id;
     return `<div class="flex items-center gap-2">
-      <div class="photo-box shrink-0" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:96px !important;width:140px;flex:0 0 140px;border-radius:10px;border-width:1.5px">
+      <div class="photo-box shrink-0" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()" title="이 제품 대표 사진" style="height:118px !important;width:158px;flex:0 0 158px;border-radius:10px;border-width:1.5px">
         <div class="photo-del" onclick="event.stopPropagation();delPhoto('${pk}')"><i class="fa-solid fa-xmark"></i></div>
         <div class="photo-add"><i class="fa-solid fa-camera" style="font-size:15px"></i><span style="font-size:8px">사진</span></div>
         <input type="file" id="pf_${pk}" accept="image/*" class="hidden" onchange="onPhotoFiles('${pk}',this.files)">
@@ -1643,7 +1643,7 @@ function esc(s){ try{ if(typeof escapeHtml==='function') return escapeHtml(s); }
 function cfgFromType(key, product){
   const t=(typeof TYPES!=='undefined'&&TYPES[key])?TYPES[key]:{cat:'해산물',weight:false,process:[{group:'[1] 상태 확인',items:[{label:'외관',method:''}]}],sensory:[{group:'[1] 관능',items:[{label:'맛',method:''}]}],photos:['원물','조리 후']};
   const cfg={ ingredient:product||'', category:t.cat, brands:['인생아구찜','어화락','삼대미역'], brand:'인생아구찜', dept:'메뉴개발팀', purpose:'',
-    cols:[{id:'old',name:'제품',desc:''}], compliance:[], showCost:false,
+    cols:[{id:'old',name:'기존',desc:''},{id:'new',name:'변경',desc:''}], compliance:[], showCost:false,
     process:JSON.parse(JSON.stringify(t.process)), sensory:JSON.parse(JSON.stringify(t.sensory)),
     photoRows:t.photos.slice(), radarAxes:['풍미','이취','식감','형태유지','볼륨감'],
     criteria:{symbols:'○ 사용 가능  △ 조건부 사용 가능  × 사용 불가', rules:['관능이 현행 사용 제품과 명확한 차이가 없을 것','최종: ○/△ 시 사용 가능(△는 조건부) / × 시 사용 불가']} };
