@@ -58,9 +58,9 @@ tailwind.config = { theme: { extend: {
   .acc-body{ padding-bottom:10px !important; }
   .photo-box:hover{ border-color:#16a34a; background:#f0fdf4; }
   .photo-box img{ position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; background:#fff; }
-  /* 첨부 사진: 사진이 있으면 칸을 사진 비율에 맞춰(자르지 않고 꽉 차게) */
-  #photoBox .photo-box.has-img{ height:auto !important; min-height:0 !important; }
-  #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:100% !important; height:auto !important; max-height:460px; object-fit:contain; }
+  /* 첨부 사진: 일정한 중간 크기 칸에 자르지 않고 전체 표시(contain) */
+  #photoBox .photo-box{ height:150px !important; }
+  #photoBox .photo-box img{ object-fit:contain !important; }
   .ptag{ position:absolute; top:6px; left:6px; z-index:20; font-size:9px; color:#fff; padding:2px 7px; border-radius:999px; font-weight:700; }
   .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#94a3b8; font-size:10px; text-align:center; pointer-events:none; }
   .photo-add i{ font-size:20px; }
@@ -187,9 +187,8 @@ tailwind.config = { theme: { extend: {
     /* 빈 안내 박스: 인쇄 시 투명 처리(내용 있으면 그대로) */
     #autoVerdict, #costSummary{ background:transparent !important; padding:0 !important; margin:0 !important; }
     /* 사진: 모든 칸 동일 높이, 전체 표시(contain), 잘림 없음 */
-    #photoBox .photo-box{ height:65mm !important; border:1px solid #cbd5e1 !important; background:#fff !important; }
-    #photoBox .photo-box.has-img{ height:auto !important; }
-    #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:100% !important; height:auto !important; max-height:90mm !important; object-fit:contain !important; }
+    #photoBox .photo-box{ height:52mm !important; border:1px solid #cbd5e1 !important; background:#fff !important; }
+    #photoBox .photo-box img{ object-fit:contain !important; }
     #photoBox .photo-add{ display:none !important; }
     #photoBox .pcap{ border:none !important; background:transparent !important; padding:1px 0 !important; font-size:11px !important; font-weight:700 !important; }
     #photoBox > div.pdf-keep{ padding:2px 0 !important; border:none !important; }
