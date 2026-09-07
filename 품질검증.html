@@ -96,6 +96,10 @@ tailwind.config = { theme: { extend: {
   .qc-group.grp-off .grp-offnote{ display:flex; }
   .grp-offnote{ display:none; }
   .qc-group.grp-off .grp-name{ opacity:.5; text-decoration:line-through; }
+  /* 측정 섹션(개별무게/수율) 제외 */
+  .sec-off .acc-body{ display:none !important; }
+  .sec-off .sec-title{ opacity:.5; text-decoration:line-through; }
+  .sec-off .acc-arrow{ display:none; }
   /* 항목 '생략' = 화면 흐리게 + 인쇄 제외 안내 (인쇄표에선 줄째 숨김) */
   .qc-item.item-skip{ opacity:.5; }
   .skip-note{ display:none; }
@@ -186,6 +190,7 @@ tailwind.config = { theme: { extend: {
     .print-only h4{ font-size:11px; font-weight:800; color:#166534; margin:2px 0 4px; }
     /* 인쇄: 사진 섹션 컴팩트 + 빈 줄 숨김 */
     .hide-print{ display:none !important; }
+    .sec-off{ display:none !important; }   /* 제외한 측정 섹션은 인쇄에서 통째 숨김 */
     /* 빈 안내 박스: 인쇄 시 투명 처리(내용 있으면 그대로) */
     #autoVerdict, #costSummary{ background:transparent !important; padding:0 !important; margin:0 !important; }
     /* 사진: 모든 칸 동일 높이, 전체 표시(contain), 잘림 없음 */
@@ -335,17 +340,18 @@ tailwind.config = { theme: { extend: {
   <!-- 개별 무게 측정 (config.weight 있을 때만 표시) -->
   <section id="weightSection" class="bg-white rounded-2xl shadow-sm overflow-hidden" style="display:none">
     <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
-      <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-brand-500"></i>개별 무게 측정</span>
-      <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
+      <span class="sec-title font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-brand-500"></i>개별 무게 측정</span>
+      <span class="flex items-center gap-2">
+        <span class="sec-off-btn no-print text-[11px] font-bold text-slate-500 flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 bg-white" onclick="event.stopPropagation();toggleMeasureOff()"><i class="fa-solid fa-xmark"></i>제외</span>
+        <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
+      </span>
     </button>
     <div class="acc-body px-4 pb-4">
-      <div class="mm-toggle grid grid-cols-3 gap-2 mb-3 no-print" style="display:none">
+      <div class="mm-toggle grid grid-cols-2 gap-2 mb-3 no-print" style="display:none">
         <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="weight" onclick="setMeasureMode('weight')">개별 무게</button>
         <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="yield" onclick="setMeasureMode('yield')">수율·실원가</button>
-        <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="none" onclick="setMeasureMode('none')">측정 안 함</button>
       </div>
-      <p class="text-[11px] text-slate-400 mb-3" id="weightIntro">개별 무게를 입력하면 <b>최소 · 최대 · 편차(최대−최소)</b>가 자동 계산됩니다. (정확한 수율 측정이 아닌 개별 중량 참고용)</p>
-      <div id="noMeasureNote" style="display:none" class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500"><i class="fa-solid fa-circle-minus mr-1.5 text-slate-400"></i>이 검증은 <b>개별 무게 · 수율</b>을 측정하지 않았습니다 <span class="text-slate-400">(샘플 · 해당 없음)</span></div>
+      <p class="text-[11px] text-slate-400 mb-3">개별 무게를 입력하면 <b>최소 · 최대 · 편차(최대−최소)</b>가 자동 계산됩니다. (정확한 수율 측정이 아닌 개별 중량 참고용)</p>
       <div class="grid gap-3" id="weightBox" style="grid-template-columns:repeat(2,minmax(0,1fr))"></div>
     </div>
   </section>
@@ -353,14 +359,16 @@ tailwind.config = { theme: { extend: {
   <!-- 수율 & 실원가 -->
   <section id="costSection" class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
-      <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-coins text-brand-500"></i>수율 & 실원가 분석</span>
-      <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
+      <span class="sec-title font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-coins text-brand-500"></i>수율 & 실원가 분석</span>
+      <span class="flex items-center gap-2">
+        <span class="sec-off-btn no-print text-[11px] font-bold text-slate-500 flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 bg-white" onclick="event.stopPropagation();toggleMeasureOff()"><i class="fa-solid fa-xmark"></i>제외</span>
+        <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
+      </span>
     </button>
     <div class="acc-body px-4 pb-4">
-      <div class="mm-toggle grid grid-cols-3 gap-2 mb-3 no-print" style="display:none">
+      <div class="mm-toggle grid grid-cols-2 gap-2 mb-3 no-print" style="display:none">
         <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="weight" onclick="setMeasureMode('weight')">개별 무게</button>
         <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="yield" onclick="setMeasureMode('yield')">수율·실원가</button>
-        <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="none" onclick="setMeasureMode('none')">측정 안 함</button>
       </div>
       <div class="grid grid-cols-2 gap-3 text-center cmp-grid">
         <div class="bg-blue-50 rounded-xl p-3 col-old">
@@ -531,6 +539,7 @@ function build(){
       const cs2=document.getElementById('costSummary'); if(cs2)cs2.style.display='none';
     }
   }
+  applyMeasureOff();
   updateAutoVerdict();
 }
 // 측정 방식 전환: 개별 무게 ↔ 수율·실원가
@@ -538,18 +547,19 @@ function applyMeasureMode(mode){
   if(!C.weight) return;
   state.measureMode=mode;
   const w=document.getElementById('weightSection'), c=document.getElementById('costSection');
-  const wb=document.getElementById('weightBox'), wi=document.getElementById('weightIntro'), nm=document.getElementById('noMeasureNote');
-  if(mode==='none'){
-    if(w) w.style.display='';            // 무게 섹션은 남겨(토글 위치) 본문만 '해당 없음'으로
-    if(c) c.style.display='none';        // 수율 섹션 숨김
-    if(wb) wb.style.display='none'; if(wi) wi.style.display='none'; if(nm) nm.style.display='';
-  } else {
-    if(w) w.style.display = mode==='yield'?'none':'';
-    if(c) c.style.display = mode==='yield'?'':'none';
-    if(wb) wb.style.display=''; if(wi) wi.style.display=''; if(nm) nm.style.display='none';
-  }
+  if(w) w.style.display = mode==='yield'?'none':'';
+  if(c) c.style.display = mode==='yield'?'':'none';
   document.querySelectorAll('.mm-seg').forEach(b=>b.classList.toggle('on', b.dataset.mm===mode));
   persist();
+}
+// 측정 섹션(개별무게+수율) 통째로 제외/복원 — 샘플 등 미측정용
+function toggleMeasureOff(){ state.measureOff=!state.measureOff; persist(); applyMeasureOff(); }
+function applyMeasureOff(){
+  const off=!!state.measureOff;
+  ['weightSection','costSection'].forEach(id=>{ const s=document.getElementById(id); if(s) s.classList.toggle('sec-off',off); });
+  document.querySelectorAll('.sec-off-btn').forEach(b=>{ b.innerHTML= off?'<i class="fa-solid fa-rotate-left"></i>복원':'<i class="fa-solid fa-xmark"></i>제외'; });
+  const cs=document.getElementById('costSummary'); // PART C 원가요약 힌트도 같이 숨김
+  if(cs) cs.style.display = off?'none':'';
 }
 function setMeasureMode(mode){ applyMeasureMode(mode); }
 
@@ -1240,7 +1250,7 @@ async function exportExcel(){
     });
   };
   dumpT(PROC,'proc','PART A. 공정 적합성'); dumpT(SENS,'sens','PART B. 관능 검사');
-  if(C.weight && state.measureMode!=='none'){ const stt=cols.map(c=>weightStats(weightArr(c.id)));
+  if(C.weight && !state.measureOff){ const stt=cols.map(c=>weightStats(weightArr(c.id)));
     push('section',['■ 개별 무게 측정']);
     push('head',['','지표', ...cols.map(c=>c.name)]);
     WSTATS.forEach(kk=> push('item',['', WSTAT_LABEL[kk]||kk, ...stt.map(s=>String(s[kk]))]));
