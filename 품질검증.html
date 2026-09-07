@@ -339,11 +339,13 @@ tailwind.config = { theme: { extend: {
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
     </button>
     <div class="acc-body px-4 pb-4">
-      <div class="mm-toggle grid grid-cols-2 gap-2 mb-3 no-print" style="display:none">
+      <div class="mm-toggle grid grid-cols-3 gap-2 mb-3 no-print" style="display:none">
         <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="weight" onclick="setMeasureMode('weight')">개별 무게</button>
         <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="yield" onclick="setMeasureMode('yield')">수율·실원가</button>
+        <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="none" onclick="setMeasureMode('none')">측정 안 함</button>
       </div>
-      <p class="text-[11px] text-slate-400 mb-3">개별 무게를 입력하면 <b>최소 · 최대 · 편차(최대−최소)</b>가 자동 계산됩니다. (정확한 수율 측정이 아닌 개별 중량 참고용)</p>
+      <p class="text-[11px] text-slate-400 mb-3" id="weightIntro">개별 무게를 입력하면 <b>최소 · 최대 · 편차(최대−최소)</b>가 자동 계산됩니다. (정확한 수율 측정이 아닌 개별 중량 참고용)</p>
+      <div id="noMeasureNote" style="display:none" class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500"><i class="fa-solid fa-circle-minus mr-1.5 text-slate-400"></i>이 검증은 <b>개별 무게 · 수율</b>을 측정하지 않았습니다 <span class="text-slate-400">(샘플 · 해당 없음)</span></div>
       <div class="grid gap-3" id="weightBox" style="grid-template-columns:repeat(2,minmax(0,1fr))"></div>
     </div>
   </section>
@@ -355,9 +357,10 @@ tailwind.config = { theme: { extend: {
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
     </button>
     <div class="acc-body px-4 pb-4">
-      <div class="mm-toggle grid grid-cols-2 gap-2 mb-3 no-print" style="display:none">
+      <div class="mm-toggle grid grid-cols-3 gap-2 mb-3 no-print" style="display:none">
         <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="weight" onclick="setMeasureMode('weight')">개별 무게</button>
         <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="yield" onclick="setMeasureMode('yield')">수율·실원가</button>
+        <button type="button" class="mm-seg mode-seg py-2 rounded-lg text-sm font-bold border" data-mm="none" onclick="setMeasureMode('none')">측정 안 함</button>
       </div>
       <div class="grid grid-cols-2 gap-3 text-center cmp-grid">
         <div class="bg-blue-50 rounded-xl p-3 col-old">
@@ -535,8 +538,16 @@ function applyMeasureMode(mode){
   if(!C.weight) return;
   state.measureMode=mode;
   const w=document.getElementById('weightSection'), c=document.getElementById('costSection');
-  if(w) w.style.display = mode==='yield'?'none':'';
-  if(c) c.style.display = mode==='yield'?'':'none';
+  const wb=document.getElementById('weightBox'), wi=document.getElementById('weightIntro'), nm=document.getElementById('noMeasureNote');
+  if(mode==='none'){
+    if(w) w.style.display='';            // 무게 섹션은 남겨(토글 위치) 본문만 '해당 없음'으로
+    if(c) c.style.display='none';        // 수율 섹션 숨김
+    if(wb) wb.style.display='none'; if(wi) wi.style.display='none'; if(nm) nm.style.display='';
+  } else {
+    if(w) w.style.display = mode==='yield'?'none':'';
+    if(c) c.style.display = mode==='yield'?'':'none';
+    if(wb) wb.style.display=''; if(wi) wi.style.display=''; if(nm) nm.style.display='none';
+  }
   document.querySelectorAll('.mm-seg').forEach(b=>b.classList.toggle('on', b.dataset.mm===mode));
   persist();
 }
@@ -1229,10 +1240,10 @@ async function exportExcel(){
     });
   };
   dumpT(PROC,'proc','PART A. 공정 적합성'); dumpT(SENS,'sens','PART B. 관능 검사');
-  if(C.weight){ const stt=cols.map(c=>weightStats(weightArr(c.id)));
+  if(C.weight && state.measureMode!=='none'){ const stt=cols.map(c=>weightStats(weightArr(c.id)));
     push('section',['■ 개별 무게 측정']);
-    push('head',['','지표','', ...cols.map(c=>c.name)]);
-    WSTATS.forEach(kk=> push('item',['', WSTAT_LABEL[kk]||kk, '', ...stt.map(s=>String(s[kk]))]));
+    push('head',['','지표', ...cols.map(c=>c.name)]);
+    WSTATS.forEach(kk=> push('item',['', WSTAT_LABEL[kk]||kk, ...stt.map(s=>String(s[kk]))]));
   }
   push('section',['■ 제품별 종합 판정']);
   push('head',['','구분','', ...cols.map(c=>c.name)]);
