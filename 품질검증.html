@@ -61,7 +61,7 @@ tailwind.config = { theme: { extend: {
   /* 첨부 사진: 빈 칸은 작게, 사진이 있으면 칸이 사진에 맞춰 커짐(자름없음) */
   #photoBox .photo-box{ height:100px !important; max-width:210px; }
   #photoBox .photo-box img{ object-fit:contain !important; }
-  #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; max-width:none !important; padding:2px; }
+  #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; max-width:none !important; padding:2px; margin-left:auto !important; margin-right:auto !important; }
   #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:auto !important; height:auto !important; max-width:min(420px,44vw) !important; max-height:300px !important; object-fit:contain !important; }
   .ptag{ position:absolute; top:6px; left:6px; z-index:20; font-size:9px; color:#fff; padding:2px 7px; border-radius:999px; font-weight:700; }
   .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#94a3b8; font-size:10px; text-align:center; pointer-events:none; }
@@ -198,7 +198,7 @@ tailwind.config = { theme: { extend: {
     /* 사진: 모든 칸 동일 높이, 전체 표시(contain), 잘림 없음 */
     #photoBox .photo-box{ height:52mm !important; border:1px solid #cbd5e1 !important; background:#fff !important; }
     #photoBox .photo-box img{ object-fit:contain !important; }
-    #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; }
+    #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; margin-left:auto !important; margin-right:auto !important; }
     #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:auto !important; height:auto !important; max-width:85mm !important; max-height:72mm !important; object-fit:contain !important; }
     #photoBox .photo-add{ display:none !important; }
     #photoBox .pcap{ border:none !important; background:transparent !important; padding:1px 0 !important; font-size:11px !important; font-weight:700 !important; }
@@ -903,7 +903,9 @@ function bindInputs(){
   document.querySelectorAll('.radar-in').forEach(el=>{ if(el.dataset.rb)return; el.dataset.rb='1'; el.addEventListener('input',()=>{ collectRadar(); persist(); updateRadar(); }); });
   document.querySelectorAll('textarea').forEach(ta=>{ if(ta.dataset.ag)return; ta.dataset.ag='1'; ta.addEventListener('input',()=>autoGrow(ta)); });
 }
-function autoGrow(el){ if(!el||el.tagName!=='TEXTAREA')return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
+function autoGrow(el){ if(!el||el.tagName!=='TEXTAREA')return;
+  if(getComputedStyle(el).fieldSizing==='content'){ el.style.height=''; return; }   // 브라우저 자동높이에 맡김(잘림 방지)
+  el.style.height='auto'; const sh=el.scrollHeight; if(sh<8 && el.value.trim()) return; el.style.height=(sh+2)+'px'; }
 function bindItemVerdicts(){
   document.querySelectorAll('.iv').forEach(b=>{
     if(b.dataset.b)return; b.dataset.b='1';
