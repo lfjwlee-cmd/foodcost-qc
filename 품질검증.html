@@ -145,7 +145,9 @@ tailwind.config = { theme: { extend: {
   .fld:focus{ border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
   .fld-sm{ font-size:12.5px; padding:7px 10px; }
   .qc-ta{ min-height:22px; line-height:1.4; field-sizing:content; }
-  textarea[data-k=comment]{ field-sizing:content; }
+  /* 작성용 텍스트영역은 짧아도 최소 높이 유지(자동높이가 1줄로 쪼그라들지 않게) */
+  textarea.fld{ min-height:60px !important; line-height:1.5; }
+  textarea[data-k=comment]{ field-sizing:content; min-height:130px !important; }
   .lbl{ font-size:12.5px; font-weight:600; color:#475569; margin-bottom:5px; display:block; }
   @media print{
     @page{ size:A4; margin:10mm; }
