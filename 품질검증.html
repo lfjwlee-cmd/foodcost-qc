@@ -63,6 +63,9 @@ tailwind.config = { theme: { extend: {
   #photoBox .photo-box img{ object-fit:contain !important; }
   #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; max-width:none !important; padding:2px; margin-left:auto !important; margin-right:auto !important; }
   #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:auto !important; height:auto !important; max-width:min(420px,44vw) !important; max-height:300px !important; object-fit:contain !important; }
+  /* 단일 제품: 사진 2열로, 각 사진이 반칸을 꽉 채움 */
+  #photoBox.twoup .photo-box.has-img{ width:100% !important; max-width:100% !important; margin:0 !important; }
+  #photoBox.twoup .photo-box.has-img img{ width:100% !important; height:auto !important; max-width:100% !important; max-height:320px !important; }
   .ptag{ position:absolute; top:6px; left:6px; z-index:20; font-size:9px; color:#fff; padding:2px 7px; border-radius:999px; font-weight:700; }
   .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#94a3b8; font-size:10px; text-align:center; pointer-events:none; }
   .photo-add i{ font-size:20px; }
@@ -200,6 +203,8 @@ tailwind.config = { theme: { extend: {
     #photoBox .photo-box img{ object-fit:contain !important; }
     #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; margin-left:auto !important; margin-right:auto !important; }
     #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:auto !important; height:auto !important; max-width:85mm !important; max-height:72mm !important; object-fit:contain !important; }
+    #photoBox.twoup .photo-box.has-img{ width:100% !important; max-width:100% !important; margin:0 !important; }
+    #photoBox.twoup .photo-box.has-img img{ width:100% !important; height:auto !important; max-width:100% !important; max-height:78mm !important; }
     #photoBox .photo-add{ display:none !important; }
     #photoBox .pcap{ border:none !important; background:transparent !important; padding:1px 0 !important; font-size:11px !important; font-weight:700 !important; }
     #photoBox > div.pdf-keep{ padding:2px 0 !important; border:none !important; }
@@ -801,18 +806,20 @@ function presetDefaults(){
 
 function photoRowsArr(){ if(!Array.isArray(state.photoRows)) state.photoRows=(C.photoRows||C.photos||['라벨 / 원산지','해동 전','해동 후 · 단면','조리 후']).map(r=>typeof r==='string'?r:(r.label||'')); return state.photoRows; }
 function buildPhotos(){
-  const rows=photoRowsArr(); const cols=activeCols();
-  const header=`<div class="grid gap-2 text-center text-xs font-bold mb-2" style="grid-template-columns:repeat(${cols.length},minmax(0,1fr))">`
+  const rows=photoRowsArr(); const cols=activeCols(); const single=cols.length===1;   // 단일 제품이면 사진을 2열로
+  const header= single ? '' : `<div class="grid gap-2 text-center text-xs font-bold mb-2" style="grid-template-columns:repeat(${cols.length},minmax(0,1fr))">`
     + cols.map((c,ci)=>{ const s=colStyle(ci); return `<div class="rounded-lg py-1" style="color:${s.c};background:#f8fafc;border-bottom:2px solid ${s.c}"><i class="fa-solid fa-box mr-1"></i><span class="colname" data-ci="${ci}">${escapeHtml(c.name)}</span></div>`; }).join('')
     + `</div>`;
-  document.getElementById('photoBox').innerHTML = header
-    + rows.map((label,i)=>`<div class="pdf-keep border border-slate-100 rounded-xl p-2">
+  const rowsHtml = rows.map((label,i)=>`<div class="pdf-keep border border-slate-100 rounded-xl p-2">
         <div class="flex items-center gap-1 mb-1.5">
           <input class="pcap fld fld-sm font-semibold text-slate-700 flex-1" data-idx="${i}" placeholder="사진 설명 입력 (예: 라벨/원산지)" value="${escapeHtml(label)}">
           <button type="button" onclick="delPhotoRow(${i})" class="no-print text-slate-300 hover:text-rose-500 px-1.5" title="이 줄 삭제"><i class="fa-solid fa-trash-can"></i></button>
         </div>
         <div class="flex gap-2">${cols.map((c,ci)=>photoCell(c.id,ci,i)).join('')}</div>
       </div>`).join('');
+  document.getElementById('photoBox').innerHTML = header
+    + (single ? `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start">${rowsHtml}</div>` : rowsHtml);
+  document.getElementById('photoBox').classList.toggle('twoup', single);
   rows.forEach((r,i)=>cols.forEach(c=>{ const pk=c.id+'_'+i;
     const m=document.querySelector(`.pmemo[data-pk="${pk}"]`); if(m){ m.value=state['pmemo_'+pk]||''; autoGrow(m); }
   }));
