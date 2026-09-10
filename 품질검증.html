@@ -1776,7 +1776,7 @@ function changeType(key){
   if(!confirm('품목 유형을 바꾸면 평가 항목이 그 유형에 맞게 다시 구성됩니다.\n(제품명·브랜드·비교대상·제조회사 스펙·사진·판정은 유지, 항목별 상태·판정은 초기화)\n계속할까요?')){ document.getElementById('edType').value=state._type||''; return; }
   const savedPhotos={...(photosObj||{})};
   const keep={ _type:key };
-  ['product','date','store','inspector','sign','note','purpose','measureMode','cols'].forEach(k=>{ if(state[k]!=null) keep[k]=state[k]; });
+  ['product','date','store','inspector','sign','note','purpose','measureMode','measureOff','cols'].forEach(k=>{ if(state[k]!=null) keep[k]=state[k]; });
   Object.keys(state).forEach(k=>{ if(/^spec_/.test(k)||/^final_/.test(k)||/^brand/.test(k)) keep[k]=state[k]; });
   applyConfig(cfgFromType(key, keep.product||''), keep);
   photosObj=savedPhotos; applyPhotos();
