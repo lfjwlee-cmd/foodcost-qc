@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>품질검증 대장 — 제조회사별 대시보드</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+  body{ font-family:'Pretendard','Malgun Gothic',sans-serif; background:#f1f5f9; }
+  .fld{ border:1.5px solid #e2e8f0; border-radius:10px; padding:8px 11px; font-size:13px; background:#fff; }
+  .fld:focus{ outline:none; border-color:#16a34a; }
+  .btn{ padding:8px 13px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; border:none; }
+  th{ position:sticky; top:0; }
+  .th-btn{ cursor:pointer; user-select:none; }
+  .v-o{ color:#16a34a; } .v-t{ color:#d97706; } .v-x{ color:#e11d48; }
+  td[data-edit] input, td[data-edit] select{ min-width:80px; }
+  .card{ background:#fff; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  td{ vertical-align:top; }
+  .clamp{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; max-width:260px; line-height:1.35; }
+  #dropmask{ position:fixed; inset:0; z-index:60; background:rgba(22,163,74,.12); border:4px dashed #16a34a; display:none; align-items:center; justify-content:center; font-weight:800; color:#166534; font-size:18px; text-align:center; padding:20px; }
+  #dropmask.on{ display:flex; }
+</style>
+</head>
+<body>
+<!-- 로그인 오버레이 -->
+<div id="gate" class="fixed inset-0 z-50 bg-slate-900/95 flex items-center justify-center px-4">
+  <div class="card p-6 w-full max-w-sm text-center">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-800 text-white text-xl mb-3"><i class="fa-solid fa-lock"></i></div>
+    <h1 class="text-lg font-extrabold text-slate-800">품질검증 대장</h1>
+    <p class="text-xs text-slate-500 mt-1 mb-4">팀 공용 비밀번호를 입력하세요.</p>
+    <input id="pw" type="password" class="fld w-full text-center" placeholder="공용 비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <p id="gateMsg" class="text-xs text-rose-600 font-bold mt-2 h-4"></p>
+    <button class="btn bg-slate-800 text-white w-full mt-2" onclick="doLogin()"><i class="fa-solid fa-right-to-bracket mr-1"></i>들어가기</button>
+    <p class="text-[11px] text-slate-400 mt-3">내부용 · 각 검증의 [대장에 추가]가 여기로 모입니다.</p>
+  </div>
+</div>
+
+<div id="app" class="max-w-full mx-auto px-4 py-5 hidden">
+  <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+    <div>
+      <h1 class="text-xl font-extrabold text-slate-800"><i class="fa-solid fa-gauge-high text-slate-700"></i> 품질검증 대장</h1>
+      <p class="text-xs text-slate-500 mt-0.5">여러 사람이 어느 컴퓨터에서 넣어도 <b>한 곳에 실시간</b>으로 모입니다. 셀 <b>더블클릭</b> 수정. <span id="cnt"></span></p>
+    </div>
+    <div class="flex gap-1.5 flex-wrap items-center">
+      <span id="syncDot" class="text-xs text-slate-400"></span>
+      <button class="btn bg-slate-100 text-slate-600" onclick="loadData()"><i class="fa-solid fa-rotate mr-1"></i>새로고침</button>
+      <button class="btn bg-green-600 text-white" onclick="toExcel()"><i class="fa-solid fa-file-excel mr-1"></i>엑셀</button>
+      <button class="btn bg-slate-200 text-slate-700" onclick="document.getElementById('imp').click()"><i class="fa-solid fa-file-import mr-1"></i>가져오기</button>
+      <input type="file" id="imp" accept=".json,.qclog" multiple class="hidden" onchange="importFiles(this.files)">
+      <button class="btn bg-indigo-100 text-indigo-700" onclick="document.getElementById('impDoc').click()" title="워드/엑셀 검증 파일(.docx/.xlsx)을 대장에 정리"><i class="fa-solid fa-file-arrow-up mr-1"></i>Word/Excel 가져오기</button>
+      <input type="file" id="impDoc" accept=".docx,.xlsx,.xls" multiple class="hidden" onchange="importDocx(this.files)">
+      <button class="btn bg-slate-200 text-slate-700" onclick="exportJson()"><i class="fa-solid fa-file-export mr-1"></i>내보내기</button>
+      <button class="btn bg-rose-100 text-rose-600" onclick="clearAll()"><i class="fa-solid fa-trash mr-1"></i>비우기</button>
+      <button class="btn bg-slate-100 text-slate-500" onclick="doLogout()" title="로그아웃"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+  </div>
+
+  <!-- 제조회사별 요약 대시보드 -->
+  <div class="mb-2"><button onclick="var s=document.getElementById('summary');s.style.display=s.style.display==='none'?'':'none';this.querySelector('i').className=s.style.display==='none'?'fa-solid fa-chevron-down':'fa-solid fa-chevron-up';" class="text-xs font-bold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-chevron-down"></i> 제조회사별 요약 보기</button></div>
+  <div id="summary" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4" style="display:none"></div>
+
+  <div class="card p-4 mb-4 flex flex-wrap items-end gap-3">
+    <div><label class="block text-xs font-bold text-slate-500 mb-1">제조회사</label><select id="fMaker" class="fld" onchange="render()"><option value="">전체</option></select></div>
+    <div><label class="block text-xs font-bold text-slate-500 mb-1">판정</label><select id="fVerdict" class="fld" onchange="render()"><option value="">전체</option><option value="○">○ 사용가능</option><option value="△">△ 보류</option><option value="×">× 불가</option></select></div>
+    <div class="flex-1 min-w-[180px]"><label class="block text-xs font-bold text-slate-500 mb-1">검색(제품·대상·원산지·로트)</label><input id="fSearch" class="fld w-full" placeholder="검색어" oninput="render()"></div>
+    <div><label class="block text-xs font-bold text-slate-500 mb-1">묶어보기(자동 분류)</label><select id="grp" class="fld" onchange="render()"><option value="ingredient">제품별</option><option value="maker">제조회사별</option><option value="">안 함</option></select></div>
+  </div>
+
+  <div class="card overflow-auto" style="max-height:64vh">
+    <table class="w-full text-sm" id="tbl">
+      <thead class="bg-slate-100 text-slate-600 text-xs"><tr id="headRow"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+    <div id="empty" class="p-10 text-center text-slate-400 text-sm hidden">아직 대장에 추가된 검증이 없습니다.<br>검증 파일에서 <b>[이 검증을 품질검증 대장에 추가]</b>를 눌러 보세요.</div>
+  </div>
+</div>
+
+<div id="dropmask">📥 파일을 여기에 놓으면 대장에 자동 정리됩니다<br><span style="font-weight:600;font-size:14px">.docx · .xlsx · .json · .qclog</span></div>
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-5 py-2.5 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity z-50"></div>
+
+<script>
+// ===== Supabase 설정 =====
+const SB_URL='https://aosqvruvmhaumckwuidn.supabase.co';
+const SB_KEY='sb_publishable_snEBmk1dvtRdsd63a7ef2g_eqYdbmLk';
+const SB_EMAIL='qc@insaengfood.com';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const COLS=[
+  {k:'date',t:'검증일'},{k:'ingredient',t:'제품'},{k:'target',t:'대상'},{k:'brand',t:'브랜드'},
+  {k:'maker',t:'제조회사'},{k:'origin',t:'원산지'},{k:'spec',t:'규격'},
+  {k:'exp',t:'유통기한'},{k:'lot',t:'로트'},{k:'verdict',t:'판정'},
+  {k:'reason',t:'사유'},{k:'note',t:'특이사항'}
+];
+let DATA=[], sortK='date', sortDir=-1;
+
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0',2200); }
+function vClass(v){ return v==='○'?'v-o':v==='△'?'v-t':v==='×'?'v-x':''; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ===== 로그인 =====
+async function doLogin(){
+  const pw=document.getElementById('pw').value; const msg=document.getElementById('gateMsg');
+  if(!pw){ msg.textContent='비밀번호를 입력하세요.'; return; }
+  msg.textContent='확인 중…';
+  const {error}=await sb.auth.signInWithPassword({email:SB_EMAIL, password:pw});
+  if(error){ msg.textContent='비밀번호가 올바르지 않습니다.'; return; }
+  enterApp();
+}
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+function enterApp(){
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  buildHead(); loadData(); subscribeLive();
+}
+
+// ===== 데이터 =====
+async function loadData(){
+  setSync('불러오는 중…');
+  const {data,error}=await sb.from('qc_ledger').select('*');
+  if(error){ setSync('연결 오류'); toast('불러오기 오류: '+error.message); return; }
+  DATA=data||[]; setSync('동기화됨'); render();
+}
+function setSync(s){ const d=document.getElementById('syncDot'); if(d) d.textContent='● '+s; }
+
+let channel=null;
+function subscribeLive(){
+  if(channel) return;
+  channel=sb.channel('qc_ledger_live').on('postgres_changes',{event:'*',schema:'public',table:'qc_ledger'},()=>loadData()).subscribe();
+}
+
+function buildHead(){
+  document.getElementById('headRow').innerHTML = COLS.map(c=>`<th class="th-btn text-left px-2.5 py-2 whitespace-nowrap" onclick="setSort('${c.k}')">${c.t} <span class="text-slate-300">${sortK===c.k?(sortDir>0?'▲':'▼'):''}</span></th>`).join('')+'<th class="px-2 py-2"></th>';
+}
+function setSort(k){ if(sortK===k)sortDir*=-1; else{sortK=k;sortDir=1;} render(); }
+
+function filtered(){
+  const m=document.getElementById('fMaker').value, v=document.getElementById('fVerdict').value, q=(document.getElementById('fSearch').value||'').toLowerCase();
+  let d=DATA.filter(r=>(!m||r.maker===m)&&(!v||r.verdict===v)&&(!q||[r.ingredient,r.target,r.origin,r.lot,r.maker,r.spec,r.brand].some(x=>String(x||'').toLowerCase().includes(q))));
+  d.sort((a,b)=>{ const x=String(a[sortK]||''),y=String(b[sortK]||''); return x<y?-1*sortDir:x>y?1*sortDir:0; });
+  return d;
+}
+function renderSummary(){
+  const box=document.getElementById('summary'); const by={};
+  DATA.forEach(r=>{ const m=r.maker||'(미입력)'; const o=(by[m]=by[m]||{o:0,t:0,x:0,n:0}); o.n++; if(r.verdict==='○')o.o++; else if(r.verdict==='△')o.t++; else if(r.verdict==='×')o.x++; });
+  const makers=Object.keys(by).sort((a,b)=>by[b].n-by[a].n);
+  const total={o:0,t:0,x:0,n:DATA.length}; DATA.forEach(r=>{ if(r.verdict==='○')total.o++; else if(r.verdict==='△')total.t++; else if(r.verdict==='×')total.x++; });
+  const cardMaker=(name,o)=>`<div class="card p-3"><p class="text-xs font-bold text-slate-700 truncate" title="${esc(name)}"><i class="fa-solid fa-industry text-slate-400 mr-1"></i>${esc(name)}</p><p class="mt-1 text-sm"><b class="v-o">○ ${o.o}</b> &nbsp;<b class="v-t">△ ${o.t}</b> &nbsp;<b class="v-x">× ${o.x}</b> <span class="text-slate-400 text-xs">/ ${o.n}건</span></p></div>`;
+  let html=`<div class="card p-3 border-l-4 border-slate-700"><p class="text-xs font-bold text-slate-700">전체</p><p class="mt-1 text-sm"><b class="v-o">○ ${total.o}</b> &nbsp;<b class="v-t">△ ${total.t}</b> &nbsp;<b class="v-x">× ${total.x}</b> <span class="text-slate-400 text-xs">/ ${total.n}건</span></p></div>`;
+  html+=makers.slice(0,7).map(m=>cardMaker(m,by[m])).join('');
+  box.innerHTML=html;
+}
+function rowHtml(r){
+  const ed=`ondblclick="editCell('${r.id}','$K',this)" title="더블클릭하여 수정"`;
+  return `<tr class="border-t border-slate-100 hover:bg-slate-50">`+COLS.map(c=>{
+    let val=r[c.k]||''; let cls='px-2.5 py-1.5 align-top cursor-text'; const e=ed.replace('$K',c.k);
+    if(c.k==='verdict') return `<td class="${cls} font-extrabold ${vClass(val)}" ${e}>${val||'-'}</td>`;
+    if(c.k==='maker') return `<td class="${cls} font-bold text-slate-700 whitespace-nowrap" ${e}>${esc(val)}</td>`;
+    if(c.k==='reason'||c.k==='note') return `<td class="${cls} text-slate-500 text-xs" ${e}><div class="clamp" title="${esc(val)}">${esc(val)}</div></td>`;
+    return `<td class="${cls} text-slate-700 whitespace-nowrap" ${e}>${esc(val)}</td>`;
+  }).join('')+`<td class="px-2 py-2"><span class="text-slate-300 hover:text-rose-500 cursor-pointer" onclick="delRow('${r.id}')" title="행 삭제"><i class="fa-solid fa-xmark"></i></span></td></tr>`;
+}
+function render(){
+  buildHead(); renderSummary();
+  const d=filtered();
+  document.getElementById('cnt').textContent = `· 총 ${DATA.length}건 (표시 ${d.length}건)`;
+  const makers=[...new Set(DATA.map(r=>r.maker).filter(Boolean))].sort();
+  const sel=document.getElementById('fMaker'); const cur=sel.value;
+  sel.innerHTML='<option value="">전체 제조회사</option>'+makers.map(m=>`<option ${m===cur?'selected':''}>${esc(m)}</option>`).join('');
+  const body=document.getElementById('body'); const emp=document.getElementById('empty');
+  if(!d.length){ body.innerHTML=''; emp.classList.remove('hidden'); return; } else emp.classList.add('hidden');
+  const gk=document.getElementById('grp').value;
+  if(gk){
+    const icon=gk==='ingredient'?'fa-box':'fa-industry';
+    const groups={}; d.forEach(r=>{ const key=(r[gk]||'(미입력)'); (groups[key]=groups[key]||[]).push(r); });
+    const keys=Object.keys(groups).sort(); window.__DKEYS=keys; window.__DCOLL=window.__DCOLL||{};
+    keys.forEach(k=>{ if(!(k in window.__DCOLL)) window.__DCOLL[k]=true; });   // 기본 접힘
+    body.innerHTML=keys.map((m,gi)=>{ const coll=!!window.__DCOLL[m];
+      const head=`<tr class="bg-slate-50 cursor-pointer select-none" onclick="toggleDGroup(${gi})"><td colspan="${COLS.length+1}" class="px-3 py-1.5 font-extrabold text-slate-700"><i class="fa-solid fa-chevron-${coll?'right':'down'} text-slate-400 mr-1.5 text-[11px]"></i><i class="fa-solid ${icon} text-slate-400 mr-1"></i>${esc(m)} <span class="text-xs font-normal text-slate-400">(${groups[m].length}건)</span></td></tr>`;
+      const rows=groups[m].map(r=>rowHtml(r).replace('<tr ',`<tr data-dg="${gi}"${coll?' style="display:none"':''} `)).join('');
+      return head+rows;
+    }).join('');
+  } else {
+    body.innerHTML=d.map(r=>rowHtml(r)).join('');
+  }
+}
+function toggleDGroup(gi){ const m=(window.__DKEYS||[])[gi]; if(m==null)return; window.__DCOLL=window.__DCOLL||{}; window.__DCOLL[m]=!window.__DCOLL[m]; render(); }
+function editCell(id,k,td){
+  const r=DATA.find(x=>x.id===id); if(!r||td.dataset.edit) return;
+  td.dataset.edit='1';
+  const cur=r[k]==null?'':r[k]; let inp;
+  if(k==='verdict'){ inp=document.createElement('select'); ['','○','△','×'].forEach(o=>{ inp.add(new Option(o||'-',o, false, o===cur)); }); }
+  else { inp=document.createElement('input'); inp.value=cur; }
+  inp.className='fld w-full text-xs py-1'; td.textContent=''; td.appendChild(inp); inp.focus();
+  let done=false;
+  const commit=async()=>{ if(done)return; done=true; r[k]=inp.value; render();
+    const {error}=await sb.from('qc_ledger').update({[k]:inp.value}).eq('id',id); if(error) toast('수정 저장 오류: '+error.message); };
+  const cancel=()=>{ if(done)return; done=true; render(); };
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } else if(e.key==='Escape'){ inp.removeEventListener('blur', commit); cancel(); } });
+}
+async function delRow(id){
+  DATA=DATA.filter(r=>r.id!==id); render();
+  const {error}=await sb.from('qc_ledger').delete().eq('id',id); if(error) toast('삭제 오류: '+error.message);
+}
+async function clearAll(){
+  if(!confirm('대장 전체(모든 사람 데이터)를 비웁니다. 되돌릴 수 없습니다. 계속할까요?')) return;
+  const {error}=await sb.from('qc_ledger').delete().neq('id',''); if(error){ toast('비우기 오류: '+error.message); return; }
+  DATA=[]; render(); toast('대장을 비웠습니다');
+}
+
+function toExcel(){
+  const d=filtered();
+  const aoa=[COLS.map(c=>c.t)].concat(d.map(r=>COLS.map(c=>r[c.k]||'')));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=COLS.map(c=>({wch: c.k==='reason'||c.k==='note'?30 : c.k==='maker'||c.k==='ingredient'?16:12}));
+  const HAIR={style:'thin',color:{rgb:'CBD5E1'}}; const bd={top:HAIR,bottom:HAIR,left:HAIR,right:HAIR};
+  const rng=XLSX.utils.decode_range(ws['!ref']);
+  for(let R=rng.s.r;R<=rng.e.r;R++)for(let Cc=rng.s.c;Cc<=rng.e.c;Cc++){ const a=XLSX.utils.encode_cell({r:R,c:Cc}); if(!ws[a])ws[a]={t:'s',v:''};
+    ws[a].s = R===0 ? {font:{name:'맑은 고딕',bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'0F172A'}},alignment:{horizontal:'center',vertical:'center'},border:bd}
+      : {font:{name:'맑은 고딕',sz:10},alignment:{vertical:'top',wrapText:true},border:bd}; }
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'품질검증대장');
+  XLSX.writeFile(wb,'품질검증_대장_'+new Date().toISOString().slice(0,10)+'.xlsx'); toast('엑셀 저장 완료');
+}
+function exportJson(){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(DATA,null,1)],{type:'application/json'})); a.download='품질검증_대장.json'; a.click(); }
+async function importFiles(files){
+  let rows=[], pend=files.length;
+  [...files].forEach(f=>{ const r=new FileReader(); r.onload=async e=>{ try{ const j=JSON.parse(e.target.result); const arr=Array.isArray(j)?j:[j];
+    arr.forEach(x=>{ if(x&&x.id){ const {created_at,...clean}=x; rows.push(clean); } });
+  }catch(err){} if(--pend===0){ if(rows.length){ const {error}=await sb.from('qc_ledger').upsert(rows,{onConflict:'id'}); if(error){toast('가져오기 오류: '+error.message);return;} } loadData(); toast('가져오기 완료 ('+rows.length+'건)'); } }; r.readAsText(f); });
+}
+
+// ===== 검증 파일(.docx / .xlsx) 가져오기 =====
+const MAKER_RE=/([가-힣A-Za-z]{2,}(?:수산|물산|유통|무역|트레이딩|씨푸드|푸드|식품|축산|상회|산업|상사|㈜|F&B|에프앤비))/;
+function verdictFrom(t){ if(/사용\s*불가|부적합|불가능|불합격/.test(t))return'×'; if(/경우에\s*한해|주의가?\s*필요|조건부|보류|한해\s*사용/.test(t))return'△'; if(/사용\s*가능|변경\s*가능|차이가?\s*없|적합|무난|양호|도입이?\s*가능|대체.*?가능|무리\s*없|이상\s*없/.test(t))return'○'; return''; }
+function normDate(t){ const m=t.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/); return m?m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2):''; }
+function brandFrom(t){ const m=t.match(/(인생아구찜|삼대미역|어화락|메뉴개발팀)/g); if(!m)return''; return m.find(x=>x!=='메뉴개발팀')||''; }
+function specFrom(t){ return (t.match(/\d[\d.,]*\s*(?:kg|g|k|ea|L|ml|box|팩|곽|봉|개|미|마리)\b|\d+\s*\/\s*\d+|\d+\s*\*\s*\d+/gi)||[]).map(s=>s.replace(/\s+/g,'')).join(' '); }
+function priceFrom(t){ const m=(t.match(/[\d,]{3,}\s*원/g)||[]); return m.length?m[0].replace(/\s+/g,''):''; }
+function originFrom(t){ const m=(t.match(/국내산|수입산|[가-힣]{2,3}산/g)||[]).filter(x=>!/수산|물산|축산/.test(x)); return m.length?m[0]:''; }
+function makerFromLine(line){
+  const slash=line.match(/\(\s*([^()/]+?)\s*\/\s*([^()/]+?)\s*\)/);
+  if(slash && /[가-힣]/.test(slash[2]) && !/\d/.test(slash[1]) && !/\d/.test(slash[2]) && !/찜|구이|냉동|냉장/.test(slash[1]+slash[2]) && slash[2].length<=8) return {origin:slash[1].trim(), maker:slash[2].trim()};
+  const parens=[...line.matchAll(/\(([^()]{2,20})\)/g)].map(m=>m[1].trim());
+  for(const p of parens){ if(/\d/.test(p))continue; if(/^(탈피|홀크린|홀클린|냉동|냉장|국내작업|찜|구이|숙회)$/.test(p))continue;
+    if(/무역|수산|물산|유통|트레이딩|씨푸드|푸드|식품|인터네셔널|글로벌|상사|코퍼|㈜|상회|산업|컴퍼니/.test(p) || (/^[가-힣]{3,}$/.test(p)&&!/산$/.test(p))) return {origin:'',maker:p}; }
+  const mm=line.match(MAKER_RE); if(mm) return {origin:'',maker:mm[0]};
+  return {origin:'',maker:''};
+}
+const EXCL=/STEP|판정\s*기(준|호)|점검\s*항목|확인\s*방법|종합\s*판정|검증자|사진\s*첨부|테스트\s*목적|관능검사|공정\s*적합성|체크리스트|검증\s*조건|수급|이슈|불안정|가능성|검토|판단|때문|여부|미실시|미측정/;
+function isProductLine(s){ if(s.length<6||s.length>90)return false; if(!/^[가-힣]/.test(s))return false; if(EXCL.test(s))return false;
+  const og=originFrom(s), price=/[\d,]{3,}\s*원/.test(s), wt=/\d[\d.,]*\s*(kg|g|박스|box)\b/i.test(s), mk=makerFromLine(s).maker;
+  return (og||price||wt) && (mk||og); }
+function verdictForRow(maker,cz){ if(!maker)return''; try{ const m=cz.match(new RegExp(maker+'[^○△×]{0,18}([○△×])')); if(m)return m[1]; }catch(e){} return ''; }
+function parseDocxRows(xml, fname){
+  const T=(xml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g)||[]).map(s=>s.replace(/<[^>]+>/g,'')).join(' ').replace(/\s+/g,' ');
+  const g=(re)=>{ const x=T.match(re); return x?String(x[1]).trim():''; };
+  let ing=g(/·\s*(?:식재료|재료)\s*([^|·]+?)\s*(?:신메뉴|레시피|\|)/);
+  if(!ing) ing=(fname||'').replace(/\.docx$/i,'').replace(/^\d+_[\d.]+_?/,'').replace(/인생[^_]*_?D?_?/,'').replace(/\s*검증\s*리스트\s*/,'').trim();
+  const date=normDate(T), brand=brandFrom(T);
+  const recipe=(T.match(/적용\s*상세\s*레시피\s*(?:\d+\.\s*)?(.*?)(?:📷|테스트\s*사진|🔧|결과\s*정리|사진)/)||[])[1]||'';
+  const detail=recipe.replace(/\s+/g,' ').trim();
+  const result=(T.match(/결과\s*정리(.*?)(?:📈|관능|회차별)/)||[])[1]||'';
+  const maker=(detail.match(MAKER_RE)||[])[0]||'';
+  const origin=originFrom(detail);
+  const spec=specFrom(detail);
+  const price=priceFrom(detail)||priceFrom(T);
+  const chg=(T.match(/\[(신규[^\]]*|변경[^\]]*|재검토[^\]]*)\]/)||[])[1]||'';
+  const verdict=verdictFrom(result), reason=result.trim().slice(0,220);
+  const note=[chg?('['+chg+']'):'', price?('단가 '+price):'', (!maker&&!origin&&!spec&&detail)?('적용: '+detail.slice(0,90)):''].filter(Boolean).join(' · ');
+  if(!ing) return [];
+  return [{date, ingredient:ing, target:chg||'1차', brand, maker, origin, spec, exp:'', lot:'', verdict, reason, note, cat:'', id:date+'|'+ing+'|doc'}];
+}
+function parseXlsxRows(FULL, fname){
+  const lines=FULL.split('\n').map(s=>s.trim()).filter(Boolean);
+  const titleLine=lines.find(s=>/(?:매장\s*)?검증\s*(?:체크)?리스트/.test(s))||'';
+  let ing=titleLine.split(/제품\s*변경|\s*(?:매장\s*)?검증/)[0].replace(/\(.*?\)/g,'').replace(/[·|].*/,'').trim();
+  if(!ing) ing=((FULL.match(/제품명\s*\n?\s*([가-힣][가-힣\s]{0,12}?)\s*\n/)||[])[1]||'').trim();
+  const date=normDate(FULL), brand=brandFrom(FULL);
+  const cz=FULL.search(/PART\s*C|종합\s*판정/); const concZone=cz>=0?FULL.slice(cz):FULL;
+  const finalV=(concZone.match(/\[\s*최종\s*판정[:\s]*([○△×])/)||[])[1] || (concZone.match(/([○△×])\s*(?:적합|부적합|보통|사용)/)||[])[1] || verdictFrom(concZone) || '';
+  const reason=concZone.replace(/\s+/g,' ').trim().slice(0,200);
+  const cands=[...new Set(lines.filter(isProductLine))];
+  let rows=cands.map((line,idx)=>{ const mk=makerFromLine(line); const origin=originFrom(line)||mk.origin; const maker=mk.maker; const spec=specFrom(line); const price=priceFrom(line);
+    if(!maker && !spec && !origin) return null;
+    return {date, ingredient:ing||'(제품명 미상)', target:(maker||origin||''), brand, maker, origin, spec, exp:'', lot:'',
+      verdict:verdictForRow(maker,concZone), reason:'', note:(price?('단가 '+price):''), cat:'',
+      id:date+'|'+(ing||fname)+'|'+(maker||origin||idx)+'|'+spec}; }).filter(Boolean);
+  const noV=rows.every(r=>!r.verdict);
+  if(noV && finalV) rows.forEach(r=>{ r.note=(r.note?r.note+' · ':'')+'파일판정 '+finalV; });
+  if(rows.length){ rows[0].reason=reason; }
+  else if(ing){ rows.push({date, ingredient:ing, target:'', brand, maker:'', origin:'', spec:specFrom(FULL.slice(0,4000)), exp:'', lot:'', verdict:finalV, reason, note:(priceFrom(FULL)?('단가 '+priceFrom(FULL)):''), cat:'', id:date+'|'+ing+'|xls'}); }
+  return rows;
+}
+async function importDocx(files){
+  const rows=[];
+  for(const f of [...files]){
+    const nm=f.name.toLowerCase();
+    try{
+      if(nm.endsWith('.docx')){
+        if(!window.JSZip){ toast('문서 라이브러리 로딩 중… 잠시 후 다시'); return; }
+        const buf=await f.arrayBuffer(); const zip=await JSZip.loadAsync(buf); const xml=await zip.file('word/document.xml').async('string');
+        rows.push(...parseDocxRows(xml,f.name));
+      } else if(nm.endsWith('.xlsx')||nm.endsWith('.xls')){
+        const buf=await f.arrayBuffer(); const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+        let txt=[]; wb.SheetNames.forEach(sn=>{ const ws=wb.Sheets[sn]; Object.keys(ws).forEach(k=>{ if(k[0]!=='!' && ws[k].v!=null) txt.push(String(ws[k].v)); }); });
+        rows.push(...parseXlsxRows(txt.join(' \n '), f.name));
+      }
+    }catch(e){ console.warn('import',f.name,e); }
+  }
+  if(!rows.length){ toast('추출된 항목이 없습니다 (양식이 다를 수 있어요)'); return; }
+  const {error}=await sb.from('qc_ledger').upsert(rows,{onConflict:'id'});
+  if(error){ toast('저장 오류: '+error.message); return; }
+  loadData(); toast(rows.length+'건 대장에 추가됨 — 빈 칸(유통기한·로트 등)은 셀 더블클릭으로 보완하세요');
+}
+
+// ===== 드래그 & 드롭으로 가져오기 =====
+function appVisible(){ return !document.getElementById('app').classList.contains('hidden'); }
+function routeImport(files){
+  const docs=files.filter(f=>/\.(docx|xlsx|xls)$/i.test(f.name));
+  const jsons=files.filter(f=>/\.(json|qclog)$/i.test(f.name));
+  if(docs.length) importDocx(docs);
+  if(jsons.length) importFiles(jsons);
+  if(!docs.length && !jsons.length) toast('지원 형식: .docx · .xlsx · .json · .qclog');
+}
+let dragDepth=0;
+window.addEventListener('dragenter', e=>{ e.preventDefault(); if(!appVisible())return; dragDepth++; document.getElementById('dropmask').classList.add('on'); });
+window.addEventListener('dragover', e=>{ e.preventDefault(); });
+window.addEventListener('dragleave', e=>{ e.preventDefault(); if(!appVisible())return; dragDepth=Math.max(0,dragDepth-1); if(dragDepth===0) document.getElementById('dropmask').classList.remove('on'); });
+window.addEventListener('drop', e=>{ e.preventDefault(); dragDepth=0; document.getElementById('dropmask').classList.remove('on'); if(!appVisible())return; const files=[...((e.dataTransfer&&e.dataTransfer.files)||[])]; if(files.length) routeImport(files); });
+
+// 세션 있으면 바로 진입
+(async()=>{ const {data}=await sb.auth.getSession(); if(data && data.session){ enterApp(); } else { document.getElementById('pw').focus(); } })();
+</script>
+</body>
+</html>
