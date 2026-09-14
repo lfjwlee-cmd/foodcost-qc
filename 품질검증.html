@@ -294,7 +294,20 @@ tailwind.config = { theme: { extend: {
         <div><label class="lbl">검증 담당자</label><input class="fld" data-k="inspector" placeholder="성명/직급"></div>
         <div style="display:none"><label class="lbl">제품명</label><input class="fld" data-k="product"></div>
       </div>
-      <div class="mt-3"><label class="lbl">검증 목적/배경</label><textarea class="fld fld-sm" rows="2" data-k="purpose"></textarea></div>
+      <div class="mt-3"><label class="lbl">검증 유형</label>
+        <select class="fld fld-sm" data-k="purposeType" onchange="onPurposeType(this)">
+          <option value="">선택…</option>
+          <option>신규 도입(샘플) 평가</option>
+          <option>거래처 변경·대체품 평가</option>
+          <option>원가 절감(단가 인하) 검토</option>
+          <option>정기 품질 점검</option>
+          <option>재샘플(재확인)</option>
+          <option>품질 이슈·클레임 대응</option>
+          <option>규격·포장 변경</option>
+          <option>기타(직접 작성)</option>
+        </select>
+      </div>
+      <div class="mt-3"><label class="lbl">검증 목적/배경</label><textarea class="fld fld-sm" rows="2" data-k="purpose" placeholder="유형 선택 시 기본 문구가 채워집니다 — 세부 배경을 직접 다듬으세요"></textarea></div>
       <div class="mt-3"><label class="lbl">특이사항</label><textarea class="fld" rows="2" data-k="note" placeholder="입고/검수 특이사항 · 원산지/알레르기 표기 관련 전달사항 등"></textarea></div>
     </div>
   </section>
@@ -910,6 +923,20 @@ function bindInputs(){
   document.querySelectorAll('.radar-in').forEach(el=>{ if(el.dataset.rb)return; el.dataset.rb='1'; el.addEventListener('input',()=>{ collectRadar(); persist(); updateRadar(); }); });
   document.querySelectorAll('textarea').forEach(ta=>{ if(ta.dataset.ag)return; ta.dataset.ag='1'; ta.addEventListener('input',()=>autoGrow(ta)); });
 }
+// 검증 유형 선택 → 목적 기본 문구 자동 채움(비어있거나 기존 템플릿일 때만)
+const PURPOSE_TPL={
+ '신규 도입(샘플) 평가':'신규 도입 검토를 위한 샘플 평가 — 냉동 상태·손질·관능 등 입고 품질을 사전 확인.',
+ '거래처 변경·대체품 평가':'기존 사용 제품의 거래처 변경(대체품) 검토 — 기존 대비 품질 동등 여부 확인.',
+ '원가 절감(단가 인하) 검토':'원가 절감(단가 인하) 제안에 따른 품질 검증 — 기존 대비 품질 차이 여부 확인.',
+ '정기 품질 점검':'정기 품질 점검 — 현행 사용 제품의 입고 품질 상태 확인.',
+ '재샘플(재확인)':'이전 샘플 확인 후 재요청한 재샘플 평가 — 개선·재현 여부 확인.',
+ '품질 이슈·클레임 대응':'품질 이슈(클레임) 발생에 따른 확인 — 원인 점검 및 재발 여부 확인.',
+ '규격·포장 변경':'규격·포장 변경 건 검토 — 변경 사양의 사용 적합성 확인.'
+};
+function onPurposeType(sel){ state.purposeType=sel.value; const ta=document.querySelector('[data-k="purpose"]'); const tpl=PURPOSE_TPL[sel.value];
+  if(ta && tpl){ const cur=(ta.value||'').trim(); if(cur===''||Object.values(PURPOSE_TPL).includes(cur)){ ta.value=tpl; state.purpose=tpl; if(typeof autoGrow==='function')autoGrow(ta); } }
+  persist();
+}
 function autoGrow(el){ if(!el||el.tagName!=='TEXTAREA')return;
   if(getComputedStyle(el).fieldSizing==='content'){ el.style.height=''; return; }   // 브라우저 자동높이에 맡김(잘림 방지)
   el.style.height='auto'; const sh=el.scrollHeight; if(sh<8 && el.value.trim()) return; el.style.height=(sh+2)+'px'; }
@@ -961,6 +988,7 @@ function fillReportHead(){
       <tr><td class="k">브랜드</td><td>${brands}</td><td class="k">검증 방식</td><td>${way}</td></tr>
       <tr><td class="k">매장</td><td>${g('store')}</td><td class="k">검증자</td><td>${g('inspector')}</td></tr>
       ${colRows}
+      ${state.purposeType?`<tr><td class="k">검증 유형</td><td colspan="3">${g('purposeType')}</td></tr>`:''}
       ${state.purpose?`<tr><td class="k">검증 목적</td><td colspan="3">${g('purpose')}</td></tr>`:''}
       ${state.note?`<tr><td class="k">특이사항</td><td colspan="3">${g('note')}</td></tr>`:''}
       <tr><td class="k">최종 판정</td><td colspan="3" class="rh-verdict">${v}</td></tr>
@@ -1244,6 +1272,7 @@ async function exportExcel(){
   meta('브랜드', selectedBrands().join(', '));
   meta('매장 / 검증자', (state.store||'')+(state.inspector?(' / '+state.inspector):''));
   meta('검증일자', state.date||''); meta('검증방식', NC<=1?'단일(신규 등록)':(NC+'개 제품 비교'));
+  if(state.purposeType) meta('검증 유형', state.purposeType);
   if(state.purpose) meta('검증 목적', state.purpose);
   push('section',['■ 비교 대상']);
   cols.forEach(c=> push('meta',[c.name,'',c.desc||''],{metaRow:true}));
