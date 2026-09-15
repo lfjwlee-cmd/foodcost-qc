@@ -176,6 +176,20 @@ tailwind.config = { theme: { extend: {
     .iv{ padding:2px 0 !important; font-size:11px !important; border-color:#cbd5e1 !important; }
     .lbl{ margin-bottom:2px !important; }
     .pdf-keep,.photo-box{ break-inside:avoid; }
+    /* ── PDF 페이지 나눔 정리(가독성): 블록이 페이지 경계에서 잘리지 않게 ── */
+    p,li,.lbl,td,th{ orphans:3; widows:3; }
+    /* 표: 페이지 넘어가면 머리글 반복, 행은 중간에서 쪼개지 않음 */
+    .ptbl thead{ display:table-header-group; }
+    .ptbl tr{ break-inside:avoid; page-break-inside:avoid; }
+    .ptbl tr.pt-grp{ break-after:avoid; }
+    /* 제목·라벨 바로 뒤에서 끊기지 않게 */
+    .print-only h4, .lbl{ break-after:avoid; }
+    /* PART C(종합 판정·서명): 통째로 한 페이지에 — 판정 배너 반토막 방지 */
+    #partC{ break-inside:avoid; page-break-inside:avoid; }
+    #autoVerdict, #costSummary, #verdictBanner, #verdictBanner > div,
+    #finalVerdictsPrint, #finalVerdictsPrint p,
+    textarea[data-k=comment], input[data-k=sign]{ break-inside:avoid; page-break-inside:avoid; }
+    #finalVerdictsPrint p:first-child{ break-after:avoid; }
     .pdf-keep{ padding:6px !important; }
     #radarChart{ max-height:200px !important; }
     #criteriaBox{ font-size:10.5px !important; }
@@ -445,7 +459,7 @@ tailwind.config = { theme: { extend: {
   </section>
 
   <!-- PART C 종합 평가 -->
-  <section class="bg-white rounded-2xl shadow-sm overflow-hidden">
+  <section id="partC" class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
       <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-stamp text-brand-500"></i>PART C. 종합 판정 및 서명</span>
       <i class="fa-solid fa-chevron-down acc-arrow open text-slate-400"></i>
