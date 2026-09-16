@@ -49,6 +49,9 @@ tailwind.config = { theme: { extend: {
   .qc-group{ margin-bottom:10px; }
   .grp-items{ display:grid !important; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)) !important; gap:8px !important; align-items:start; }
   .grp-items > *{ margin-top:0 !important; }
+  /* 비교 열 수에 따라 항목 카드 단수 전환 — 열이 많으면 칸이 좁아져 문구가 잘게 쪼개지므로 */
+  body[data-nc="3"] .grp-items{ grid-template-columns:repeat(auto-fill,minmax(520px,1fr)) !important; }
+  body[data-nc="4"] .grp-items{ grid-template-columns:1fr !important; }
   /* 각 항목 밑 확인방법 설명 화면에서 숨김(작업자용 화면 간결화) */
   .qc-item [data-ek$=".method"]{ display:none !important; }
   /* 개별 무게: 개수 많아도 세로로 안 늘어지게 여러 칸을 한 줄에 */
@@ -695,6 +698,7 @@ function toggleNoBase(on){
 }
 function renderCols(){
   const cols=activeCols();
+  document.body.dataset.nc=cols.length;   // 항목 카드 단수(2열=2단 / 4열=1단 전폭) 전환용
   document.getElementById('colBox').innerHTML = cols.map((c,i)=>{ const s=colStyle(i);
     const pk='colpic_'+c.id;
     return `<div class="flex items-center gap-2">
