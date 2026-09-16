@@ -1097,31 +1097,93 @@ function allItemKeys(){ const ks=[]; [['proc',PROC],['sens',SENS]].forEach(([p,g
 // ── 자동 내용 정리: 입력값 → 종합 코멘트 초안 ──
 function buildSummary(){
   collect();
-  const cols=activeCols(); const L=[]; let anyX=false;
-  cols.forEach(c=>{ let o=0,t=0,x=0,sk=0; const xI=[],tI=[];
-    [['proc',PROC],['sens',SENS]].forEach(([p,gs])=>gs.forEach((g,gi)=>{ if(isGroupOff(p,gi))return; g.items.forEach((it,ii)=>{
-      const key=`${p}_${gi}_${ii}`, v=state[`${key}_${c.id}_v`], name=ekv(key+'.label',it.label), note=(state[`${key}_${c.id}`]||'').trim();
-      if(v==='○')o++; else if(v==='△'){t++; tI.push(name+(note?`(${note})`:''));} else if(v==='×'){x++; if(x)anyX=true; xI.push(name+(note?`(${note})`:''));} else if(v==='생략')sk++;
-    }); }));
-    if(o+t+x+sk===0) return;
-    let seg=`[${c.name}] 적합 ○${o} · 보통 △${t} · 부적합 ×${x}`+(sk?` · 생략${sk}`:'');
-    if(xI.length) seg+=`\n   부적합: ${xI.join(', ')}`;
-    if(tI.length) seg+=`\n   조건부(△): ${tI.join(', ')}`;
-    L.push(seg);
-  });
-  if(C.weight){ const seg=[]; cols.forEach(c=>{ const s=weightStats(weightArr(c.id)); if(s.n) seg.push(`${c.name} ${s.min}~${s.max}(편차 ${s.range}, ${s.n}마리)`); });
-    if(seg.length) L.push('[개별 무게] '+seg.join(' · '));
-  }
-  const finals=cols.map(c=>{ const fv=state['final_'+c.id+'_v']; const fn=(state['final_'+c.id+'_note']||'').trim(); return fv?`${c.name} ${fv}${fn?`(${fn})`:''}`:null; }).filter(Boolean);
-  if(finals.length) L.push('[제품별 종합 판정] '+finals.join(' · '));
-  L.push(`[종합 결론] ${anyX?'× 판정 제품은 사용 불가 — ○/△ 제품으로 대체 검토.':'평가 제품 모두 ○/△ 수준으로 사용 가능.'}`);
-  return L.join('\n');
+  const cols=activeCols(), jc=judgeCols(), N=jc.length;
+  const UNIT = N>1 ? '샘플' : '품목';
+  // 판정 대상 열만 모아 항목별로 정리
+  const rows=[];
+  [['proc',PROC],['sens',SENS]].forEach(([p,gs])=>gs.forEach((g,gi)=>{ if(isGroupOff(p,gi))return;
+    g.items.forEach((it,ii)=>{ const key=`${p}_${gi}_${ii}`;
+      rows.push({ label:ekv(key+'.label',it.label),
+        vals:jc.map(c=>({ n:c.name, v:state[`${key}_${c.id}_v`]||'', t:(state[`${key}_${c.id}`]||'').trim() })) }); });
+  }));
+  const pick=v=>rows.filter(r=>r.vals.some(x=>x.v===v));
+  const josa=(w,a,b)=>{ const ch=w.charCodeAt(w.length-1); return w+(((ch>=0xAC00&&ch<=0xD7A3)&&((ch-0xAC00)%28!==0))?a:b); };
+  // 같은 문구를 쓴 열끼리 묶어 한 줄로
+  const line=(r,mark)=>{
+    const vs=r.vals.filter(x=>x.v===mark), g=[];
+    vs.forEach(x=>{ const f=g.find(y=>y.t===x.t); if(f)f.n.push(x.n); else g.push({t:x.t,n:[x.n]}); });
+    if(g.length===1 && vs.length===N) return ` · ${r.label} : ${g[0].t||'(내용 미기재)'}`;
+    return ` · ${r.label} : `+g.map(x=>`${x.n.join('·')} — ${x.t||'(내용 미기재)'}`).join(' ; ');
+  };
+  const S=[];
+
+  /* 1 ─ 검증 개요 */
+  const si=(typeof specIdx==='function')?specIdx('제조회사'):-1;
+  const maker = si>=0 ? [...new Set(cols.map(c=>(state['spec_'+si+'_'+c.id]||'').trim()).filter(Boolean))].join('·') : '';
+  let o=`[검증 개요] ${state.product||C.ingredient||''}`;
+  if(state.purposeType) o+=` ${state.purposeType}`;
+  o+=` — ${maker?maker+' ':''}${N}개 ${UNIT}(${jc.map(c=>c.name).join(' / ')})을 평가함.`;
+  const CMP=['거래처 변경·대체품 평가','원가 절감(단가 인하) 검토','재샘플(재확인)','정기 품질 점검'];
+  if(cols.length>=2 && !state.noBase) o+=` 기존(${cols[0].name}) 대비 변경 후보를 비교 평가함.`;
+  else if(state.noBase && CMP.includes(state.purposeType)) o+=' 기존 제품은 비교 열로 두지 않았으나, 각 항목 판정은 현 사용 제품을 기준으로 대비함.';
+  else if(state.noBase) o+=' 기존 제품 없이 신규 샘플만 비교 평가함.';
+  if(SPEC_FIELDS){ const und=SPEC_FIELDS.map((f,i)=>({f,vals:cols.map(c=>(state['spec_'+i+'_'+c.id]||'').trim())}))
+      .filter(x=>x.vals.every(v=>v===''||/^(미정|미확정|추후)/.test(v))).map(x=>x.f);
+    if(und.length) o+=` ${josa(und.join('·'),'은','는')} 미정 상태로, 스펙 확정 전 단계임.`; }
+  if(C.weight){ const seg=jc.map(c=>{ const s=weightStats(weightArr(c.id)); return s.n?`${c.name} ${s.min}~${s.max}${WUNIT}(편차 ${s.range}, ${s.n}개)`:null; }).filter(Boolean);
+    if(seg.length) o+=` 개별 무게 실측 — ${seg.join(', ')}.`; }
+  S.push(o);
+
+  /* 2 ─ 판정 집계 */
+  const fv=jc.map(c=>({n:c.name, v:state['final_'+c.id+'_v']||''}));
+  const os=fv.filter(x=>x.v==='○').map(x=>x.n), ts=fv.filter(x=>x.v==='△').map(x=>x.n), xs=fv.filter(x=>x.v==='×').map(x=>x.n);
+  const xr=pick('×'), tr=pick('△');
+  let a=`[판정 집계] 평가 대상 ${N}개 — `;
+  if(xs.length===N) a+='전부 × 사용 불가.';
+  else if(os.length===N) a+='전부 ○ 사용 가능.';
+  else if(ts.length===N) a+='전부 △ 조건부 사용 가능.';
+  else a+=[os.length?`○ ${os.join('·')}`:'', ts.length?`△ ${ts.join('·')}`:'', xs.length?`× ${xs.join('·')}`:''].filter(Boolean).join(' / ')+'.';
+  a+=` 항목 ${rows.length}개 중 × ${xr.length}개`+(tr.length?` · △ ${tr.length}개`:'')+'.';
+  if(xr.length) a+=` (× 항목 — ${xr.map(r=>r.label).join(', ')})`;
+  S.push(a);
+
+  /* 3 ─ 부적합 / 보류 / 적합 사유 */
+  if(xr.length) S.push('[부적합 사유]\n'+xr.map(r=>line(r,'×')).join('\n'));
+  else if(tr.length) S.push('[보류·조건부 사유]\n'+tr.map(r=>line(r,'△')).join('\n'));
+  else { const ok=rows.filter(r=>r.vals.some(x=>x.v==='○'));
+    if(ok.length) S.push('[적합 근거]\n'+ok.map(r=>line(r,'○')).join('\n')); }
+
+  /* 4 ─ 조건부 관찰 사항 (부적합이 따로 있을 때만) */
+  if(xr.length && tr.length) S.push('[조건부 관찰 사항]\n'+tr.map(r=>line(r,'△')).join('\n'));
+
+  /* 5 ─ 이상 없는 항목 */
+  const ok=rows.filter(r=>r.vals.length && r.vals.every(x=>x.v==='○'));
+  if(ok.length && (xr.length||tr.length)) S.push(`[이상 없는 항목] ${ok.map(r=>r.label).join(', ')} — ${N}개 ${UNIT} 모두 이상 없음.`);
+  const warn=[];
+  const sk=rows.filter(r=>r.vals.some(x=>x.v==='생략')); if(sk.length) warn.push(` ※ 생략(미평가) 항목 — ${sk.map(r=>r.label).join(', ')}`);
+  const nv=rows.filter(r=>r.vals.some(x=>!x.v));        if(nv.length) warn.push(` ※ 판정 미입력 항목 — ${nv.map(r=>r.label).join(', ')}`);
+  if(warn.length) S.push(warn.join('\n'));
+
+  /* 6 ─ 결론 */
+  let c='[결론] ';
+  if(!os.length && !ts.length && !xs.length) c+='제품별 종합 판정이 입력되지 않았습니다 — 판정을 먼저 선택하세요.';
+  else if(xs.length===N) c+=`전 ${UNIT}이 ${xr.map(r=>r.label).join('·')} 기준 미달로 현 상태 사용 불가.`;
+  else if(xs.length) c+=[`${xs.join('·')} 사용 불가`, ts.length?`${ts.join('·')} 조건부 사용 가능`:'', os.length?`${os.join('·')} 사용 가능`:''].filter(Boolean).join(' / ')+'.';
+  else if(ts.length) c+=`${ts.length===N?'전 '+UNIT:ts.join('·')} 조건부 사용 가능 — 지적 항목 확인 후 판단 필요.`;
+  else c+=`${os.length===N?'전 '+UNIT:os.join('·')} 기준 충족 — 사용 가능.`;
+  if(C.showCost){ const g=k=>{ const el=document.querySelector(`[data-k=${k}]`); return el?+el.value:0; };
+    const op=g('oldPrice'),oy=g('oldYield'),np=g('newPrice'),ny=g('newYield');
+    const oR=(op&&oy)?op/(oy/100):0, nR=(np&&ny)?np/(ny/100):0;
+    if(oR&&nR){ const d=((nR-oR)/oR)*100; c+=` 실원가 ${Math.round(oR).toLocaleString()}원 → ${Math.round(nR).toLocaleString()}원 (${d>0?'+':''}${d.toFixed(1)}%).`; } }
+  S.push(c);
+
+  return S.join('\n\n');
 }
 function autoSummarize(){
   const el=document.querySelector('[data-k=comment]'); if(!el)return;
   const s=buildSummary();
   const prev=(el.value||'').trim();
-  const memo = (prev && !prev.startsWith('[판정 집계]')) ? '\n\n[검증자 메모]\n'+prev : '';
+  const memo = (prev && !/^\[(검증 개요|판정 집계)\]/.test(prev)) ? '\n\n[검증자 메모]\n'+prev : '';
   el.value=s+memo; el.dispatchEvent(new Event('input',{bubbles:true})); autoGrow(el);
   toast('자동 정리 완료 — 필요시 수정하세요');
 }
