@@ -1066,6 +1066,16 @@ document.addEventListener('input',e=>{
 });
 function collect(){ document.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(el.type==='checkbox')state[k]=el.checked; else if(el.type==='radio'){ if(el.checked)state[k]=el.value; } else state[k]=el.value; }); }
 function collectRadar(){ document.querySelectorAll('[data-radar]').forEach(el=>{ state['radar_'+el.dataset.radar]=el.value; }); }
+// 새 검증/다른 검증을 열 때 화면에 남은 이전 입력을 비운다.
+// (restoreState는 새 state에 없는 키를 건드리지 않으므로, 비우지 않으면 이전 검증의
+//  검증목적·종합평가·비고·서명이 그대로 남아 새 검증에 저장된다.)
+function resetFields(){
+  document.querySelectorAll('[data-k]').forEach(el=>{
+    if(el.type==='checkbox'||el.type==='radio') el.checked=false;
+    else if('value' in el) el.value='';
+  });
+  document.querySelectorAll('[data-radar]').forEach(el=>{ if('value' in el) el.value=''; });
+}
 function restoreState(){
   document.querySelectorAll('[data-k]').forEach(el=>{ const k=el.dataset.k; if(!(k in state))return; if(el.type==='checkbox')el.checked=state[k]; else if(el.type==='radio')el.checked=(el.value===state[k]); else el.value=state[k]; });
   document.querySelectorAll('[data-radar]').forEach(el=>{ const k='radar_'+el.dataset.radar; if(k in state)el.value=state[k]; });
@@ -1776,6 +1786,7 @@ function applyConfig(cfg, newState){
   WUNIT=(C.weight&&C.weight.unit)||'g';
   WSTATS=(C.weight&&Array.isArray(C.weight.stats)&&C.weight.stats.length)?C.weight.stats:['n','min','max','range'];
   SPEC_FIELDS=(C.specFields===false)?null:((Array.isArray(C.specFields)&&C.specFields.length)?C.specFields:SPEC_FIELDS_DEFAULT);
+  resetFields();   // 이전 검증 잔여 입력 제거(검증목적·종합평가·비고·서명 유출 방지)
   state=newState||{}; photosObj={};
   build(); applyPhotos(); openAllSections(); if(typeof renderVerdictBanner==='function') renderVerdictBanner();
 }
