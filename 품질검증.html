@@ -69,6 +69,15 @@ tailwind.config = { theme: { extend: {
   /* 단일 제품: 사진 2열로, 각 사진이 반칸을 꽉 채움 */
   #photoBox.twoup .photo-box.has-img{ width:100% !important; max-width:100% !important; margin:0 !important; }
   #photoBox.twoup .photo-box.has-img img{ width:100% !important; height:auto !important; max-width:100% !important; max-height:320px !important; }
+  /* 한 컷(공통) 사진 줄 — 샘플별로 나누지 않고 전폭 1장 */
+  #photoBox .photo-cell.pcommon .photo-box{ max-width:none !important; height:170px !important; }
+  #photoBox .photo-cell.pcommon .photo-box.has-img{ width:100% !important; max-width:100% !important; height:auto !important; margin:0 !important; }
+  #photoBox .photo-cell.pcommon .photo-box.has-img img{ width:100% !important; height:auto !important; max-width:100% !important; max-height:440px !important; }
+  @media print{
+    #photoBox .photo-cell.pcommon .photo-box{ max-width:none !important; }
+    #photoBox .photo-cell.pcommon .photo-box.has-img{ width:100% !important; max-width:100% !important; margin:0 !important; }
+    #photoBox .photo-cell.pcommon .photo-box.has-img img{ width:100% !important; height:auto !important; max-width:100% !important; max-height:105mm !important; }
+  }
   .ptag{ position:absolute; top:6px; left:6px; z-index:20; font-size:9px; color:#fff; padding:2px 7px; border-radius:999px; font-weight:700; }
   .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#94a3b8; font-size:10px; text-align:center; pointer-events:none; }
   .photo-add i{ font-size:20px; }
@@ -876,14 +885,15 @@ function buildPhotos(){
   const rowsHtml = rows.map((label,i)=>`<div class="pdf-keep border border-slate-100 rounded-xl p-2">
         <div class="flex items-center gap-1 mb-1.5">
           <input class="pcap fld fld-sm font-semibold text-slate-700 flex-1" data-idx="${i}" placeholder="사진 설명 입력 (예: 라벨/원산지)" value="${escapeHtml(label)}">
+          <button type="button" onclick="toggleCommonRow(${i})" class="no-print text-[11px] font-bold px-2 py-1 rounded-md border shrink-0 ${isCommonRow(i)?'border-slate-700 bg-slate-700 text-white':'border-slate-200 bg-white text-slate-500'}" title="한 컷에 여러 샘플이 함께 담긴 사진이면 켜세요"><i class="fa-solid fa-object-group mr-1"></i>한 컷</button>
           <button type="button" onclick="delPhotoRow(${i})" class="no-print text-slate-300 hover:text-rose-500 px-1.5" title="이 줄 삭제"><i class="fa-solid fa-trash-can"></i></button>
         </div>
-        <div class="flex gap-2">${cols.map((c,ci)=>photoCell(c.id,ci,i)).join('')}</div>
+        <div class="flex gap-2">${isCommonRow(i)?photoCellCommon(i):cols.map((c,ci)=>photoCell(c.id,ci,i)).join('')}</div>
       </div>`).join('');
   document.getElementById('photoBox').innerHTML = header
     + (single ? `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start">${rowsHtml}</div>` : rowsHtml);
   document.getElementById('photoBox').classList.toggle('twoup', single);
-  rows.forEach((r,i)=>cols.forEach(c=>{ const pk=c.id+'_'+i;
+  rows.forEach((r,i)=>cols.map(c=>c.id).concat('all').forEach(cid=>{ const pk=cid+'_'+i;
     const m=document.querySelector(`.pmemo[data-pk="${pk}"]`); if(m){ m.value=state['pmemo_'+pk]||''; autoGrow(m); }
   }));
   applyPhotos();
@@ -893,6 +903,7 @@ function buildPhotos(){
 function refreshPhotoPairs(){
   const cols=activeCols();
   photoRowsArr().forEach((r,i)=>{
+    if(isCommonRow(i)) return;   // 한 컷 줄은 샘플별 칸이 없으므로 '미촬영' 판정 대상이 아니다
     const cells=cols.map(c=>{ const pk=c.id+'_'+i; return { box:document.getElementById('pb_'+pk), cell:document.querySelector('.photo-cell[data-pk="'+pk+'"]'), memo:document.querySelector('.pmemo[data-pk="'+pk+'"]') }; });
     const anyImg=cells.some(c=>c.box&&c.box.classList.contains('has-img'));   // 한 줄에서 어느 열이든 사진이 있으면
     cells.forEach(c=>{ if(!c.cell)return;
@@ -911,6 +922,31 @@ window.addEventListener('paste', e=>{
   const items=(e.clipboardData&&e.clipboardData.items)||[];
   for(const it of items){ if(it.type&&it.type.indexOf('image')===0){ const f=it.getAsFile(); if(f){ onPhotoFiles(activePhotoPk,[f]); e.preventDefault(); toast('붙여넣기 완료'); return; } } }
 });
+function isCommonRow(i){ return !!state['pcommon_'+i]; }
+// 한 컷에 여러 샘플이 담긴 사진 줄: 샘플별 칸 대신 전폭 1칸(+메모 1칸). '미촬영' 표시 자체가 생기지 않는다.
+function photoCellCommon(rowIdx){
+  const pk='all_'+rowIdx;
+  return `<div class="photo-cell pcommon flex-1 min-w-0" data-pk="${pk}">
+    <div class="photo-box" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()">
+      <span class="ptag" style="background:#475569">전체 한 컷</span>
+      <div class="photo-del" onclick="event.stopPropagation();delPhoto('${pk}')"><i class="fa-solid fa-xmark"></i></div>
+      <div class="photo-add"><i class="fa-solid fa-camera"></i><span>탭 · 드래그로 사진 추가</span></div>
+      <input type="file" id="pf_${pk}" accept="image/*" capture="environment" class="hidden" onchange="onPhotoFiles('${pk}',this.files)">
+    </div>
+    <textarea rows="1" class="pmemo" data-pk="${pk}" placeholder="한 컷 설명 (예: 왼쪽부터 샘플A·B·C)"></textarea>
+  </div>`;
+}
+// 줄 단위 [한 컷] 전환 — 어느 방향으로 바꿔도 사진은 지우지 않고 보관한다.
+function toggleCommonRow(i){
+  const on=!isCommonRow(i), ids=activeCols().map(c=>c.id), ck='all_'+i;
+  if(on){
+    if(!photosObj[ck]){ const src=ids.map(s=>s+'_'+i).find(pk=>photosObj[pk]); if(src) photosObj[ck]=photosObj[src]; }
+    if(!(state['pmemo_'+ck]||'').trim()){ const mk=ids.map(s=>s+'_'+i).find(pk=>(state['pmemo_'+pk]||'').trim()); if(mk) state['pmemo_'+ck]=state['pmemo_'+mk]; }
+  }
+  state['pcommon_'+i]=on;
+  persist(); idbSavePhotos(); buildPhotos();
+  toast(on?'한 컷(공통) 사진 줄로 바꿨습니다 — 샘플별 사진은 보관됩니다':'샘플별 사진 칸으로 되돌렸습니다');
+}
 function photoCell(colId,colIdx,rowIdx){
   const pk=colId+'_'+rowIdx; const s=colStyle(colIdx); const name=activeCols()[colIdx].name;
   return `<div class="photo-cell flex-1 min-w-0" data-pk="${pk}">
@@ -945,9 +981,10 @@ function onPhotoFiles(pk,files){
 function setPhoto(pk,src){ const box=document.getElementById('pb_'+pk); if(!box)return; let img=box.querySelector('img'); if(!img){ img=document.createElement('img'); box.insertBefore(img,box.firstChild);} img.src=src; box.classList.add('has-img'); refreshPhotoPairs(); }
 function delPhoto(pk){ const box=document.getElementById('pb_'+pk); if(!box)return; const img=box.querySelector('img'); if(img)img.remove(); box.classList.remove('has-img'); delete photosObj[pk]; idbSavePhotos(); const pf=document.getElementById('pf_'+pk); if(pf)pf.value=''; refreshPhotoPairs(); }
 function addPhotoRow(){ photoRowsArr().push('추가 사진'); persist(); buildPhotos(); }
-function delPhotoRow(i){ const rows=photoRowsArr(); const n=rows.length; const ids=activeCols().map(c=>c.id);
-  for(let j=i;j<n-1;j++){ ids.forEach(s=>{ photosObj[s+'_'+j]=photosObj[s+'_'+(j+1)]; state['pmemo_'+s+'_'+j]=state['pmemo_'+s+'_'+(j+1)]; }); }
-  ids.forEach(s=>{ delete photosObj[s+'_'+(n-1)]; delete state['pmemo_'+s+'_'+(n-1)]; });
+function delPhotoRow(i){ const rows=photoRowsArr(); const n=rows.length; const ids=activeCols().map(c=>c.id).concat('all');
+  for(let j=i;j<n-1;j++){ ids.forEach(s=>{ photosObj[s+'_'+j]=photosObj[s+'_'+(j+1)]; state['pmemo_'+s+'_'+j]=state['pmemo_'+s+'_'+(j+1)]; });
+    state['pcommon_'+j]=state['pcommon_'+(j+1)]; }
+  ids.forEach(s=>{ delete photosObj[s+'_'+(n-1)]; delete state['pmemo_'+s+'_'+(n-1)]; }); delete state['pcommon_'+(n-1)];
   rows.splice(i,1); persist(); idbSavePhotos(); buildPhotos(); }
 function bindPhotoDnD(){
   document.querySelectorAll('.photo-box').forEach(box=>{
