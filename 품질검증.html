@@ -1164,8 +1164,9 @@ function buildSummary(){
   if(cols.length>=2 && !state.noBase) o+=` 기존(${cols[0].name}) 대비 변경 후보를 비교 평가함.`;
   else if(state.noBase && CMP.includes(state.purposeType)) o+=' 기존 제품은 비교 열로 두지 않았으나, 각 항목 판정은 현 사용 제품을 기준으로 대비함.';
   else if(state.noBase) o+=' 기존 제품 없이 신규 샘플만 비교 평가함.';
+  const UNDET=/^(미정|미확정|추후|정보없음|미상|미공개)/;
   if(SPEC_FIELDS){ const und=SPEC_FIELDS.map((f,i)=>({f,vals:cols.map(c=>(state['spec_'+i+'_'+c.id]||'').trim())}))
-      .filter(x=>x.vals.every(v=>v===''||/^(미정|미확정|추후)/.test(v))).map(x=>x.f);
+      .filter(x=>x.vals.every(v=>v===''||UNDET.test(v))).map(x=>x.f);
     if(und.length) o+=` ${josa(und.join('·'),'은','는')} 미정 상태로, 스펙 확정 전 단계임.`; }
   if(C.weight){ const seg=jc.map(c=>{ const s=weightStats(weightArr(c.id)); return s.n?`${c.name} ${s.min}~${s.max}${WUNIT}(편차 ${s.range}, ${s.n}개)`:null; }).filter(Boolean);
     if(seg.length) o+=` 개별 무게 실측 — ${seg.join(', ')}.`; }
@@ -1213,6 +1214,17 @@ function buildSummary(){
     const oR=(op&&oy)?op/(oy/100):0, nR=(np&&ny)?np/(ny/100):0;
     if(oR&&nR){ const d=((nR-oR)/oR)*100; c+=` 실원가 ${Math.round(oR).toLocaleString()}원 → ${Math.round(nR).toLocaleString()}원 (${d>0?'+':''}${d.toFixed(1)}%).`; } }
   S.push(c);
+
+  /* 7 ─ 개선 요청 사항 — 문제 항목을 줄 세워 두고, 요청 내용은 사람이 채운다 */
+  const seen=new Set(), asks=[];
+  const ask=(label,text)=>{ if(seen.has(label))return; seen.add(label); asks.push(` · ${label} — ${text}`); };
+  xr.forEach(r=>ask(r.label,'(요청 내용 작성)'));
+  tr.forEach(r=>ask(r.label,'(요청 내용 작성)'));
+  if(SPEC_FIELDS) SPEC_FIELDS.forEach((f,i)=>{
+    const vals=cols.map(c=>(state['spec_'+i+'_'+c.id]||'').trim());
+    if(vals.every(v=>v===''||UNDET.test(v))) ask(f,'확정 자료 제출 요청');
+  });
+  if(asks.length) S.push('[개선 요청 사항]\n'+asks.join('\n'));
 
   return S.join('\n\n');
 }
