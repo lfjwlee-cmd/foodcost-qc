@@ -338,6 +338,24 @@ tailwind.config = { theme: { extend: {
         </select>
       </div>
       <div class="mt-3"><label class="lbl">검증 목적/배경</label><textarea class="fld fld-sm" rows="2" data-k="purpose" placeholder="유형 선택 시 기본 문구가 채워집니다 — 세부 배경을 직접 다듬으세요"></textarea></div>
+      <div class="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3">
+        <p class="lbl mb-2"><i class="fa-solid fa-handshake-angle mr-1 text-brand-500"></i>요청 관리 <span class="font-normal text-slate-400">구매물류팀 협업</span></p>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div><label class="lbl">요청 출처</label>
+            <select class="fld fld-sm" data-k="reqFrom">
+              <option value="">선택…</option><option>구매물류팀</option><option>메뉴개발팀</option><option>매장</option><option>거래처 제안</option><option>경영진</option><option>기타</option>
+            </select></div>
+          <div><label class="lbl">완료 기한</label><input type="date" class="fld fld-sm" data-k="dueDate"></div>
+          <div><label class="lbl">예상 월 사용량</label><input class="fld fld-sm" data-k="monthlyUse" placeholder="예: 120kg / 월"></div>
+          <div><label class="lbl">공급 가능 여부 <span class="font-normal text-slate-400">구매팀</span></label>
+            <select class="fld fld-sm" data-k="supplyOk">
+              <option value="">미확인</option><option>확인 중</option><option>공급 가능</option><option>조건부 가능</option><option>공급 불가</option>
+            </select></div>
+        </div>
+        <label class="no-print flex items-center gap-2 mt-2 px-1 text-xs font-bold text-slate-600 cursor-pointer">
+          <input type="checkbox" data-k="buyerJoin" style="width:15px;height:15px;accent-color:#16a34a">구매물류팀 시식 참여
+        </label>
+      </div>
       <div class="mt-3"><label class="lbl">특이사항</label><textarea class="fld" rows="2" data-k="note" placeholder="입고/검수 특이사항 · 원산지/알레르기 표기 관련 전달사항 등"></textarea></div>
     </div>
   </section>
@@ -495,6 +513,20 @@ tailwind.config = { theme: { extend: {
       <label class="lbl">제품별 종합 판정</label>
       <div id="finalVerdicts" class="space-y-2 mb-3 screen-only"></div>
       <div id="finalVerdictsPrint" class="print-only"></div>
+      <div class="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3">
+        <label class="lbl"><i class="fa-solid fa-forward mr-1 text-brand-500"></i>후속 조치 <span class="font-normal text-slate-400">구매팀이 무엇을 할 차례인가</span></label>
+        <select class="fld fld-sm" data-k="nextAction">
+          <option value="">선택…</option>
+          <option>도입 진행</option>
+          <option>최종 테스트 진행</option>
+          <option>디벨롭 · 사양 변경 요청</option>
+          <option>재샘플 요청</option>
+          <option>보류 — 조건부 재검토</option>
+          <option>개발 중단</option>
+          <option>기타(직접 작성)</option>
+        </select>
+        <input class="fld fld-sm mt-2" data-k="nextActionNote" placeholder="후속 조치 메모 (예: 11/05까지 kg 환산 단가 회신)">
+      </div>
       <div class="flex items-center justify-between mb-1">
         <label class="lbl mb-0">종합 평가 (상세 코멘트)</label>
         <div class="flex gap-1.5">
@@ -547,7 +579,7 @@ function normGroups(arr){
 }
 let PROC = normGroups(C.process);
 let SENS = normGroups(C.sensory);
-let SPEC_FIELDS_DEFAULT = ['제조회사','원산지','규격/사양','포장/단위'];
+let SPEC_FIELDS_DEFAULT = ['제조회사','원산지','규격/사양','포장/단위','담당자','연락처'];
 
 function build(){
   renderBrands();
@@ -783,7 +815,7 @@ function addWeight(colId){ weightArr(colId).push(''); persist(); buildWeights();
 function delWeight(colId,i){ weightArr(colId).splice(i,1); persist(); buildWeights(); }
 
 // ── 제조회사·상세 스펙 (입고 이력관리): 제품(열)별 스펙 칸 ──
-let SPEC_FIELDS = (C.specFields===false) ? null : ((Array.isArray(C.specFields)&&C.specFields.length) ? C.specFields : ['제조회사','원산지','규격/사양','포장/단위']);
+let SPEC_FIELDS = (C.specFields===false) ? null : ((Array.isArray(C.specFields)&&C.specFields.length) ? C.specFields : ['제조회사','원산지','규격/사양','포장/단위','담당자','연락처']);
 function buildSpecs(){
   const sec=document.getElementById('specSection'); if(!sec)return;
   if(!SPEC_FIELDS){ sec.style.display='none'; return; }
@@ -808,7 +840,8 @@ function fillSpecPrint(){
   if(cols.some(c=>photosObj['colpic_'+c.id])){
     h+='<tr><td style="font-weight:700;vertical-align:middle">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;vertical-align:middle;padding:1mm">${src?`<img src="${src}" style="display:block;width:100%;height:auto;max-height:55mm;object-fit:contain;margin:0 auto">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
   }
-  SPEC_FIELDS.forEach((f,fi)=>{ h+='<tr><td style="font-weight:700">'+escapeHtml(ekv('spec.'+fi,f))+'</td>'+cols.map(c=>`<td>${escapeHtml(state['spec_'+fi+'_'+c.id]||'')}</td>`).join('')+'</tr>'; });
+  SPEC_FIELDS.forEach((f,fi)=>{ if(!cols.some(c=>(state['spec_'+fi+'_'+c.id]||'').trim())) return;   // 전 열이 비면 인쇄에서 생략
+    h+='<tr><td style="font-weight:700">'+escapeHtml(ekv('spec.'+fi,f))+'</td>'+cols.map(c=>`<td>${escapeHtml(state['spec_'+fi+'_'+c.id]||'')}</td>`).join('')+'</tr>'; });
   el.innerHTML=h+'</tbody></table>';
 }
 
@@ -1076,6 +1109,8 @@ function fillReportHead(){
       <tr><td class="k">매장</td><td>${g('store')}</td><td class="k">검증자</td><td>${g('inspector')}</td></tr>
       ${colRows}
       ${state.purposeType?`<tr><td class="k">검증 유형</td><td colspan="3">${g('purposeType')}</td></tr>`:''}
+      ${state.nextAction?`<tr><td class="k">후속 조치</td><td>${g('nextAction')}${state.nextActionNote?' — '+g('nextActionNote'):''}</td><td class="k">회신 기한</td><td>${g('dueDate')||'-'}</td></tr>`:''}
+      ${(state.monthlyUse||state.supplyOk)?`<tr><td class="k">예상 월사용량</td><td>${g('monthlyUse')||'-'}</td><td class="k">공급 가능</td><td>${g('supplyOk')||'미확인'}</td></tr>`:''}
       ${state.purpose?`<tr><td class="k">검증 목적</td><td colspan="3">${g('purpose')}</td></tr>`:''}
       ${state.note?`<tr><td class="k">특이사항</td><td colspan="3">${g('note')}</td></tr>`:''}
       <tr><td class="k">최종 판정</td><td colspan="3" class="rh-verdict">${v}</td></tr>
@@ -1214,6 +1249,15 @@ function buildSummary(){
     const oR=(op&&oy)?op/(oy/100):0, nR=(np&&ny)?np/(ny/100):0;
     if(oR&&nR){ const d=((nR-oR)/oR)*100; c+=` 실원가 ${Math.round(oR).toLocaleString()}원 → ${Math.round(nR).toLocaleString()}원 (${d>0?'+':''}${d.toFixed(1)}%).`; } }
   S.push(c);
+
+  /* 6-2 ─ 후속 조치 — 구매팀이 무엇을 할 차례인지 한 줄로 */
+  if(state.nextAction){
+    let na='[후속 조치] '+state.nextAction;
+    if(state.nextActionNote) na+=' — '+state.nextActionNote;
+    if(state.dueDate) na+=' (회신 기한 '+state.dueDate+')';
+    if(state.monthlyUse) na+=' / 예상 월사용량 '+state.monthlyUse;
+    S.push(na);
+  }
 
   /* 7 ─ 개선 요청 사항 — 문제 항목을 줄 세워 두고, 요청 내용은 사람이 채운다 */
   const seen=new Set(), asks=[];
@@ -1451,6 +1495,11 @@ async function exportExcel(){
   meta('매장 / 검증자', (state.store||'')+(state.inspector?(' / '+state.inspector):''));
   meta('검증일자', state.date||''); meta('검증방식', NC<=1?'단일(신규 등록)':(NC+'개 제품 비교'));
   if(state.purposeType) meta('검증 유형', state.purposeType);
+  if(state.reqFrom) meta('요청 출처', state.reqFrom);
+  if(state.nextAction) meta('후속 조치', state.nextAction+(state.nextActionNote?(' — '+state.nextActionNote):''));
+  if(state.dueDate) meta('회신 기한', state.dueDate);
+  if(state.monthlyUse) meta('예상 월사용량', state.monthlyUse);
+  if(state.supplyOk) meta('공급 가능 여부', state.supplyOk);
   if(state.purpose) meta('검증 목적', state.purpose);
   push('section',['■ 비교 대상']);
   cols.forEach(c=> push('meta',[c.name,'',c.desc||''],{metaRow:true}));
