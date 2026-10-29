@@ -26,6 +26,9 @@
   .clamp{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; max-width:260px; line-height:1.35; }
   #dropmask{ position:fixed; inset:0; z-index:60; background:rgba(22,163,74,.12); border:4px dashed #16a34a; display:none; align-items:center; justify-content:center; font-weight:800; color:#166534; font-size:18px; text-align:center; padding:20px; }
   #dropmask.on{ display:flex; }
+  /* 품질검증 홈의 탭 안에 들어갈 때 — 제목·툴바·자체 탭이 겹쳐 보이지 않게 숨긴다 */
+  body.embed .ldg-head, body.embed .ldg-views{ display:none !important; }
+  body.embed #app{ padding-top:10px; }
 </style>
 </head>
 <body>
@@ -43,7 +46,7 @@
 </div>
 
 <div id="app" class="max-w-full mx-auto px-4 py-5 hidden">
-  <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+  <div class="ldg-head flex items-center justify-between flex-wrap gap-2 mb-3">
     <div>
       <h1 class="text-xl font-extrabold text-slate-800"><i class="fa-solid fa-gauge-high text-slate-700"></i> 품질검증 대장</h1>
       <p class="text-xs text-slate-500 mt-0.5">여러 사람이 어느 컴퓨터에서 넣어도 <b>한 곳에 실시간</b>으로 모입니다. 셀 <b>더블클릭</b> 수정. <span id="cnt"></span></p>
@@ -62,7 +65,7 @@
     </div>
   </div>
 
-  <div class="flex gap-1.5 mb-3">
+  <div class="ldg-views flex gap-1.5 mb-3">
     <button type="button" id="vwTable" class="btn bg-slate-800 text-white" onclick="setView('table')"><i class="fa-solid fa-table-list mr-1"></i>대장 표</button>
     <button type="button" id="vwBoard" class="btn bg-slate-100 text-slate-500" onclick="setView('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 보드</button>
   </div>
@@ -136,6 +139,8 @@ function enterApp(){
 }
 // 품질검증 홈이 iframe 으로 열 때 #board 를 붙여 보드부터 보여 준다
 function hashView(){ if((location.hash||'')==='#board') setView('board'); }
+// iframe 안이면 부모(품질검증 홈)가 제목·탭을 이미 그리므로 중복 UI 를 감춘다
+try{ if(window.self!==window.top) document.body.classList.add('embed'); }catch(e){ document.body.classList.add('embed'); }
 window.addEventListener('hashchange', hashView);
 
 // ===== 데이터 =====
