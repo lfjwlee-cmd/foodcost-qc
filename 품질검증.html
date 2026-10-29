@@ -153,6 +153,28 @@ tailwind.config = { theme: { extend: {
   .sh-tab:hover{ color:#0f172a; background:#e9edea; }
   .sh-tab.on{ color:#15803d; background:#fff; border-bottom-color:#16a34a; box-shadow:0 -1px 0 #e2e8f0 inset; }
   .sh-frame{ display:block; width:100%; height:calc(100vh - 150px); border:0; background:#fff; }
+  /* 진행 현황 — 목록·상세 2단 */
+  .bd-wrap{ display:grid; grid-template-columns:minmax(0,340px) minmax(0,1fr); gap:14px; align-items:start; }
+  @media (max-width:860px){ .bd-wrap{ grid-template-columns:1fr; } }
+  .bd-card{ background:#fff; border:1px solid #e2e8f0; border-radius:14px; }
+  .bd-row{ display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid #f1f5f9;
+    cursor:pointer; transition:.1s; }
+  .bd-row:last-child{ border-bottom:none; }
+  .bd-row:hover{ background:#f8fafc; }
+  .bd-row.on{ background:#f0fdf4; box-shadow:inset 3px 0 0 #16a34a; }
+  .bd-f{ border:1px solid #e2e8f0; border-radius:9px; background:#fff; font-size:12.5px; padding:7px 10px; color:#334155; }
+  .bd-f:focus{ outline:2px solid #bbf7d0; border-color:#16a34a; }
+  .bd-sec{ padding:14px 16px; border-bottom:1px solid #f1f5f9; }
+  .bd-sec:last-child{ border-bottom:none; }
+  .bd-h{ font-size:11px; font-weight:800; letter-spacing:.05em; color:#94a3b8; margin-bottom:7px; }
+  .bd-btn{ border:1px solid #e2e8f0; background:#fff; border-radius:9px; padding:7px 12px;
+    font-size:12.5px; font-weight:700; color:#334155; cursor:pointer; }
+  .bd-btn:hover{ border-color:#16a34a; color:#15803d; }
+  .bd-btn.pri{ background:#0f172a; border-color:#0f172a; color:#fff; }
+  .bd-t{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .bd-t th,.bd-t td{ border-bottom:1px solid #f1f5f9; padding:7px 9px; text-align:left; }
+  .bd-t th{ font-size:11px; color:#94a3b8; font-weight:700; }
+  .bd-t td.n{ font-variant-numeric:tabular-nums; }
   /* 구매팀 전달서 — 본문을 모두 숨기고 A4 1장만 인쇄 */
   #handoffSheet{ display:none; }
   body.handoff > *{ display:none !important; }
@@ -285,6 +307,16 @@ tailwind.config = { theme: { extend: {
     #reportHead .rh-meta td{ border:1px solid #cbd5e1; padding:4px 7px; vertical-align:top; }
     #reportHead .rh-meta .k{ background:#f1f5f9; font-weight:700; width:15%; white-space:nowrap; }
     #reportHead .rh-verdict{ font-weight:800; }
+  }
+  /* 전달서 인쇄 — 위 본문 인쇄 규칙보다 뒤에 와야 덮이지 않는다 */
+  @media print{
+    body.handoff{ background:#fff !important; font-size:12.5px !important; padding:0 !important; }
+    body.handoff #handoffSheet{ display:block !important; }
+    body.handoff #handoffSheet .hs-wrap{ max-width:none !important; padding:0 !important; }
+    body.handoff .hs-top{ break-inside:avoid; }
+    body.handoff table.hs-t, body.handoff table.hs-kv{ break-inside:auto; }
+    body.handoff table.hs-t tr, body.handoff table.hs-kv tr{ break-inside:avoid; }
+    body.handoff .hs-band{ break-inside:avoid; }
   }
 </style>
 </head>
@@ -1672,68 +1704,70 @@ function netStatus(){ const on=navigator.onLine; document.getElementById('netDot
 window.addEventListener('online',netStatus); window.addEventListener('offline',netStatus);
 
 // ── 구매물류팀 전달서 — 전체 보고서 대신 A4 1장 ──
-function exportHandoff(){
-  collect();
-  const esc=escapeHtml, g=k=>esc(state[k]||'');
-  const cols=activeCols(), jc=(typeof judgeCols==='function')?judgeCols():cols;
-  const base=(cols.length>=2 && !state.noBase)?cols[0]:null;
-  const si=(typeof specIdx==='function')?specIdx('제조회사'):0;
-  const mk=c=>esc(state['spec_'+si+'_'+c.id]||'-');
-  const pk=c=>{ const i=(typeof specIdx==='function')?specIdx('포장'):-1; return i>=0?esc(state['spec_'+i+'_'+c.id]||''):''; };
-  // 열 설명에 이미 제조회사가 적혀 있으면 중복 출력하지 않는다
+// st/cfg 만 받는 순수 함수. 작성 화면(현재 state)과 현황 화면(저장된 레코드) 양쪽이 같은 출력을 쓴다.
+function handoffHTML(st, cfg, meta){
+  const esc=escapeHtml, g=k=>esc(st[k]||'');
+  const cols=(st.cols&&st.cols.length)?st.cols:((cfg.cols)||[]);
+  const jc=(!st.noBase && cols.length>=2) ? cols.slice(1) : cols;
+  const base=(cols.length>=2 && !st.noBase)?cols[0]:null;
+  const FIELDS=(Array.isArray(cfg.specFields)&&cfg.specFields.length)?cfg.specFields:['제조회사','원산지','규격/사양','포장/단위','담당자','연락처'];
+  const idx=n=>FIELDS.findIndex(f=>String(f).replace(/\s/g,'').indexOf(n)>=0);
+  const si=idx('제조회사'), pi=idx('포장');
+  const mk=c=> si>=0 ? esc(st['spec_'+si+'_'+c.id]||'') : '';
+  const pk=c=> pi>=0 ? esc(st['spec_'+pi+'_'+c.id]||'') : '';
   const line=c=>{ const m=mk(c), d=esc(c.desc||''), p=pk(c);
-    const dup = m && m!=='-' && d.replace(/\s/g,'').includes(m.replace(/\s/g,''));
-    return [dup?'':m, d, p].filter(x=>x && x!=='-').join(' ') || '-'; };
+    const dup = m && d.replace(/\s/g,'').includes(m.replace(/\s/g,''));
+    return [dup?'':m, d, p].filter(x=>x&&x!=='-').join(' ') || '-'; };
   const VT={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불가'};
-  const vs=jc.map(c=>state['final_'+c.id+'_v']).filter(Boolean);
+  const vs=jc.map(c=>st['final_'+c.id+'_v']).filter(Boolean);
   const worst = vs.includes('×')?'×':(vs.includes('△')?'△':(vs.includes('○')?'○':''));
-  // 근거 — 부적합·조건부 항목만
+  // 판단 근거 — ×·△ 항목만
   const basis=[];
-  [['proc',PROC],['sens',SENS]].forEach(([p,gs])=>gs.forEach((gr,gi)=>{ if(isGroupOff(p,gi))return;
-    gr.items.forEach((it,ii)=>{ const key=`${p}_${gi}_${ii}`;
-      const bad=jc.filter(c=>['×','△'].includes(state[`${key}_${c.id}_v`]));
-      if(!bad.length) return;
-      basis.push(`<li><b>${esc(ekv(key+'.label',it.label))}</b> — `
-        + bad.map(c=>`${esc(c.name)} ${state[`${key}_${c.id}_v`]} ${esc(state[`${key}_${c.id}`]||'')}`).join(' / ') + '</li>');
-    }); }));
+  [['proc',cfg.process||[]],['sens',cfg.sensory||[]]].forEach(([p,gs])=>gs.forEach((gr,gi)=>(gr.items||[]).forEach((it,ii)=>{
+    const key=p+'_'+gi+'_'+ii;
+    const bad=jc.filter(c=>['×','△'].includes(st[key+'_'+c.id+'_v']));
+    if(!bad.length) return;
+    basis.push('<li><b>'+esc(it.label)+'</b> — '+bad.map(c=>esc(c.name)+' '+esc(st[key+'_'+c.id+'_v'])+' '+esc(st[key+'_'+c.id]||'')).join(' / ')+'</li>');
+  })));
   // 측정 수치
-  const ms=(typeof metricList==='function')?metricList().filter(metricFilled):[];
-  const mTable = ms.length ? '<h3>측정 수치</h3><table class="hs-t"><tr><th>항목</th>'
-    + cols.map(c=>`<th>${esc(c.name)}</th>`).join('') + '<th>측정 방법</th></tr>'
+  const ms=(Array.isArray(cfg.metrics)?cfg.metrics:[]).filter(m=>cols.some(c=>String(st['m_'+m.k+'_'+c.id]||'').trim()!==''));
+  const mTable = ms.length ? '<h4>측정 수치</h4><table class="hs-t"><tr><th>항목</th>'
+    + cols.map(c=>'<th>'+esc(c.name)+'</th>').join('') + '<th>측정 방법</th></tr>'
     + ms.map(m=>'<tr><td>'+esc(m.label)+(m.unit?' ('+esc(m.unit)+')':'')+'</td>'
-        + cols.map(c=>`<td>${esc(String(state['m_'+m.k+'_'+c.id]||'-'))}</td>`).join('')
-        + `<td>${esc(state['m_'+m.k+'_src']||'미측정')}</td></tr>`).join('') + '</table>' : '';
+        + cols.map(c=>'<td>'+esc(String(st['m_'+m.k+'_'+c.id]||'-'))+'</td>').join('')
+        + '<td>'+esc(st['m_'+m.k+'_src']||'미측정')+'</td></tr>').join('') + '</table>' : '';
   // 변경 요청
-  const ar=(Array.isArray(state.asks)?state.asks:[]).filter(r=>(r.item||r.req||'').trim());
-  const aTable = ar.length ? '<h3>변경 요청</h3><table class="hs-t"><tr><th>항목</th><th>현재값</th><th>목표값</th><th>요청</th></tr>'
-    + ar.map(r=>`<tr><td><b>${esc(r.item||'-')}</b></td><td>${esc(r.now||'-')}</td><td>${esc(r.goal||'-')}</td><td>${esc(r.req||'')}</td></tr>`).join('')
+  const ar=(Array.isArray(st.asks)?st.asks:[]).filter(r=>(r.item||r.req||'').trim());
+  const aTable = ar.length ? '<h4>변경 요청</h4><table class="hs-t"><tr><th>항목</th><th>현재값</th><th>목표값</th><th>요청</th></tr>'
+    + ar.map(r=>'<tr><td><b>'+esc(r.item||'-')+'</b></td><td>'+esc(r.now||'-')+'</td><td>'+esc(r.goal||'-')+'</td><td>'+esc(r.req||'')+'</td></tr>').join('')
     + '</table>' : '';
-  const sheet=document.getElementById('handoffSheet');
-  sheet.innerHTML = `<div class="hs-wrap">
-    <div class="hs-top"><h2>식자재 검증 결과 전달서</h2>
-      <div class="hs-meta"><div>${g('date')}</div><div>${esc(C.dept||'메뉴개발팀')} · ${g('inspector')}</div></div></div>
+  const brands = Array.isArray(st.brands)? st.brands.join(' · ') : '';
+  const product = st.product || (meta&&meta.ingredient) || cfg.ingredient || '';
+  return `<div class="hs-wrap">
+    <div class="hs-top"><h3>식자재 검증 결과 전달서</h3>
+      <div class="meta"><div>${esc(st.date||(meta&&meta.date)||'')}</div><div>${esc(cfg.dept||'메뉴개발팀')} · ${g('inspector')}</div></div></div>
     <table class="hs-kv">
-      <tr><td class="k">품목</td><td>${g('product')||esc(C.ingredient||'')}</td>
-          <td class="k">브랜드</td><td>${esc(selectedBrands().join(' · '))}</td></tr>
+      <tr><td class="k">품목</td><td>${esc(product)}</td><td class="k">브랜드</td><td>${esc(brands)}</td></tr>
       ${base?`<tr><td class="k">기존</td><td colspan="3">${line(base)}</td></tr>`:''}
       ${jc.map(c=>`<tr><td class="k">${esc(c.name)}</td><td colspan="3">${line(c)}</td></tr>`).join('')}
     </table>
     <div class="hs-band">
-      <div class="hs-b"><div class="l">검증 결과</div><div class="v">${VT[worst]||'판정 미입력'}</div></div>
-      <div class="hs-b"><div class="l">후속 조치</div><div class="v">${g('nextAction')||'미정'}</div></div>
-      <div class="hs-b"><div class="l">회신 기한</div><div class="v">${g('dueDate')||'-'}</div></div>
+      <div class="hs-b"><div class="lbl">검증 결과</div><div class="big">${VT[worst]||'판정 미입력'}</div></div>
+      <div class="hs-b"><div class="lbl">후속 조치</div><div class="big">${g('nextAction')||'미정'}</div></div>
+      <div class="hs-b"><div class="lbl">회신 기한</div><div class="big">${g('dueDate')||'-'}</div></div>
     </div>
-    ${basis.length?`<h3>판단 근거</h3><ul>${basis.join('')}</ul>`:''}
-    ${mTable}
-    ${aTable}
-    ${state.nextActionNote?`<h3>후속 조치 메모</h3><p>${g('nextActionNote')}</p>`:''}
+    ${basis.length?`<h4>판단 근거</h4><ul class="basis">${basis.join('')}</ul>`:''}
+    ${mTable}${aTable}
+    ${st.nextActionNote?`<h4>후속 조치 메모</h4><p>${g('nextActionNote')}</p>`:''}
     <table class="hs-kv">
-      <tr><td class="k">예상 월사용량</td><td>${g('monthlyUse')||'미산정'}</td>
-          <td class="k">공급 가능</td><td>${g('supplyOk')||'미확인'}</td></tr>
-      <tr><td class="k">요청 출처</td><td>${g('reqFrom')||'-'}</td>
-          <td class="k">검증 유형</td><td>${g('purposeType')||'-'}</td></tr>
+      <tr><td class="k">예상 월사용량</td><td>${g('monthlyUse')||'미산정'}</td><td class="k">공급 가능</td><td>${g('supplyOk')||'미확인'}</td></tr>
+      <tr><td class="k">요청 출처</td><td>${g('reqFrom')||'-'}</td><td class="k">검증 유형</td><td>${g('purposeType')||'-'}</td></tr>
     </table>
   </div>`;
+}
+function exportHandoff(){
+  collect();
+  document.getElementById('handoffSheet').innerHTML = handoffHTML(state, C, {ingredient:C.ingredient});
   document.body.classList.add('handoff');
   const back=()=>{ document.body.classList.remove('handoff'); window.removeEventListener('afterprint',back); };
   window.addEventListener('afterprint',back);
@@ -2357,70 +2391,219 @@ function showEditor(){ document.getElementById('shList').style.display='none'; d
 /* ---------- 목록 ---------- */
 let REPORTS=[];
 function withTimeout(p,ms){ return Promise.race([ Promise.resolve(p), new Promise((_,rej)=>setTimeout(()=>rej(new Error('시간 초과 — 네트워크/로그인/프로젝트 상태를 확인하세요')), ms||12000)) ]); }
-// ── 진행 현황 보드 — 후속 조치별 칸. 두 팀이 같이 보는 기본 화면 ──
-let NBOARD=[];
-async function loadNativeBoard(){
-  const box=document.getElementById('shPanelBoard'); if(!box) return;
-  if(!NBOARD.length) box.innerHTML='<p style="color:#94a3b8;font-size:13px;padding:30px 0;text-align:center">불러오는 중…</p>';
-  try{
-    const {data,error}=await sb.from('qc_reports')
-      .select('id,ingredient,date,verdict,maker,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote');
-    if(error) throw error;
-    NBOARD=data||[];
-    let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
-      if(!c.error&&c.data) c.data.forEach(x=>{ cm[x.report_id]=(cm[x.report_id]||0)+1; }); }catch(e){}
-    NBOARD.forEach(r=> r.cmt=cm[r.id]||0);
-    renderNativeBoard();
-  }catch(e){ box.innerHTML='<p style="color:#e11d48;font-size:13px;padding:24px 0;text-align:center">현황을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
-}
+// ===== 진행 현황 — 메뉴개발팀이 쓰고 구매물류팀이 보고 판단하는 화면 =====
+let NBOARD=[], BSEL=null, BDETAIL=null;
+const BFIL={q:'',action:'',verdict:'',maker:'',due:''};
+const ACT_LIST=['도입 진행','최종 테스트 진행','디벨롭 · 사양 변경 요청','재샘플 요청','보류 — 조건부 재검토','개발 중단'];
+const ACT_COLOR={'도입 진행':'#16a34a','최종 테스트 진행':'#2563eb','디벨롭 · 사양 변경 요청':'#d97706',
+  '재샘플 요청':'#d97706','보류 — 조건부 재검토':'#64748b','개발 중단':'#e11d48','':'#94a3b8'};
+const VCOLOR={'○':'#16a34a','△':'#d97706','×':'#e11d48'};
+
 function dueInfo(d){
   if(!d) return null;
   const dd=Math.ceil((new Date(d+'T23:59:59')-new Date())/86400000);
-  if(dd<0) return {t:d+' · 초과', c:'#e11d48', b:1};
-  if(dd<=3) return {t:d+' · D-'+dd, c:'#e11d48', b:1};
-  return {t:d, c:'#94a3b8', b:0};
+  if(dd<0) return {t:d+' · 초과', c:'#e11d48', hot:1};
+  if(dd<=3) return {t:d+' · D-'+dd, c:'#e11d48', hot:1};
+  return {t:d, c:'#94a3b8', hot:0};
 }
+async function loadNativeBoard(){
+  const box=document.getElementById('shPanelBoard'); if(!box) return;
+  if(!NBOARD.length) box.innerHTML='<p style="color:#94a3b8;font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
+  try{
+    const {data,error}=await sb.from('qc_reports')
+      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote');
+    if(error) throw error;
+    NBOARD=(data||[]).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+    let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
+      if(!c.error&&c.data) c.data.forEach(x=>{ cm[x.report_id]=(cm[x.report_id]||0)+1; }); }catch(e){}
+    NBOARD.forEach(r=> r.cmt=cm[r.id]||0);
+    if(!BSEL && NBOARD.length) BSEL=NBOARD[0].id;
+    renderNativeBoard();
+    if(BSEL) selectBoardItem(BSEL, true);
+  }catch(e){ box.innerHTML='<p style="color:#e11d48;font-size:13px;padding:24px 0;text-align:center">현황을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
+}
+function boardFiltered(){
+  const q=(BFIL.q||'').toLowerCase();
+  return NBOARD.filter(r=>{
+    if(BFIL.action!=='' && (r.action||'')!==BFIL.action) return false;
+    if(BFIL.verdict && (r.verdict||'')!==BFIL.verdict) return false;
+    if(BFIL.maker && (r.maker||'')!==BFIL.maker) return false;
+    if(BFIL.due==='late'){ const d=dueInfo(r.due); if(!d||!d.hot) return false; }
+    if(BFIL.due==='none' && r.due) return false;
+    if(q && !((r.ingredient||'')+' '+(r.maker||'')+' '+(r.brand||'')).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+function setBFil(k,v){ BFIL[k]=v; renderNativeBoard(); }
 function renderNativeBoard(){
   const box=document.getElementById('shPanelBoard'); if(!box) return;
   const now=new Date();
   const open=NBOARD.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
   const late=NBOARD.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
   const adopt=NBOARD.filter(r=>r.action==='도입 진행');
-  const tile=(l,v,alert)=>`<div style="background:#fff;border:1px solid ${alert?'#fecdd3':'#e2e8f0'};border-radius:14px;padding:13px 15px">
+  const makers=[...new Set(NBOARD.map(r=>r.maker).filter(Boolean))].sort();
+  const rows=boardFiltered();
+
+  const tile=(l,v,hot)=>`<div style="background:#fff;border:1px solid ${hot?'#fecdd3':'#e2e8f0'};border-radius:14px;padding:12px 15px">
     <div style="font-size:11px;font-weight:700;color:#94a3b8">${l}</div>
-    <div style="font-size:26px;font-weight:800;line-height:1.15;color:${alert?'#e11d48':'#1e293b'}">${v}</div></div>`;
-  const card=r=>{ const d=dueInfo(r.due); const vc={'○':'#16a34a','△':'#d97706','×':'#e11d48'}[r.verdict]||'#cbd5e1';
-    return `<div onclick="openReport('${r.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid ${vc};border-radius:10px;padding:10px 12px;cursor:pointer">
-      <div style="font-size:13.5px;font-weight:700;color:#1e293b">${esc(r.ingredient||'(제품명 없음)')}</div>
-      <div style="font-size:11.5px;color:#64748b;margin-top:1px">${esc(r.maker||'거래처 미상')}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:5px;font-size:11px">
-        ${r.verdict?`<span style="font-weight:800;color:${vc}">${esc(r.verdict)}</span>`:''}
-        ${d?`<span style="color:${d.c};font-weight:${d.b?700:400}">${esc(d.t)}</span>`:''}
-        ${r.use?`<span style="color:#94a3b8">${esc(r.use)}</span>`:''}
-        ${r.cmt?`<span style="color:#64748b"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
+    <div style="font-size:25px;font-weight:800;line-height:1.15;color:${hot?'#e11d48':'#0f172a'}">${v}</div></div>`;
+  const opt=(v,t,cur)=>`<option value="${esc(v)}"${cur===v?' selected':''}>${esc(t)}</option>`;
+
+  const list = rows.length ? rows.map(r=>{
+    const d=dueInfo(r.due), ac=ACT_COLOR[r.action||''];
+    return `<div class="bd-row${r.id===BSEL?' on':''}" onclick="selectBoardItem('${r.id}')">
+      <span style="width:8px;height:8px;border-radius:50%;background:${VCOLOR[r.verdict]||'#cbd5e1'};flex:none"></span>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:13.5px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.ingredient||'(제품명 없음)')}</div>
+        <div style="font-size:11.5px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.maker||'거래처 미상')}</div>
       </div>
-      ${r.note?`<div style="font-size:11px;color:#94a3b8;margin-top:4px">${esc(r.note)}</div>`:''}
-    </div>`; };
-  const col=a=>{ const rows=NBOARD.filter(r=>(r.action||'')===a.k);
-    if(!rows.length) return '';   // 비어 있는 칸은 그리지 않는다 — 빈 칸이 화면을 다 차지하던 문제
-    return `<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;padding-bottom:7px;border-bottom:2px solid ${a.c};color:${a.c}">
-        <span>${a.t}</span><span style="color:#94a3b8">${rows.length}</span></div>
-      ${rows.map(card).join('')}
-    </div>`; };
+      <div style="text-align:right;flex:none">
+        <div style="font-size:10.5px;font-weight:700;color:${ac}">${esc(r.action||'미지정')}</div>
+        ${d?`<div style="font-size:10.5px;color:${d.c}">${esc(d.t)}</div>`:''}
+        ${r.cmt?`<div style="font-size:10px;color:#94a3b8"><i class="fa-regular fa-comment"></i> ${r.cmt}</div>`:''}
+      </div></div>`; }).join('')
+    : '<p style="font-size:12.5px;color:#94a3b8;padding:24px 12px;text-align:center">조건에 맞는 검증이 없습니다.</p>';
+
+  const mk={};
+  NBOARD.forEach(r=>{ const k=r.maker||'거래처 미상'; mk[k]=mk[k]||{n:0,adopt:0,stop:0};
+    mk[k].n++; if(r.action==='도입 진행')mk[k].adopt++; if(r.action==='개발 중단')mk[k].stop++; });
+  const mkRows=Object.entries(mk).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>
+    `<tr><td>${esc(k)}</td><td class="n">${v.n}</td><td class="n" style="color:#16a34a">${v.adopt}</td><td class="n" style="color:#e11d48">${v.stop}</td></tr>`).join('');
+
   box.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
-      ${tile('진행 중', open.length)}${tile('기한 임박·초과', late.length, late.length>0)}
-      ${tile('도입 확정', adopt.length)}${tile('전체 검증', NBOARD.length)}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:14px">
+    ${tile('진행 중',open.length)}${tile('기한 임박·초과',late.length,late.length>0)}${tile('도입 확정',adopt.length)}${tile('전체 검증',NBOARD.length)}
+  </div>
+  <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    <input class="bd-f" style="flex:1 1 180px;min-width:150px" placeholder="제품·거래처 검색" value="${esc(BFIL.q)}" oninput="BFIL.q=this.value;renderNativeBoard();document.getElementById('bdq')&&document.getElementById('bdq').focus()" id="bdq">
+    <select class="bd-f" onchange="setBFil('action',this.value)">${opt('','후속 조치 전체',BFIL.action)}${opt('','미지정',BFIL.action==='∅'?'∅':'')}${ACT_LIST.map(a=>opt(a,a,BFIL.action)).join('')}</select>
+    <select class="bd-f" onchange="setBFil('verdict',this.value)">${opt('','판정 전체',BFIL.verdict)}${['○','△','×'].map(v=>opt(v,v,BFIL.verdict)).join('')}</select>
+    <select class="bd-f" onchange="setBFil('maker',this.value)">${opt('','거래처 전체',BFIL.maker)}${makers.map(m=>opt(m,m,BFIL.maker)).join('')}</select>
+    <select class="bd-f" onchange="setBFil('due',this.value)">${opt('','기한 전체',BFIL.due)}${opt('late','기한 임박·초과',BFIL.due)}${opt('none','기한 없음',BFIL.due)}</select>
+  </div>
+  <div class="bd-wrap">
+    <div class="bd-card" style="overflow:hidden">
+      <div style="padding:9px 12px;border-bottom:1px solid #f1f5f9;font-size:11.5px;font-weight:700;color:#64748b">검증 ${rows.length}건</div>
+      <div style="max-height:62vh;overflow:auto">${list}</div>
     </div>
-    ${late.length?`<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#be123c;font-weight:700">
-      기한 초과 ${late.length}건 — ${late.slice(0,4).map(r=>esc(r.ingredient||'')+' ('+r.due+')').join(', ')}${late.length>4?` 외 ${late.length-4}건`:''}</div>`:''}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(224px,1fr));gap:14px;align-items:start">${HOME_ACTS.map(col).join('')}</div>
-    <p style="font-size:11px;color:#94a3b8;margin-top:12px">카드를 누르면 해당 검증이 열립니다. 후속 조치는 검증 화면 <b>PART C</b> 에서 고릅니다${
-      (()=>{ const empty=HOME_ACTS.filter(a=>!NBOARD.some(r=>(r.action||'')===a.k)&&a.k).map(a=>a.t);
-        return empty.length?` · 아직 비어 있는 단계: ${empty.join(' · ')}`:''; })()}.</p>`;
+    <div class="bd-card" id="boardDetail"><p style="padding:40px 20px;text-align:center;color:#94a3b8;font-size:13px">왼쪽에서 품목을 고르세요.</p></div>
+  </div>
+  <div class="bd-card" style="margin-top:14px;padding:14px 16px">
+    <div class="bd-h">거래처별 결과</div>
+    <table class="bd-t"><thead><tr><th>거래처</th><th>검증</th><th>도입</th><th>중단</th></tr></thead><tbody>${mkRows}</tbody></table>
+  </div>`;
 }
-// ── 검증 목록 탭 상단 요약 ──
+
+// ── 선택한 품목 상세: 결과 · 근거 · 변경 요청 · 협의 기록 · 전달서 ──
+async function selectBoardItem(id, keep){
+  BSEL=id;
+  document.querySelectorAll('#shPanelBoard .bd-row').forEach(el=>el.classList.toggle('on', el.getAttribute('onclick').includes("'"+id+"'")));
+  const el=document.getElementById('boardDetail'); if(!el) return;
+  el.innerHTML='<p style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">불러오는 중…</p>';
+  try{
+    const {data,error}=await sb.from('qc_reports').select('ingredient,date,verdict,data').eq('id',id).single();
+    if(error) throw error;
+    BDETAIL={id, ...data};
+    renderBoardDetail();
+    loadBoardComments(id);
+  }catch(e){ el.innerHTML='<p style="padding:24px;color:#e11d48;font-size:13px">불러오기 실패 — '+esc(e.message||e)+'</p>'; }
+}
+function renderBoardDetail(){
+  const el=document.getElementById('boardDetail'); if(!el||!BDETAIL) return;
+  const st=(BDETAIL.data&&BDETAIL.data.state)||{}, cfg=(BDETAIL.data&&BDETAIL.data.config)||{};
+  const cols=st.cols||[], jc=(!st.noBase&&cols.length>=2)?cols.slice(1):cols;
+  const d=dueInfo(st.dueDate), ac=ACT_COLOR[st.nextAction||''];
+  // 부적합·조건부 항목만 근거로
+  const basis=[];
+  [['proc',cfg.process||[]],['sens',cfg.sensory||[]]].forEach(([p,gs])=>gs.forEach((g,gi)=>(g.items||[]).forEach((it,ii)=>{
+    const k=p+'_'+gi+'_'+ii;
+    const bad=jc.filter(c=>['×','△'].includes(st[k+'_'+c.id+'_v']));
+    if(!bad.length) return;
+    basis.push(`<li style="margin-bottom:3px"><b>${esc(it.label)}</b> — ${bad.map(c=>`<span style="color:${VCOLOR[st[k+'_'+c.id+'_v']]};font-weight:700">${esc(st[k+'_'+c.id+'_v'])}</span> ${esc(st[k+'_'+c.id]||'')}`).join(' / ')}</li>`);
+  })));
+  const asks=(Array.isArray(st.asks)?st.asks:[]).filter(r=>(r.item||r.req||'').trim());
+  const pill=(l,v,c)=>`<div style="flex:1 1 120px;min-width:0"><div style="font-size:10.5px;font-weight:700;color:#94a3b8">${l}</div><div style="font-size:15px;font-weight:800;color:${c||'#0f172a'}">${v}</div></div>`;
+  el.innerHTML = `
+  <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
+    <div><div style="font-size:17px;font-weight:800;color:#0f172a">${esc(BDETAIL.ingredient||'')}</div>
+      <div style="font-size:11.5px;color:#64748b">${esc(BDETAIL.date||'')} · ${esc(st.inspector||'')} · ${esc(cols.map(c=>c.name).join(' / '))}</div></div>
+    <div style="display:flex;gap:6px">
+      <button class="bd-btn" onclick="openReport('${BDETAIL.id}')"><i class="fa-solid fa-pen mr-1"></i>검증 열기</button>
+      <button class="bd-btn pri" onclick="printHandoffFor('${BDETAIL.id}')"><i class="fa-solid fa-file-arrow-right mr-1"></i>전달서</button>
+    </div>
+  </div>
+  <div class="bd-sec" style="display:flex;gap:14px;flex-wrap:wrap">
+    ${pill('검증 결과', esc(BDETAIL.verdict||'미정'), VCOLOR[BDETAIL.verdict])}
+    ${pill('후속 조치', esc(st.nextAction||'미지정'), ac)}
+    ${pill('회신 기한', d?esc(d.t):'-', d?d.c:'#0f172a')}
+    ${pill('예상 월사용량', esc(st.monthlyUse||'미산정'))}
+    ${pill('공급 가능', esc(st.supplyOk||'미확인'))}
+  </div>
+  ${basis.length?`<div class="bd-sec"><div class="bd-h">판단 근거</div><ul style="margin:0;padding-left:17px;font-size:12.5px;color:#334155">${basis.join('')}</ul></div>`:''}
+  ${asks.length?`<div class="bd-sec"><div class="bd-h">변경 요청</div><table class="bd-t"><thead><tr><th>항목</th><th>현재</th><th>목표</th><th>요청</th></tr></thead><tbody>
+    ${asks.map(r=>`<tr><td><b>${esc(r.item||'-')}</b></td><td class="n">${esc(r.now||'-')}</td><td class="n">${esc(r.goal||'-')}</td><td>${esc(r.req||'')}</td></tr>`).join('')}
+  </tbody></table></div>`:''}
+  <div class="bd-sec">
+    <div class="bd-h">협의 기록 <span style="font-weight:600;color:#cbd5e1">구매물류팀 ↔ 메뉴개발팀</span></div>
+    <div id="bdCmts" style="display:flex;flex-direction:column;gap:9px;margin-bottom:9px"></div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <select id="bdTeam" class="bd-f" style="flex:0 0 118px"><option>구매물류팀</option><option>메뉴개발팀</option></select>
+      <input id="bdWho" class="bd-f" style="flex:1" placeholder="작성자">
+    </div>
+    <textarea id="bdBody" class="bd-f" style="width:100%;resize:vertical" rows="2" placeholder="협의 내용 · 회신 · 요청"></textarea>
+    <button class="bd-btn pri" style="width:100%;margin-top:6px" onclick="postBoardComment()"><i class="fa-solid fa-paper-plane mr-1"></i>코멘트 남기기</button>
+  </div>`;
+}
+async function loadBoardComments(id){
+  const box=document.getElementById('bdCmts'); if(!box) return;
+  try{
+    const {data,error}=await sb.from('qc_comments').select('*').eq('report_id',id).order('created_at',{ascending:true});
+    if(error) throw error;
+    box.innerHTML = (data||[]).length ? data.map(c=>{
+      const buy=c.team==='구매물류팀';
+      return `<div style="display:flex;gap:9px;align-items:flex-start">
+        <span style="flex:none;width:27px;height:27px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:9.5px;font-weight:800;background:${buy?'#2563eb':'#16a34a'}">${buy?'구매':'메뉴'}</span>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:11px;color:#94a3b8"><b style="color:#334155;font-size:12px">${esc(c.author||c.team)}</b> · ${esc(c.team)} · ${esc(String(c.created_at||'').slice(5,16).replace('T',' '))}
+            <button onclick="delBoardComment(${c.id})" style="float:right;border:none;background:none;color:#cbd5e1;cursor:pointer">✕</button></div>
+          <div style="font-size:12.5px;color:#334155;white-space:pre-wrap">${esc(c.body||'')}</div>
+        </div></div>`; }).join('')
+      : '<p style="font-size:12px;color:#94a3b8">아직 협의 기록이 없습니다.</p>';
+  }catch(e){ box.innerHTML='<p style="font-size:12px;color:#e11d48">코멘트를 불러오지 못했습니다.</p>'; }
+}
+async function postBoardComment(){
+  if(!BDETAIL) return;
+  const body=(document.getElementById('bdBody').value||'').trim();
+  if(!body){ toast('내용을 입력하세요'); return; }
+  const team=document.getElementById('bdTeam').value, who=(document.getElementById('bdWho').value||'').trim();
+  const {error}=await sb.from('qc_comments').insert({report_id:BDETAIL.id, team, author:who, body});
+  if(error){ toast('저장 실패: '+error.message); return; }
+  document.getElementById('bdBody').value='';
+  loadBoardComments(BDETAIL.id);
+  const r=NBOARD.find(x=>x.id===BDETAIL.id); if(r){ r.cmt=(r.cmt||0)+1; }
+  toast('코멘트를 남겼습니다');
+}
+async function delBoardComment(cid){
+  if(!confirm('이 코멘트를 지울까요?')) return;
+  await sb.from('qc_comments').delete().eq('id',cid);
+  if(BDETAIL) loadBoardComments(BDETAIL.id);
+}
+// 현황 화면에서 바로 전달서 인쇄 — 검증을 열지 않고도 뽑는다
+async function printHandoffFor(id){
+  let rec=BDETAIL;
+  if(!rec || rec.id!==id){
+    const {data,error}=await sb.from('qc_reports').select('ingredient,date,verdict,data').eq('id',id).single();
+    if(error){ toast('불러오기 실패'); return; } rec={id, ...data};
+  }
+  const sheet=document.getElementById('handoffSheet');
+  sheet.innerHTML=handoffHTML((rec.data&&rec.data.state)||{}, (rec.data&&rec.data.config)||{}, rec);
+  document.body.classList.add('handoff');
+  const back=()=>{ document.body.classList.remove('handoff'); window.removeEventListener('afterprint',back); };
+  window.addEventListener('afterprint',back);
+  toast('인쇄 창에서 "PDF로 저장"을 선택하세요 — 전달서 1장');
+  setTimeout(()=>{ window.print(); setTimeout(back,1500); },250);
+}
+// ── 검증 목록 탭 상단 요약 ──// ── 검증 목록 탭 상단 요약 ──
 const HOME_ACTS=[
   {k:'',t:'미지정',c:'#94a3b8'},
   {k:'최종 테스트 진행',t:'최종 테스트',c:'#2563eb'},
