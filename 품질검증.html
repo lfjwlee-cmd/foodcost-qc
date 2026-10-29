@@ -2339,16 +2339,13 @@ async function shellLogout(){ await sb.auth.signOut(); location.reload(); }
 // 처음 누를 때만 src 를 걸어 초기 로딩을 늦추지 않는다.
 // 보드와 대장 표는 같은 iframe 을 쓴다 — 두 번 로드하지 않도록 뷰만 바꾼다
 function shTab(name){
-  const map={board:'shPanelLedger', list:'shPanelList', ledger:'shPanelLedger', builder:'shPanelBuilder'};
+  const map={board:'shPanelBoard', list:'shPanelList', ledger:'shPanelLedger', builder:'shPanelBuilder'};
   if(!map[name]) name='board';
   const shown=map[name];
-  ['shPanelList','shPanelLedger','shPanelBuilder'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=(id===shown)?'':'none'; });
+  ['shPanelBoard','shPanelList','shPanelLedger','shPanelBuilder'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=(id===shown)?'':'none'; });
   document.querySelectorAll('.sh-tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
-  if(name==='board'||name==='ledger'){
-    const f=document.getElementById('ifLedger');
-    if(f && !f.getAttribute('src')) f.setAttribute('src','품질검증_대장.html'+(name==='board'?'#board':''));
-    else if(f){ try{ f.contentWindow.setView(name==='board'?'board':'table'); }catch(e){} }
-  }
+  if(name==='board') loadNativeBoard();
+  if(name==='ledger'){ const f=document.getElementById('ifLedger'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_대장.html'); }
   if(name==='builder'){ const f=document.getElementById('ifBuilder'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_만들기.html'); }
   try{ history.replaceState(null,'', name==='board' ? location.pathname : ('#'+name)); }catch(e){}
 }
@@ -2359,7 +2356,67 @@ function showEditor(){ document.getElementById('shList').style.display='none'; d
 /* ---------- 목록 ---------- */
 let REPORTS=[];
 function withTimeout(p,ms){ return Promise.race([ Promise.resolve(p), new Promise((_,rej)=>setTimeout(()=>rej(new Error('시간 초과 — 네트워크/로그인/프로젝트 상태를 확인하세요')), ms||12000)) ]); }
-// ── 첫 화면 진행 현황 — 후속 조치별 건수. 누르면 대장 보드로 ──
+// ── 진행 현황 보드 — 후속 조치별 칸. 두 팀이 같이 보는 기본 화면 ──
+let NBOARD=[];
+async function loadNativeBoard(){
+  const box=document.getElementById('shPanelBoard'); if(!box) return;
+  if(!NBOARD.length) box.innerHTML='<p style="color:#94a3b8;font-size:13px;padding:30px 0;text-align:center">불러오는 중…</p>';
+  try{
+    const {data,error}=await sb.from('qc_reports')
+      .select('id,ingredient,date,verdict,maker,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote');
+    if(error) throw error;
+    NBOARD=data||[];
+    let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
+      if(!c.error&&c.data) c.data.forEach(x=>{ cm[x.report_id]=(cm[x.report_id]||0)+1; }); }catch(e){}
+    NBOARD.forEach(r=> r.cmt=cm[r.id]||0);
+    renderNativeBoard();
+  }catch(e){ box.innerHTML='<p style="color:#e11d48;font-size:13px;padding:24px 0;text-align:center">현황을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
+}
+function dueInfo(d){
+  if(!d) return null;
+  const dd=Math.ceil((new Date(d+'T23:59:59')-new Date())/86400000);
+  if(dd<0) return {t:d+' · 초과', c:'#e11d48', b:1};
+  if(dd<=3) return {t:d+' · D-'+dd, c:'#e11d48', b:1};
+  return {t:d, c:'#94a3b8', b:0};
+}
+function renderNativeBoard(){
+  const box=document.getElementById('shPanelBoard'); if(!box) return;
+  const now=new Date();
+  const open=NBOARD.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
+  const late=NBOARD.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
+  const adopt=NBOARD.filter(r=>r.action==='도입 진행');
+  const tile=(l,v,alert)=>`<div style="background:#fff;border:1px solid ${alert?'#fecdd3':'#e2e8f0'};border-radius:14px;padding:13px 15px">
+    <div style="font-size:11px;font-weight:700;color:#94a3b8">${l}</div>
+    <div style="font-size:26px;font-weight:800;line-height:1.15;color:${alert?'#e11d48':'#1e293b'}">${v}</div></div>`;
+  const card=r=>{ const d=dueInfo(r.due); const vc={'○':'#16a34a','△':'#d97706','×':'#e11d48'}[r.verdict]||'#cbd5e1';
+    return `<div onclick="openReport('${r.id}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid ${vc};border-radius:10px;padding:10px 12px;cursor:pointer">
+      <div style="font-size:13.5px;font-weight:700;color:#1e293b">${esc(r.ingredient||'(제품명 없음)')}</div>
+      <div style="font-size:11.5px;color:#64748b;margin-top:1px">${esc(r.maker||'거래처 미상')}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:5px;font-size:11px">
+        ${r.verdict?`<span style="font-weight:800;color:${vc}">${esc(r.verdict)}</span>`:''}
+        ${d?`<span style="color:${d.c};font-weight:${d.b?700:400}">${esc(d.t)}</span>`:''}
+        ${r.use?`<span style="color:#94a3b8">${esc(r.use)}</span>`:''}
+        ${r.cmt?`<span style="color:#64748b"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
+      </div>
+      ${r.note?`<div style="font-size:11px;color:#94a3b8;margin-top:4px">${esc(r.note)}</div>`:''}
+    </div>`; };
+  const col=a=>{ const rows=NBOARD.filter(r=>(r.action||'')===a.k);
+    return `<div style="flex:0 0 220px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;padding-bottom:7px;border-bottom:2px solid ${a.c};color:${a.c}">
+        <span>${a.t}</span><span style="color:#94a3b8">${rows.length}</span></div>
+      ${rows.map(card).join('') || '<p style="font-size:11.5px;color:#cbd5e1;padding:6px 0">없음</p>'}
+    </div>`; };
+  box.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+      ${tile('진행 중', open.length)}${tile('기한 임박·초과', late.length, late.length>0)}
+      ${tile('도입 확정', adopt.length)}${tile('전체 검증', NBOARD.length)}
+    </div>
+    ${late.length?`<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#be123c;font-weight:700">
+      기한 초과 ${late.length}건 — ${late.slice(0,4).map(r=>esc(r.ingredient||'')+' ('+r.due+')').join(', ')}${late.length>4?` 외 ${late.length-4}건`:''}</div>`:''}
+    <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">${HOME_ACTS.map(col).join('')}</div>
+    <p style="font-size:11px;color:#94a3b8;margin-top:10px">카드를 누르면 해당 검증이 열립니다. 후속 조치는 검증 화면 PART C 에서 고릅니다.</p>`;
+}
+// ── 검증 목록 탭 상단 요약 ──
 const HOME_ACTS=[
   {k:'',t:'미지정',c:'#94a3b8'},
   {k:'최종 테스트 진행',t:'최종 테스트',c:'#2563eb'},
@@ -2555,14 +2612,14 @@ function injectShell(){
   list.innerHTML=`<div style="position:sticky;top:0;z-index:5;background:#f1f5f9;border-bottom:1px solid #cbd5e1">
     <div style="max-width:980px;margin:0 auto;padding:14px 14px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
       <div><h1 style="font-size:20px;font-weight:800;color:#1e293b"><i class="fa-solid fa-clipboard-check text-green-600"></i> 품질검증</h1>
-      <p style="font-size:12px;color:#64748b">작성 · 대장 · 만들기를 한 화면에서 <span id="shCnt" style="color:#94a3b8"></span></p></div>
+      <p style="font-size:12px;color:#64748b">메뉴개발팀 · 구매물류팀 공용 <span id="shCnt" style="color:#94a3b8"></span></p></div>
       <div style="display:flex;gap:6px"><button onclick="loadReports()" title="목록 새로고침" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-rotate"></i></button>
       <button onclick="shellLogout()" title="로그아웃" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-right-from-bracket"></i></button></div>
     </div>
     <div style="max-width:980px;margin:0 auto;padding:10px 14px 0;display:flex;gap:5px">
-      <button type="button" class="sh-tab on" data-tab="board" onclick="shTab('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 보드</button>
+      <button type="button" class="sh-tab on" data-tab="board" onclick="shTab('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 현황</button>
       <button type="button" class="sh-tab" data-tab="list" onclick="shTab('list')"><i class="fa-solid fa-list-check mr-1"></i>검증 목록</button>
-      <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-table-list mr-1"></i>대장 표</button>
+      <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-table-list mr-1"></i>전체 표</button>
       <button type="button" class="sh-tab" data-tab="builder" onclick="shTab('builder')"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>만들기</button>
     </div>
   </div>
@@ -2573,7 +2630,7 @@ function injectShell(){
     <div id="shListBody"></div>
   </div>
   <div id="shPanelLedger" style="display:none"><iframe id="ifLedger" title="품질검증 대장" class="sh-frame"></iframe></div>
-  <div id="shPanelBoard" style="display:none"></div>
+  <div id="shPanelBoard" style="display:none;max-width:1100px;margin:0 auto;padding:16px 14px 60px"></div>
   <div id="shPanelBuilder" style="display:none"><iframe id="ifBuilder" title="오프라인 빌더" class="sh-frame"></iframe></div>`;
   document.body.appendChild(list);
 
