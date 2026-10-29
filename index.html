@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>인생푸드 메뉴개발팀 · 도구 모음</title>
+<title>인생푸드 · 식자재 품질검증</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
@@ -13,28 +13,24 @@
 </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
-<div class="max-w-3xl mx-auto px-4 py-8 pb-16">
+<div class="max-w-xl mx-auto px-4 py-10">
 
   <header class="flex items-center gap-3 mb-6">
     <div class="w-12 h-12 rounded-2xl bg-green-600 text-white text-xl grid place-items-center shadow-md shrink-0">
       <i class="fa-solid fa-shield-halved"></i></div>
     <div>
-      <h1 class="text-xl font-extrabold text-slate-800">인생푸드 메뉴개발팀</h1>
-      <p class="text-xs text-slate-500">식자재·메뉴 도구 모음 · 이 주소 하나만 저장해 두세요</p>
+      <h1 class="text-xl font-extrabold text-slate-800">식자재 품질검증</h1>
+      <p class="text-xs text-slate-500">인생푸드 메뉴개발팀</p>
     </div>
   </header>
 
-  <!-- 주력 도구 -->
-  <a href="품질검증.html" class="tool block bg-white rounded-2xl shadow-sm border-l-4 border-green-600 p-5 mb-3">
+  <a href="품질검증.html" class="tool block bg-white rounded-2xl shadow-sm border-l-4 border-green-600 p-5">
     <div class="flex items-start gap-4">
       <div class="w-11 h-11 rounded-xl bg-green-50 text-green-600 text-lg grid place-items-center shrink-0">
         <i class="fa-solid fa-clipboard-check"></i></div>
       <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <h2 class="text-base font-bold text-slate-800">식자재 품질검증</h2>
-          <span class="text-[10px] font-bold text-green-700 bg-green-100 rounded px-1.5 py-0.5">주력</span>
-        </div>
-        <p class="text-[13px] text-slate-500 mt-0.5">샘플 검증 작성 · 저장 · PDF/엑셀. <b class="text-slate-600">대장</b>과 <b class="text-slate-600">만들기</b>가 이 안에 탭으로 들어 있습니다.</p>
+        <h2 class="text-base font-bold text-slate-800">품질검증 열기</h2>
+        <p class="text-[13px] text-slate-500 mt-0.5">검증 작성 · 저장 · PDF/엑셀. <b class="text-slate-600">대장</b>과 <b class="text-slate-600">만들기</b>가 안에 탭으로 들어 있습니다.</p>
         <div class="flex gap-1.5 mt-2 flex-wrap">
           <span class="text-[11px] text-slate-500 bg-slate-100 rounded px-2 py-0.5">검증 목록</span>
           <span class="text-[11px] text-slate-500 bg-slate-100 rounded px-2 py-0.5">대장</span>
@@ -45,37 +41,10 @@
     </div>
   </a>
 
-  <p class="text-[11px] font-bold text-slate-400 tracking-wide mt-6 mb-2 px-1">함께 쓰는 도구</p>
-
-  <div class="grid sm:grid-cols-2 gap-3">
-    <a href="https://lfjwlee-cmd.github.io/foodcost-purchase/" class="tool block bg-white rounded-2xl shadow-sm p-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 grid place-items-center shrink-0"><i class="fa-solid fa-cart-shopping"></i></div>
-        <div class="min-w-0">
-          <h3 class="text-sm font-bold text-slate-800">식자재 구매·평가 보드</h3>
-          <p class="text-[12px] text-slate-500">구매 품목 평가 현황</p>
-        </div>
-      </div>
-    </a>
-
-    <a href="https://lfjwlee-cmd.github.io/foodcost-survey/" class="tool block bg-white rounded-2xl shadow-sm p-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 grid place-items-center shrink-0"><i class="fa-solid fa-utensils"></i></div>
-        <div class="min-w-0">
-          <h3 class="text-sm font-bold text-slate-800">신메뉴 시식 평가</h3>
-          <p class="text-[12px] text-slate-500">QR 설문 · 결과 대시보드</p>
-        </div>
-      </div>
-    </a>
-
-    
-
-    
-  </div>
-
-  <p class="text-[11px] text-slate-400 mt-8 px-1 leading-relaxed">
-    품질검증은 팀 공용 비밀번호 로그인이 필요합니다. 대장만 바로 열려면
-    <code class="bg-slate-200 rounded px-1">품질검증.html#ledger</code> 로 접속하세요.
+  <p class="text-[11px] text-slate-400 mt-6 leading-relaxed">
+    팀 공용 비밀번호 로그인이 필요합니다. 대장만 바로 열려면
+    <code class="bg-slate-200 rounded px-1">품질검증.html#ledger</code>,
+    만들기는 <code class="bg-slate-200 rounded px-1">#builder</code> 로 접속하세요.
   </p>
 
 </div>
