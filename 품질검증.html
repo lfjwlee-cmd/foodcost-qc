@@ -156,7 +156,7 @@ tailwind.config = { theme: { extend: {
   /* 진행 현황 — 목록·상세 2단 */
   .bd-wrap{ display:grid; grid-template-columns:minmax(0,340px) minmax(0,1fr); gap:14px; align-items:start; }
   @media (max-width:860px){ .bd-wrap{ grid-template-columns:1fr; } }
-  .bd-card{ background:#fff; border:1px solid #e2e8f0; border-radius:14px; }
+  .bd-card{ background:#fff; border:1px solid #e6eae8; border-radius:16px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
   .bd-row{ display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid #f1f5f9;
     cursor:pointer; transition:.1s; }
   .bd-row:last-child{ border-bottom:none; }
@@ -166,11 +166,14 @@ tailwind.config = { theme: { extend: {
   .bd-f:focus{ outline:2px solid #bbf7d0; border-color:#16a34a; }
   .bd-sec{ padding:14px 16px; border-bottom:1px solid #f1f5f9; }
   .bd-sec:last-child{ border-bottom:none; }
-  .bd-h{ font-size:11px; font-weight:800; letter-spacing:.05em; color:#94a3b8; margin-bottom:7px; }
+  .bd-h{ font-size:10.5px; font-weight:800; letter-spacing:.07em; color:#94a3b8; margin-bottom:8px; text-transform:none; }
   .bd-btn{ border:1px solid #e2e8f0; background:#fff; border-radius:9px; padding:7px 12px;
     font-size:12.5px; font-weight:700; color:#334155; cursor:pointer; }
   .bd-btn:hover{ border-color:#16a34a; color:#15803d; }
   .bd-btn.pri{ background:#0f172a; border-color:#0f172a; color:#fff; }
+  .bd-btn.pri:hover{ background:#1e293b; border-color:#1e293b; color:#fff; }
+  .bd-chip{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:800;
+    border-radius:999px; padding:2px 8px; white-space:nowrap; }
   .bd-t{ width:100%; border-collapse:collapse; font-size:12.5px; }
   .bd-t th,.bd-t td{ border-bottom:1px solid #f1f5f9; padding:7px 9px; text-align:left; }
   .bd-t th{ font-size:11px; color:#94a3b8; font-weight:700; }
@@ -462,7 +465,7 @@ tailwind.config = { theme: { extend: {
       <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-comments text-brand-500"></i>협의 기록 <span id="cmtCnt" class="text-xs font-normal text-slate-400"></span></span>
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
     </button>
-    <div class="acc-body px-4 pb-4">
+    <div class="acc-body open px-4 pb-4">
       <p class="text-[11px] text-slate-400 mb-2">검증 내용과 분리해 남깁니다. 작성자·팀·시각이 함께 기록됩니다.</p>
       <div id="cmtBox" class="space-y-2.5 mb-3"></div>
       <div class="grid grid-cols-2 gap-2 mb-2">
@@ -480,7 +483,7 @@ tailwind.config = { theme: { extend: {
       <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-flask-vial text-brand-500"></i>품목 수치</span>
       <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
     </button>
-    <div class="acc-body px-4 pb-4">
+    <div class="acc-body open px-4 pb-4">
       <p class="no-print text-[11px] text-slate-400 mb-2">측정한 항목만 채우세요. 비워 둔 항목은 보고서에 나오지 않습니다.</p>
       <div id="metricBox" class="screen-only"></div>
       <div id="metricPrint" class="print-only"></div>
@@ -2448,7 +2451,7 @@ function renderNativeBoard(){
 
   const tile=(l,v,hot)=>`<div style="background:#fff;border:1px solid ${hot?'#fecdd3':'#e2e8f0'};border-radius:14px;padding:12px 15px">
     <div style="font-size:11px;font-weight:700;color:#94a3b8">${l}</div>
-    <div style="font-size:25px;font-weight:800;line-height:1.15;color:${hot?'#e11d48':'#0f172a'}">${v}</div></div>`;
+    <div style="font-size:26px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums;color:${hot?'#e11d48':'#0f172a'}">${v}</div></div>`;
   const opt=(v,t,cur)=>`<option value="${esc(v)}"${cur===v?' selected':''}>${esc(t)}</option>`;
 
   const list = rows.length ? rows.map(r=>{
@@ -2459,10 +2462,10 @@ function renderNativeBoard(){
         <div style="font-size:13.5px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.ingredient||'(제품명 없음)')}</div>
         <div style="font-size:11.5px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.maker||'거래처 미상')}</div>
       </div>
-      <div style="text-align:right;flex:none">
-        <div style="font-size:10.5px;font-weight:700;color:${ac}">${esc(r.action||'미지정')}</div>
-        ${d?`<div style="font-size:10.5px;color:${d.c}">${esc(d.t)}</div>`:''}
-        ${r.cmt?`<div style="font-size:10px;color:#94a3b8"><i class="fa-regular fa-comment"></i> ${r.cmt}</div>`:''}
+      <div style="text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <span class="bd-chip" style="color:${ac};background:${ac}1a">${esc(r.action||'미지정')}</span>
+        ${d?`<span style="font-size:10.5px;color:${d.c};font-weight:${d.hot?700:400}">${esc(d.t)}</span>`:''}
+        ${r.cmt?`<span style="font-size:10px;color:#94a3b8"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
       </div></div>`; }).join('')
     : '<p style="font-size:12.5px;color:#94a3b8;padding:24px 12px;text-align:center">조건에 맞는 검증이 없습니다.</p>';
 
@@ -2526,20 +2529,30 @@ function renderBoardDetail(){
   const asks=(Array.isArray(st.asks)?st.asks:[]).filter(r=>(r.item||r.req||'').trim());
   const pill=(l,v,c)=>`<div style="flex:1 1 120px;min-width:0"><div style="font-size:10.5px;font-weight:700;color:#94a3b8">${l}</div><div style="font-size:15px;font-weight:800;color:${c||'#0f172a'}">${v}</div></div>`;
   el.innerHTML = `
-  <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
-    <div><div style="font-size:17px;font-weight:800;color:#0f172a">${esc(BDETAIL.ingredient||'')}</div>
+  <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;border-left:4px solid ${VCOLOR[BDETAIL.verdict]||'#cbd5e1'};border-radius:16px 16px 0 0">
+    <div><div style="font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-.01em">${esc(BDETAIL.ingredient||'')}</div>
       <div style="font-size:11.5px;color:#64748b">${esc(BDETAIL.date||'')} · ${esc(st.inspector||'')} · ${esc(cols.map(c=>c.name).join(' / '))}</div></div>
     <div style="display:flex;gap:6px">
       <button class="bd-btn" onclick="openReport('${BDETAIL.id}')"><i class="fa-solid fa-pen mr-1"></i>검증 열기</button>
       <button class="bd-btn pri" onclick="printHandoffFor('${BDETAIL.id}')"><i class="fa-solid fa-file-arrow-right mr-1"></i>전달서</button>
     </div>
   </div>
-  <div class="bd-sec" style="display:flex;gap:14px;flex-wrap:wrap">
-    ${pill('검증 결과', esc(BDETAIL.verdict||'미정'), VCOLOR[BDETAIL.verdict])}
-    ${pill('후속 조치', esc(st.nextAction||'미지정'), ac)}
-    ${pill('회신 기한', d?esc(d.t):'-', d?d.c:'#0f172a')}
-    ${pill('예상 월사용량', esc(st.monthlyUse||'미산정'))}
-    ${pill('공급 가능', esc(st.supplyOk||'미확인'))}
+  <div class="bd-sec" style="background:#fafbfa">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+      ${pill('검증 결과', esc(BDETAIL.verdict||'미정'), VCOLOR[BDETAIL.verdict])}
+      ${pill('예상 월사용량', esc(st.monthlyUse||'미산정'))}
+      ${pill('공급 가능', esc(st.supplyOk||'미확인'))}
+    </div>
+    <div class="bd-h">구매팀이 정하는 항목 — 고르면 바로 저장됩니다</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <select class="bd-f" style="flex:1 1 210px" onchange="saveBoardAction('nextAction',this.value)">
+        <option value=""${!st.nextAction?' selected':''}>후속 조치 — 미지정</option>
+        ${ACT_LIST.map(a=>`<option${st.nextAction===a?' selected':''}>${esc(a)}</option>`).join('')}
+      </select>
+      <input type="date" class="bd-f" style="flex:0 0 150px" value="${esc(st.dueDate||'')}" onchange="saveBoardAction('dueDate',this.value)">
+      <span id="bdSaveMsg" style="font-size:11.5px;color:#94a3b8"></span>
+    </div>
+    ${st.nextActionNote?`<div style="font-size:12px;color:#64748b;margin-top:7px">${esc(st.nextActionNote)}</div>`:''}
   </div>
   ${basis.length?`<div class="bd-sec"><div class="bd-h">판단 근거</div><ul style="margin:0;padding-left:17px;font-size:12.5px;color:#334155">${basis.join('')}</ul></div>`:''}
   ${asks.length?`<div class="bd-sec"><div class="bd-h">변경 요청</div><table class="bd-t"><thead><tr><th>항목</th><th>현재</th><th>목표</th><th>요청</th></tr></thead><tbody>
@@ -2555,6 +2568,23 @@ function renderBoardDetail(){
     <textarea id="bdBody" class="bd-f" style="width:100%;resize:vertical" rows="2" placeholder="협의 내용 · 회신 · 요청"></textarea>
     <button class="bd-btn pri" style="width:100%;margin-top:6px" onclick="postBoardComment()"><i class="fa-solid fa-paper-plane mr-1"></i>코멘트 남기기</button>
   </div>`;
+}
+// 현황 화면에서 후속 조치·기한을 바로 저장 — 구매팀이 화면을 떠나지 않게
+async function saveBoardAction(field, value){
+  if(!BDETAIL) return;
+  const msg=document.getElementById('bdSaveMsg'); if(msg) msg.textContent='저장 중…';
+  try{
+    const {data,error}=await sb.from('qc_reports').select('data').eq('id',BDETAIL.id).single();
+    if(error) throw error;
+    const d=data.data||{}; d.state=d.state||{}; d.state[field]=value;
+    const up=await sb.from('qc_reports').update({data:d, updated_at:new Date().toISOString()}).eq('id',BDETAIL.id);
+    if(up.error) throw up.error;
+    BDETAIL.data=d;
+    const r=NBOARD.find(x=>x.id===BDETAIL.id);
+    if(r){ if(field==='nextAction') r.action=value; if(field==='dueDate') r.due=value; }
+    if(msg){ msg.textContent='저장됨'; setTimeout(()=>{ if(msg) msg.textContent=''; },1600); }
+    renderNativeBoard(); renderBoardDetail(); loadBoardComments(BDETAIL.id);
+  }catch(e){ if(msg) msg.textContent='저장 실패'; toast('저장 실패: '+(e.message||e)); }
 }
 async function loadBoardComments(id){
   const box=document.getElementById('bdCmts'); if(!box) return;
