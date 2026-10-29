@@ -169,6 +169,12 @@ async function loadBoard(){
     return { id:r.id, name:r.ingredient||'(제품명 없음)', date:r.date||'', verdict:r.verdict||'',
              maker:maker, action:st.nextAction||'', due:st.dueDate||'',
              use:st.monthlyUse||'', supply:st.supplyOk||'', note:st.nextActionNote||'' }; });
+  // 코멘트 수 — 테이블이 없거나 오류면 조용히 건너뛴다
+  try{
+    const cm = await sb.from('qc_comments').select('report_id');
+    if(!cm.error && cm.data){ const n={}; cm.data.forEach(x=>{ n[x.report_id]=(n[x.report_id]||0)+1; });
+      BOARD.forEach(r=> r.cmtCount = n[r.id]||0); }
+  }catch(e){}
   setSync('동기화됨'); renderBoard();
 }
 function dueState(d){
@@ -202,6 +208,7 @@ function renderBoard(){
             ${r.verdict?`<span class="font-bold">${esc(r.verdict)}</span>`:''}
             ${d.txt?`<span class="${d.cls}">${esc(d.txt)}</span>`:''}
             ${r.use?`<span class="text-slate-400">${esc(r.use)}</span>`:''}
+            ${r.cmtCount?`<span class="text-slate-500"><i class="fa-regular fa-comment"></i> ${r.cmtCount}</span>`:''}
           </div>
           ${r.note?`<div class="text-[11px] text-slate-400 mt-1">${esc(r.note)}</div>`:''}
         </div>`; }).join('') || '<p class="text-[11px] text-slate-300 py-2">없음</p>'}</div>

@@ -423,6 +423,24 @@ tailwind.config = { theme: { extend: {
     </div>
   </section>
 
+  <!-- 협의 기록 (구매물류팀 ↔ 메뉴개발팀) -->
+  <section id="cmtSection" class="bg-white rounded-2xl shadow-sm overflow-hidden no-print">
+    <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
+      <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-comments text-brand-500"></i>협의 기록 <span id="cmtCnt" class="text-xs font-normal text-slate-400"></span></span>
+      <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
+    </button>
+    <div class="acc-body px-4 pb-4">
+      <p class="text-[11px] text-slate-400 mb-2">검증 내용과 분리해 남깁니다. 작성자·팀·시각이 함께 기록됩니다.</p>
+      <div id="cmtBox" class="space-y-2.5 mb-3"></div>
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <select id="cmtTeam" class="fld fld-sm"><option>메뉴개발팀</option><option>구매물류팀</option></select>
+        <input id="cmtWho" class="fld fld-sm" placeholder="작성자(성명/직급)">
+      </div>
+      <textarea id="cmtBody" class="fld fld-sm" rows="2" placeholder="협의 내용 · 회신 · 요청 사항"></textarea>
+      <button type="button" onclick="postComment()" class="w-full mt-2 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-bold"><i class="fa-solid fa-paper-plane mr-1"></i>코멘트 남기기</button>
+    </div>
+  </section>
+
   <!-- 품목 수치 (유형별 · 측정한 것만) -->
   <section id="metricSection" class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
@@ -956,6 +974,54 @@ function fillAskPrint(){
     +`<td class="pt-v">${escapeHtml(r.now||'-')}</td><td class="pt-v">${escapeHtml(r.goal||'-')}</td>`
     +`<td>${escapeHtml(r.req||'')}</td></tr>`; });
   el.innerHTML=h+'</tbody></table>';
+}
+// ── 협의 기록 — 별도 테이블(qc_comments). 검증 레코드와 분리해 동시 수정 충돌을 피한다 ──
+let CMTS=[];
+function cmtTime(t){ try{ const d=new Date(t); const p=n=>String(n).padStart(2,'0');
+  return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }catch(e){ return ''; } }
+function renderComments(){
+  const box=document.getElementById('cmtBox'); if(!box) return;
+  const cnt=document.getElementById('cmtCnt'); if(cnt) cnt.textContent = CMTS.length?`${CMTS.length}건`:'';
+  if(!CURRENT_ID){ box.innerHTML='<p class="text-[12px] text-slate-400">저장된 검증에만 남길 수 있습니다 — 먼저 내용을 입력해 자동 저장되게 하세요.</p>'; return; }
+  if(!CMTS.length){ box.innerHTML='<p class="text-[12px] text-slate-400">아직 협의 기록이 없습니다.</p>'; return; }
+  box.innerHTML = CMTS.map(c=>{
+    const buy = c.team==='구매물류팀';
+    const bg = buy?'#2563eb':'#16a34a';
+    return `<div class="flex gap-2.5 items-start">
+      <span class="shrink-0 grid place-items-center rounded-full text-white text-[10px] font-bold" style="width:30px;height:30px;background:${bg}">${escapeHtml(buy?'구매':'메뉴')}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-baseline gap-2 flex-wrap text-[11px] text-slate-400">
+          <span class="text-[12.5px] font-bold text-slate-700">${escapeHtml(c.author||c.team)}</span>
+          <span>${escapeHtml(c.team||'')}</span><span>${cmtTime(c.created_at)}</span>
+          <button type="button" onclick="delComment(${c.id})" class="ml-auto text-slate-300 hover:text-rose-500"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="text-[13.5px] text-slate-700 whitespace-pre-wrap">${escapeHtml(c.body||'')}</p>
+      </div></div>`; }).join('');
+}
+async function loadComments(){
+  CMTS=[];
+  if(!CURRENT_ID || typeof sb==='undefined'){ renderComments(); return; }
+  const {data,error}=await sb.from('qc_comments').select('*').eq('report_id',CURRENT_ID).order('created_at',{ascending:true});
+  if(error){ const b=document.getElementById('cmtBox'); if(b) b.innerHTML='<p class="text-[12px] text-rose-500">협의 기록을 불러오지 못했습니다 — '+escapeHtml(error.message)+'</p>'; return; }
+  CMTS=data||[]; renderComments();
+}
+async function postComment(){
+  const body=(document.getElementById('cmtBody').value||'').trim();
+  if(!body){ toast('내용을 입력하세요'); return; }
+  if(!CURRENT_ID){ toast('먼저 검증이 저장되어야 합니다'); return; }
+  const team=document.getElementById('cmtTeam').value;
+  const who=(document.getElementById('cmtWho').value||'').trim() || (team==='메뉴개발팀'?(state.inspector||''):'');
+  const {error}=await sb.from('qc_comments').insert({report_id:CURRENT_ID, team, author:who, body});
+  if(error){ toast('저장 실패: '+error.message); return; }
+  document.getElementById('cmtBody').value='';
+  toast('코멘트를 남겼습니다');
+  loadComments();
+}
+async function delComment(id){
+  if(!confirm('이 코멘트를 지울까요?')) return;
+  const {error}=await sb.from('qc_comments').delete().eq('id',id);
+  if(error){ toast('삭제 실패'); return; }
+  loadComments();
 }
 function buildSpecs(){
   const sec=document.getElementById('specSection'); if(!sec)return;
@@ -2335,7 +2401,7 @@ function createNew(){
   CURRENT_ID=null; uploadedPhotos={};
   const init={ product:prod, date:new Date().toISOString().slice(0,10), store:'', inspector:'', brands:['인생아구찜'], _type:key };
   applyConfig(cfgFromType(key, prod), init);
-  showEditor(); toast('새 검증 시작 — 작성 후 자동 저장됩니다');
+  showEditor(); loadComments(); toast('새 검증 시작 — 작성 후 자동 저장됩니다');
 }
 // 품목 유형 변경(항목만 다시 구성, 나머지 입력 유지)
 function populateEdType(){
@@ -2366,7 +2432,7 @@ async function openReport(id){
   applyConfig(d.config||{}, d.state||{});
   photosObj={};
   for(const pk of (d.photoKeys||[])){ try{ const {data:blob}=await sb.storage.from('qc-photos').download(id+'/'+pk+'.jpg'); if(blob){ photosObj[pk]=await blobToDataURL(blob); uploadedPhotos[pk]=1; } }catch(e){} }
-  applyPhotos(); showEditor();
+  applyPhotos(); showEditor(); loadComments();
 }
 
 /* ---------- 저장 (자동/수동) ---------- */
