@@ -615,7 +615,7 @@ tailwind.config = { theme: { extend: {
 </main>
 
 <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-2xl z-40 no-print">
-  <div class="max-w-3xl mx-auto px-3 py-2.5 grid grid-cols-3 gap-2">
+  <div class="max-w-3xl mx-auto px-3 py-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
     <button onclick="exportPDF()" class="py-3 rounded-xl bg-rose-500 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-pdf"></i>PDF</button>
     <button onclick="exportExcel()" class="py-3 rounded-xl bg-green-600 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-excel"></i>Excel</button>
     <button onclick="exportHandoff()" class="py-3 rounded-xl bg-slate-800 text-white text-sm font-bold flex items-center justify-center gap-1.5" title="구매물류팀 전달용 A4 1장"><i class="fa-solid fa-file-arrow-right"></i>전달서</button>
@@ -2317,6 +2317,8 @@ function applyConfig(cfg, newState){
   SPEC_FIELDS=(C.specFields===false)?null:((Array.isArray(C.specFields)&&C.specFields.length)?C.specFields:SPEC_FIELDS_DEFAULT);
   resetFields();   // 이전 검증 잔여 입력 제거(검증목적·종합평가·비고·서명 유출 방지)
   state=newState||{}; photosObj={};
+  // 수치 기능 도입 전에 만든 레코드는 config 에 metrics 가 없다 — 유형으로 채워 준다
+  if((!Array.isArray(C.metrics)||!C.metrics.length) && typeof metricsFor==='function' && state._type) C.metrics=metricsFor(state._type);
   build(); applyPhotos(); openAllSections(); if(typeof renderVerdictBanner==='function') renderVerdictBanner();
 }
 function blobToDataURL(b){ return new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(b); }); }
@@ -2351,13 +2353,47 @@ function showEditor(){ document.getElementById('shList').style.display='none'; d
 /* ---------- 목록 ---------- */
 let REPORTS=[];
 function withTimeout(p,ms){ return Promise.race([ Promise.resolve(p), new Promise((_,rej)=>setTimeout(()=>rej(new Error('시간 초과 — 네트워크/로그인/프로젝트 상태를 확인하세요')), ms||12000)) ]); }
+// ── 첫 화면 진행 현황 — 후속 조치별 건수. 누르면 대장 보드로 ──
+const HOME_ACTS=[
+  {k:'',t:'미지정',c:'#94a3b8'},
+  {k:'최종 테스트 진행',t:'최종 테스트',c:'#2563eb'},
+  {k:'디벨롭 · 사양 변경 요청',t:'디벨롭',c:'#d97706'},
+  {k:'재샘플 요청',t:'재샘플',c:'#d97706'},
+  {k:'보류 — 조건부 재검토',t:'보류',c:'#64748b'},
+  {k:'도입 진행',t:'도입 확정',c:'#16a34a'},
+  {k:'개발 중단',t:'중단',c:'#e11d48'}
+];
+async function loadHomeBoard(){
+  const box=document.getElementById('homeBoard'); if(!box) return;
+  try{
+    const {data,error}=await sb.from('qc_reports')
+      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate');
+    if(error||!data) { box.innerHTML=''; return; }
+    const now=new Date();
+    const late=data.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
+    const open=data.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
+    const chip=(a)=>{ const n=data.filter(r=>(r.action||'')===a.k).length; if(!n) return '';
+      return `<button type="button" onclick="shTab('ledger')" title="대장 진행 보드에서 보기"
+        style="border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:700;color:${a.c};cursor:pointer">
+        ${a.t} <span style="color:#94a3b8">${n}</span></button>`; };
+    box.innerHTML = `<div style="background:#fff;border-radius:14px;padding:12px 14px;border:1px solid #e2e8f0">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:9px">
+        <span style="font-size:13px;font-weight:800;color:#1e293b">진행 현황</span>
+        <span style="font-size:11px;color:#94a3b8">진행 중 ${open.length}건${late.length?` · <b style="color:#e11d48">기한 초과 ${late.length}건</b>`:''}</span>
+        <button type="button" onclick="shTab('ledger')" style="margin-left:auto;font-size:11px;font-weight:700;color:#16a34a;background:none;border:none;cursor:pointer">보드 열기 →</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${HOME_ACTS.map(chip).join('')}</div>
+      ${late.length?`<div style="margin-top:9px;font-size:11.5px;color:#e11d48;font-weight:700">⚠ 기한 초과 — ${late.slice(0,3).map(r=>esc(r.ingredient||'')+'('+r.due+')').join(', ')}${late.length>3?` 외 ${late.length-3}건`:''}</div>`:''}
+    </div>`;
+  }catch(e){ box.innerHTML=''; }
+}
 async function loadReports(){
   const box=document.getElementById('shListBody'); box.innerHTML='<p class="text-slate-400 text-sm p-6 text-center">불러오는 중…</p>';
   try{
     const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at').order('updated_at',{ascending:false});
     const {data,error}=await withTimeout(q,12000);
     if(error) throw error;
-    REPORTS=data||[]; renderReports();
+    REPORTS=data||[]; renderReports(); loadHomeBoard();
   }catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="loadReports()" style="margin-top:8px;text-decoration:underline;color:#0f172a">다시 시도</button></p>'; }
 }
 function vBadge(v){ const m={'○':['#16a34a','사용 가능'],'△':['#d97706','조건부'],'×':['#e11d48','사용 불가']}[v]; return m?`<span style="color:${m[0]};font-weight:800">${v} ${m[1]}</span>`:'<span class="text-slate-400">미정</span>'; }
@@ -2524,6 +2560,7 @@ function injectShell(){
     </div>
   </div>
   <div id="shPanelList" style="max-width:760px;margin:0 auto;padding:16px 14px 60px">
+    <div id="homeBoard" style="margin-bottom:14px"></div>
     <button onclick="openNew()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:12px"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
     <input id="shSearch" oninput="renderReports()" placeholder="제품·제조회사 검색" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:13px;margin-bottom:14px">
     <div id="shListBody"></div>
