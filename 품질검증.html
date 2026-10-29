@@ -2337,17 +2337,23 @@ async function shellLogout(){ await sb.auth.signOut(); location.reload(); }
 /* ---------- 화면 전환 ---------- */
 // 대장·빌더는 같은 도메인이라 로그인 세션을 공유한다 — iframe 안에서 다시 로그인하지 않는다.
 // 처음 누를 때만 src 를 걸어 초기 로딩을 늦추지 않는다.
+// 보드와 대장 표는 같은 iframe 을 쓴다 — 두 번 로드하지 않도록 뷰만 바꾼다
 function shTab(name){
-  const map={list:'shPanelList', ledger:'shPanelLedger', builder:'shPanelBuilder'};
-  if(!map[name]) name='list';
-  Object.keys(map).forEach(k=>{ const el=document.getElementById(map[k]); if(el) el.style.display=(k===name)?'':'none'; });
+  const map={board:'shPanelLedger', list:'shPanelList', ledger:'shPanelLedger', builder:'shPanelBuilder'};
+  if(!map[name]) name='board';
+  const shown=map[name];
+  ['shPanelList','shPanelLedger','shPanelBuilder'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=(id===shown)?'':'none'; });
   document.querySelectorAll('.sh-tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
-  if(name==='ledger'){ const f=document.getElementById('ifLedger'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_대장.html'); }
+  if(name==='board'||name==='ledger'){
+    const f=document.getElementById('ifLedger');
+    if(f && !f.getAttribute('src')) f.setAttribute('src','품질검증_대장.html'+(name==='board'?'#board':''));
+    else if(f){ try{ f.contentWindow.setView(name==='board'?'board':'table'); }catch(e){} }
+  }
   if(name==='builder'){ const f=document.getElementById('ifBuilder'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_만들기.html'); }
-  try{ history.replaceState(null,'', name==='list' ? location.pathname : ('#'+name)); }catch(e){}
+  try{ history.replaceState(null,'', name==='board' ? location.pathname : ('#'+name)); }catch(e){}
 }
 function showList(){ document.getElementById('shList').style.display='block'; document.getElementById('appWrap').style.display='none'; document.getElementById('edBar').style.display='none'; loadReports();
-  const h=(location.hash||'').replace('#',''); shTab(h||'list'); }
+  const h=(location.hash||'').replace('#',''); shTab(h||'board'); }
 function showEditor(){ document.getElementById('shList').style.display='none'; document.getElementById('appWrap').style.display=''; document.getElementById('edBar').style.display='flex'; if(typeof populateEdType==='function') populateEdType(); window.scrollTo(0,0); }
 
 /* ---------- 목록 ---------- */
@@ -2554,8 +2560,9 @@ function injectShell(){
       <button onclick="shellLogout()" title="로그아웃" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-right-from-bracket"></i></button></div>
     </div>
     <div style="max-width:980px;margin:0 auto;padding:10px 14px 0;display:flex;gap:5px">
-      <button type="button" class="sh-tab on" data-tab="list" onclick="shTab('list')"><i class="fa-solid fa-list-check mr-1"></i>검증 목록</button>
-      <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-gauge-high mr-1"></i>대장</button>
+      <button type="button" class="sh-tab on" data-tab="board" onclick="shTab('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 보드</button>
+      <button type="button" class="sh-tab" data-tab="list" onclick="shTab('list')"><i class="fa-solid fa-list-check mr-1"></i>검증 목록</button>
+      <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-table-list mr-1"></i>대장 표</button>
       <button type="button" class="sh-tab" data-tab="builder" onclick="shTab('builder')"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>만들기</button>
     </div>
   </div>
@@ -2566,6 +2573,7 @@ function injectShell(){
     <div id="shListBody"></div>
   </div>
   <div id="shPanelLedger" style="display:none"><iframe id="ifLedger" title="품질검증 대장" class="sh-frame"></iframe></div>
+  <div id="shPanelBoard" style="display:none"></div>
   <div id="shPanelBuilder" style="display:none"><iframe id="ifBuilder" title="오프라인 빌더" class="sh-frame"></iframe></div>`;
   document.body.appendChild(list);
 

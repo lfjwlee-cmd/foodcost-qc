@@ -132,7 +132,11 @@ function enterApp(){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   buildHead(); loadData(); subscribeLive();
+  hashView();
 }
+// 품질검증 홈이 iframe 으로 열 때 #board 를 붙여 보드부터 보여 준다
+function hashView(){ if((location.hash||'')==='#board') setView('board'); }
+window.addEventListener('hashchange', hashView);
 
 // ===== 데이터 =====
 async function loadData(){
