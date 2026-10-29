@@ -152,6 +152,30 @@ tailwind.config = { theme: { extend: {
   .sh-tab:hover{ color:#16a34a; }
   .sh-tab.on{ background:#fff; color:#16a34a; border-color:#cbd5e1; }
   .sh-frame{ display:block; width:100%; height:calc(100vh - 150px); border:0; background:#fff; }
+  /* 구매팀 전달서 — 본문을 모두 숨기고 A4 1장만 인쇄 */
+  #handoffSheet{ display:none; }
+  body.handoff > *{ display:none !important; }
+  body.handoff #handoffSheet{ display:block !important; }
+  #handoffSheet .hs-wrap{ max-width:780px; margin:0 auto; padding:18px; color:#111; font-size:12.5px; line-height:1.55; }
+  #handoffSheet h2{ font-size:19px; font-weight:800; letter-spacing:-.01em; }
+  #handoffSheet .hs-top{ display:flex; justify-content:space-between; align-items:flex-end; gap:12px;
+    border-bottom:2px solid #111; padding-bottom:9px; margin-bottom:12px; }
+  #handoffSheet .hs-meta{ font-size:11px; color:#555; text-align:right; }
+  #handoffSheet table.hs-kv{ width:100%; border-collapse:collapse; margin-bottom:12px; }
+  #handoffSheet table.hs-kv td{ border:1px solid #c9cfc9; padding:5px 8px; vertical-align:top; }
+  #handoffSheet table.hs-kv td.k{ background:#f1f4f1; font-weight:700; width:15%; white-space:nowrap; }
+  #handoffSheet .hs-band{ display:flex; gap:9px; margin-bottom:12px; }
+  #handoffSheet .hs-b{ flex:1; border:1px solid #c9cfc9; border-radius:4px; padding:8px 10px; }
+  #handoffSheet .hs-b .l{ font-size:10px; color:#666; font-weight:700; letter-spacing:.04em; }
+  #handoffSheet .hs-b .v{ font-size:17px; font-weight:800; margin-top:1px; }
+  #handoffSheet h3{ font-size:11.5px; font-weight:800; letter-spacing:.05em; color:#555;
+    border-bottom:1px solid #c9cfc9; padding-bottom:3px; margin:0 0 5px; }
+  #handoffSheet ul,#handoffSheet ol{ margin:0 0 12px; padding-left:18px; }
+  #handoffSheet li{ margin-bottom:3px; }
+  #handoffSheet table.hs-t{ width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:12px; }
+  #handoffSheet table.hs-t th,#handoffSheet table.hs-t td{ border:1px solid #c9cfc9; padding:4px 7px; text-align:left; }
+  #handoffSheet table.hs-t th{ background:#f1f4f1; font-weight:700; font-size:10.5px; }
+  @media print{ body.handoff{ background:#fff !important; } #handoffSheet .hs-wrap{ max-width:none; padding:0; } }
   /* 편집 모드 */
   body.edit-on [data-ek]{ outline:1.5px dashed #16a34a; outline-offset:2px; border-radius:4px; cursor:text; background:#f0fdf4; }
   body.edit-on #editBtn{ background:#16a34a; color:#fff; border-color:#16a34a; }
@@ -271,6 +295,7 @@ tailwind.config = { theme: { extend: {
   <div class="flex items-center gap-1 text-slate-300"><i class="fa-solid fa-floppy-disk"></i><span id="saveStamp">자동저장 대기중…</span></div>
 </div>
 
+<div id="handoffSheet"></div>
 <div id="appWrap" style="display:none">
 <header class="sticky top-0 z-40 bg-white shadow-md no-print">
   <div class="max-w-3xl mx-auto px-4 py-3">
@@ -545,6 +570,15 @@ tailwind.config = { theme: { extend: {
           <option>기타(직접 작성)</option>
         </select>
         <input class="fld fld-sm mt-2" data-k="nextActionNote" placeholder="후속 조치 메모 (예: 11/05까지 kg 환산 단가 회신)">
+        <div class="mt-3">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <label class="lbl mb-0">변경 요청 — 수치로</label>
+            <button type="button" onclick="addAsk()" class="no-print text-[11px] font-bold text-brand-600 border border-dashed border-brand-300 bg-white rounded-md px-2 py-1"><i class="fa-solid fa-plus mr-1"></i>항목 추가</button>
+          </div>
+          <p class="no-print text-[11px] text-slate-400 mb-1.5">측정 수치를 넣으면 현재값이 자동으로 채워집니다. 수치가 없는 항목은 요청 문장만 적으세요.</p>
+          <div id="askBox" class="screen-only"></div>
+          <div id="askPrint" class="print-only"></div>
+        </div>
       </div>
       <div class="flex items-center justify-between mb-1">
         <label class="lbl mb-0">종합 평가 (상세 코멘트)</label>
@@ -566,6 +600,7 @@ tailwind.config = { theme: { extend: {
   <div class="max-w-3xl mx-auto px-3 py-2.5 grid grid-cols-3 gap-2">
     <button onclick="exportPDF()" class="py-3 rounded-xl bg-rose-500 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-pdf"></i>PDF</button>
     <button onclick="exportExcel()" class="py-3 rounded-xl bg-green-600 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-excel"></i>Excel</button>
+    <button onclick="exportHandoff()" class="py-3 rounded-xl bg-slate-800 text-white text-sm font-bold flex items-center justify-center gap-1.5" title="구매물류팀 전달용 A4 1장"><i class="fa-solid fa-file-arrow-right"></i>전달서</button>
     <button onclick="saveShareFile()" class="py-3 rounded-xl bg-blue-500 text-white text-sm font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-share-nodes"></i>공유용</button>
   </div>
 </div>
@@ -626,6 +661,7 @@ function build(){
   document.getElementById('sensoryBox').innerHTML = renderGroups(SENS,'sens');
   buildSpecs();
   buildMetrics();
+  buildAsks();
 
   buildPhotos();
   presetDefaults();
@@ -879,6 +915,47 @@ function metricSummaryLine(){
     const src=state['m_'+m.k+'_src']||'';
     return m.label+' '+vals+(m.unit?' '+m.unit:'')+(src&&src!=='미측정'?`(${src})`:'');
   }).join(', ');
+}
+// ── 변경 요청(수치) — 거래처에 "무엇을 얼마로" 바꿔 달라고 적는 표 ──
+function askArr(){ if(!Array.isArray(state.asks)) state.asks=[]; return state.asks; }
+function addAsk(){ askArr().push({item:'',now:'',goal:'',req:''}); persist(); buildAsks(); }
+function delAsk(i){ askArr().splice(i,1); persist(); buildAsks(); }
+function askNowFromMetric(label){
+  const m=metricList().find(x=>x.label===label); if(!m) return '';
+  const jc=(typeof judgeCols==='function')?judgeCols():activeCols();
+  const v=jc.map(c=>String(state['m_'+m.k+'_'+c.id]||'').trim()).filter(Boolean);
+  return v.length ? v.join(' / ')+(m.unit?' '+m.unit:'') : '';
+}
+function buildAsks(){
+  const box=document.getElementById('askBox'); if(!box) return;
+  const rows=askArr();
+  const opts=['', ...metricList().map(m=>m.label)];
+  box.innerHTML = (rows.length?'':'<p class="text-[12px] text-slate-400 py-2">아직 없습니다 — [항목 추가]를 눌러 거래처에 요청할 내용을 적으세요.</p>')
+    + rows.map((r,i)=>`<div class="grid gap-1.5 mb-1.5" style="grid-template-columns:minmax(92px,1fr) minmax(70px,.8fr) minmax(70px,.8fr) minmax(120px,1.6fr) 26px">
+      <input class="fld fld-sm ask-f" data-ai="${i}" data-af="item" list="askItems" value="${escapeHtml(r.item||'')}" placeholder="항목">
+      <input class="fld fld-sm ask-f text-center" data-ai="${i}" data-af="now" value="${escapeHtml(r.now||'')}" placeholder="현재값">
+      <input class="fld fld-sm ask-f text-center" data-ai="${i}" data-af="goal" value="${escapeHtml(r.goal||'')}" placeholder="목표값">
+      <input class="fld fld-sm ask-f" data-ai="${i}" data-af="req" value="${escapeHtml(r.req||'')}" placeholder="요청 (예: 0.4%p 낮출 것)">
+      <button type="button" onclick="delAsk(${i})" class="no-print text-slate-300 hover:text-rose-500"><i class="fa-solid fa-xmark"></i></button>
+    </div>`).join('')
+    + '<datalist id="askItems">'+opts.map(o=>`<option value="${escapeHtml(o)}">`).join('')+'</datalist>';
+  document.querySelectorAll('.ask-f').forEach(el=>{ if(el.dataset.b)return; el.dataset.b='1';
+    el.addEventListener('input',()=>{ const r=askArr()[+el.dataset.ai]; if(!r)return; r[el.dataset.af]=el.value;
+      if(el.dataset.af==='item' && !r.now){ const n=askNowFromMetric(el.value); if(n){ r.now=n; buildAsks(); } }
+      persist(); });
+  });
+}
+function fillAskPrint(){
+  const el=document.getElementById('askPrint'); if(!el) return;
+  const rows=askArr().filter(r=>(r.item||r.req||'').trim());
+  if(!rows.length){ el.innerHTML=''; return; }
+  let h='<p style="font-size:13px;font-weight:800;margin:6px 0 4px;">■ 변경 요청</p><table class="ptbl">'
+    +'<colgroup><col style="width:22%"><col style="width:16%"><col style="width:16%"><col></colgroup>'
+    +'<thead><tr><th>항목</th><th>현재값</th><th>목표값</th><th>요청</th></tr></thead><tbody>';
+  rows.forEach(r=>{ h+='<tr><td style="font-weight:700">'+escapeHtml(r.item||'-')+'</td>'
+    +`<td class="pt-v">${escapeHtml(r.now||'-')}</td><td class="pt-v">${escapeHtml(r.goal||'-')}</td>`
+    +`<td>${escapeHtml(r.req||'')}</td></tr>`; });
+  el.innerHTML=h+'</tbody></table>';
 }
 function buildSpecs(){
   const sec=document.getElementById('specSection'); if(!sec)return;
@@ -1328,6 +1405,12 @@ function buildSummary(){
   /* 7 ─ 개선 요청 사항 — 문제 항목을 줄 세워 두고, 요청 내용은 사람이 채운다 */
   const seen=new Set(), asks=[];
   const ask=(label,text)=>{ if(seen.has(label))return; seen.add(label); asks.push(` · ${label} — ${text}`); };
+  // 수치표에 적은 요청이 있으면 그것을 먼저 쓴다 (사람이 쓴 구체적 요구가 우선)
+  (Array.isArray(state.asks)?state.asks:[]).forEach(r=>{
+    const nm=(r.item||'').trim(); if(!nm) return;
+    const nums=(r.now||r.goal) ? `${r.now||'-'} → ${r.goal||'-'}` : '';
+    ask(nm, [nums, (r.req||'').trim()].filter(Boolean).join('  ') || '(요청 내용 작성)');
+  });
   xr.forEach(r=>ask(r.label,'(요청 내용 작성)'));
   tr.forEach(r=>ask(r.label,'(요청 내용 작성)'));
   if(SPEC_FIELDS) SPEC_FIELDS.forEach((f,i)=>{
@@ -1521,13 +1604,82 @@ document.querySelectorAll('.acc-head').forEach(h=>h.addEventListener('click',()=
 function netStatus(){ const on=navigator.onLine; document.getElementById('netDot').className='inline-block w-2 h-2 rounded-full '+(on?'bg-green-400 animate-pulse':'bg-rose-400'); document.getElementById('netText').textContent=on?'온라인':'오프라인 (로컬 저장중)'; }
 window.addEventListener('online',netStatus); window.addEventListener('offline',netStatus);
 
+// ── 구매물류팀 전달서 — 전체 보고서 대신 A4 1장 ──
+function exportHandoff(){
+  collect();
+  const esc=escapeHtml, g=k=>esc(state[k]||'');
+  const cols=activeCols(), jc=(typeof judgeCols==='function')?judgeCols():cols;
+  const base=(cols.length>=2 && !state.noBase)?cols[0]:null;
+  const si=(typeof specIdx==='function')?specIdx('제조회사'):0;
+  const mk=c=>esc(state['spec_'+si+'_'+c.id]||'-');
+  const pk=c=>{ const i=(typeof specIdx==='function')?specIdx('포장'):-1; return i>=0?esc(state['spec_'+i+'_'+c.id]||''):''; };
+  // 열 설명에 이미 제조회사가 적혀 있으면 중복 출력하지 않는다
+  const line=c=>{ const m=mk(c), d=esc(c.desc||''), p=pk(c);
+    const dup = m && m!=='-' && d.replace(/\s/g,'').includes(m.replace(/\s/g,''));
+    return [dup?'':m, d, p].filter(x=>x && x!=='-').join(' ') || '-'; };
+  const VT={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불가'};
+  const vs=jc.map(c=>state['final_'+c.id+'_v']).filter(Boolean);
+  const worst = vs.includes('×')?'×':(vs.includes('△')?'△':(vs.includes('○')?'○':''));
+  // 근거 — 부적합·조건부 항목만
+  const basis=[];
+  [['proc',PROC],['sens',SENS]].forEach(([p,gs])=>gs.forEach((gr,gi)=>{ if(isGroupOff(p,gi))return;
+    gr.items.forEach((it,ii)=>{ const key=`${p}_${gi}_${ii}`;
+      const bad=jc.filter(c=>['×','△'].includes(state[`${key}_${c.id}_v`]));
+      if(!bad.length) return;
+      basis.push(`<li><b>${esc(ekv(key+'.label',it.label))}</b> — `
+        + bad.map(c=>`${esc(c.name)} ${state[`${key}_${c.id}_v`]} ${esc(state[`${key}_${c.id}`]||'')}`).join(' / ') + '</li>');
+    }); }));
+  // 측정 수치
+  const ms=(typeof metricList==='function')?metricList().filter(metricFilled):[];
+  const mTable = ms.length ? '<h3>측정 수치</h3><table class="hs-t"><tr><th>항목</th>'
+    + cols.map(c=>`<th>${esc(c.name)}</th>`).join('') + '<th>측정 방법</th></tr>'
+    + ms.map(m=>'<tr><td>'+esc(m.label)+(m.unit?' ('+esc(m.unit)+')':'')+'</td>'
+        + cols.map(c=>`<td>${esc(String(state['m_'+m.k+'_'+c.id]||'-'))}</td>`).join('')
+        + `<td>${esc(state['m_'+m.k+'_src']||'미측정')}</td></tr>`).join('') + '</table>' : '';
+  // 변경 요청
+  const ar=(Array.isArray(state.asks)?state.asks:[]).filter(r=>(r.item||r.req||'').trim());
+  const aTable = ar.length ? '<h3>변경 요청</h3><table class="hs-t"><tr><th>항목</th><th>현재값</th><th>목표값</th><th>요청</th></tr>'
+    + ar.map(r=>`<tr><td><b>${esc(r.item||'-')}</b></td><td>${esc(r.now||'-')}</td><td>${esc(r.goal||'-')}</td><td>${esc(r.req||'')}</td></tr>`).join('')
+    + '</table>' : '';
+  const sheet=document.getElementById('handoffSheet');
+  sheet.innerHTML = `<div class="hs-wrap">
+    <div class="hs-top"><h2>식자재 검증 결과 전달서</h2>
+      <div class="hs-meta"><div>${g('date')}</div><div>${esc(C.dept||'메뉴개발팀')} · ${g('inspector')}</div></div></div>
+    <table class="hs-kv">
+      <tr><td class="k">품목</td><td>${g('product')||esc(C.ingredient||'')}</td>
+          <td class="k">브랜드</td><td>${esc(selectedBrands().join(' · '))}</td></tr>
+      ${base?`<tr><td class="k">기존</td><td colspan="3">${line(base)}</td></tr>`:''}
+      ${jc.map(c=>`<tr><td class="k">${esc(c.name)}</td><td colspan="3">${line(c)}</td></tr>`).join('')}
+    </table>
+    <div class="hs-band">
+      <div class="hs-b"><div class="l">검증 결과</div><div class="v">${VT[worst]||'판정 미입력'}</div></div>
+      <div class="hs-b"><div class="l">후속 조치</div><div class="v">${g('nextAction')||'미정'}</div></div>
+      <div class="hs-b"><div class="l">회신 기한</div><div class="v">${g('dueDate')||'-'}</div></div>
+    </div>
+    ${basis.length?`<h3>판단 근거</h3><ul>${basis.join('')}</ul>`:''}
+    ${mTable}
+    ${aTable}
+    ${state.nextActionNote?`<h3>후속 조치 메모</h3><p>${g('nextActionNote')}</p>`:''}
+    <table class="hs-kv">
+      <tr><td class="k">예상 월사용량</td><td>${g('monthlyUse')||'미산정'}</td>
+          <td class="k">공급 가능</td><td>${g('supplyOk')||'미확인'}</td></tr>
+      <tr><td class="k">요청 출처</td><td>${g('reqFrom')||'-'}</td>
+          <td class="k">검증 유형</td><td>${g('purposeType')||'-'}</td></tr>
+    </table>
+  </div>`;
+  document.body.classList.add('handoff');
+  const back=()=>{ document.body.classList.remove('handoff'); window.removeEventListener('afterprint',back); };
+  window.addEventListener('afterprint',back);
+  toast('인쇄 창에서 "PDF로 저장"을 선택하세요 — 전달서 1장');
+  setTimeout(()=>{ window.print(); setTimeout(back,1500); }, 250);
+}
 function exportPDF(){
   // 브라우저 인쇄 → 'PDF로 저장' 방식 (가장 안정적, 잘림 없음)
   toast('인쇄 창에서 “PDF로 저장”을 선택하세요');
   const openStates=[...document.querySelectorAll('.acc-body')].map(b=>b.classList.contains('open'));
   // 인쇄 전: 모든 아코디언 펼침
   document.querySelectorAll('.acc-body').forEach(b=>b.classList.add('open'));
-  collect(); refreshPhotoPairs(); buildPrintTables(); fillReportHead(); fillSpecPrint(); fillMetricPrint(); fillFinalPrint();   // 현재 입력값을 표·헤더에 반영
+  collect(); refreshPhotoPairs(); buildPrintTables(); fillReportHead(); fillSpecPrint(); fillMetricPrint(); fillAskPrint(); fillFinalPrint();   // 현재 입력값을 표·헤더에 반영
   // 사진: 사진·메모·미촬영표시 아무 것도 없는 칸/줄은 인쇄에서 숨김 (미촬영은 인쇄에 표시)
   document.querySelectorAll('#photoBox > div.pdf-keep').forEach(row=>{
     row.querySelectorAll('.photo-cell').forEach(cell=>{
@@ -1571,6 +1723,12 @@ async function exportExcel(){
   cols.forEach(c=> push('meta',[c.name,'',c.desc||''],{metaRow:true}));
   if(SPEC_FIELDS){ push('section',['■ 제조회사 · 상세 스펙']); push('head',['','항목', ...cols.map(c=>c.name)]);
     SPEC_FIELDS.forEach((f,fi)=> push('item',['', ekv('spec.'+fi,f), ...cols.map(c=>state['spec_'+fi+'_'+c.id]||'')]));
+  }
+  { const ar=(Array.isArray(state.asks)?state.asks:[]).filter(r=>(r.item||r.req||'').trim());
+    if(ar.length){ push('section',['■ 변경 요청']);
+      push('item',['','항목','현재값','목표값','요청']);
+      ar.forEach(r=> push('item',['', r.item||'', r.now||'', r.goal||'', r.req||'']));
+    }
   }
   { const ms=(typeof metricList==='function')?metricList().filter(metricFilled):[];
     if(ms.length){ push('section',['■ 측정 수치']);
