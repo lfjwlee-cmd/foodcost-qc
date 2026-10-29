@@ -392,6 +392,19 @@ tailwind.config = { theme: { extend: {
     </div>
   </section>
 
+  <!-- 품목 수치 (유형별 · 측정한 것만) -->
+  <section id="metricSection" class="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
+      <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-flask-vial text-brand-500"></i>품목 수치</span>
+      <i class="fa-solid fa-chevron-down acc-arrow text-slate-400"></i>
+    </button>
+    <div class="acc-body px-4 pb-4">
+      <p class="no-print text-[11px] text-slate-400 mb-2">측정한 항목만 채우세요. 비워 둔 항목은 보고서에 나오지 않습니다.</p>
+      <div id="metricBox" class="screen-only"></div>
+      <div id="metricPrint" class="print-only"></div>
+    </div>
+  </section>
+
   <!-- PART A 공정 적합성 -->
   <section class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <button class="acc-head w-full flex items-center justify-between px-4 py-3.5">
@@ -606,6 +619,7 @@ function build(){
   document.getElementById('processBox').innerHTML = renderGroups(PROC,'proc');
   document.getElementById('sensoryBox').innerHTML = renderGroups(SENS,'sens');
   buildSpecs();
+  buildMetrics();
 
   buildPhotos();
   presetDefaults();
@@ -816,6 +830,50 @@ function delWeight(colId,i){ weightArr(colId).splice(i,1); persist(); buildWeigh
 
 // ── 제조회사·상세 스펙 (입고 이력관리): 제품(열)별 스펙 칸 ──
 let SPEC_FIELDS = (C.specFields===false) ? null : ((Array.isArray(C.specFields)&&C.specFields.length) ? C.specFields : ['제조회사','원산지','규격/사양','포장/단위','담당자','연락처']);
+const METRIC_SRC=['미측정','간이 측정기','라벨 표기값','거래처 제공 자료','실험실 성적서'];
+function metricList(){ return Array.isArray(C.metrics)?C.metrics:[]; }
+function metricFilled(m){ return activeCols().some(c=>String(state['m_'+m.k+'_'+c.id]||'').trim()!==''); }
+function buildMetrics(){
+  const box=document.getElementById('metricBox'), sec=document.getElementById('metricSection');
+  if(!box) return;
+  const ms=metricList(), cols=activeCols();
+  if(!ms.length){ box.innerHTML=''; if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='';
+  const gt='minmax(86px,118px) repeat('+cols.length+',minmax(72px,1fr)) minmax(104px,142px)';
+  let h='<div class="grid gap-1.5 items-center" style="grid-template-columns:'+gt+'">';
+  h+='<div class="text-[11px] font-bold text-slate-400">항목</div>';
+  h+=cols.map((c,ci)=>`<div class="text-[11px] font-bold text-center" style="color:${colStyle(ci).c}"><span class="colname" data-ci="${ci}">${escapeHtml(c.name)}</span></div>`).join('');
+  h+='<div class="text-[11px] font-bold text-slate-400">측정 방법</div>';
+  ms.forEach(m=>{
+    h+=`<div class="text-xs font-semibold text-slate-600">${escapeHtml(m.label)}${m.unit?` <span class="text-[10px] font-normal text-slate-400">${escapeHtml(m.unit)}</span>`:''}</div>`;
+    h+=cols.map(c=>`<input class="fld fld-sm text-center" inputmode="decimal" data-k="m_${m.k}_${c.id}" placeholder="—">`).join('');
+    h+=`<select class="fld fld-sm" data-k="m_${m.k}_src">`+METRIC_SRC.map(s=>`<option>${s}</option>`).join('')+`</select>`;
+  });
+  box.innerHTML=h+'</div>';
+}
+function fillMetricPrint(){
+  const el=document.getElementById('metricPrint'); if(!el) return;
+  const cols=activeCols(), ms=metricList().filter(metricFilled);
+  if(!ms.length){ el.innerHTML=''; return; }
+  const colg='<colgroup><col style="width:20%">'+cols.map(()=>'<col>').join('')+'<col style="width:18%"></colgroup>';
+  let h='<p style="font-size:13px;font-weight:800;margin:6px 0 4px;">■ 측정 수치</p><table class="ptbl">'+colg
+    +'<thead><tr><th>항목</th>'+cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join('')+'<th>측정 방법</th></tr></thead><tbody>';
+  ms.forEach(m=>{
+    h+='<tr><td style="font-weight:700">'+escapeHtml(m.label)+(m.unit?' ('+escapeHtml(m.unit)+')':'')+'</td>'
+      + cols.map(c=>`<td class="pt-v">${escapeHtml(String(state['m_'+m.k+'_'+c.id]||'-'))}</td>`).join('')
+      + `<td class="pt-m">${escapeHtml(state['m_'+m.k+'_src']||'미측정')}</td></tr>`;
+  });
+  el.innerHTML=h+'</tbody></table>';
+}
+function metricSummaryLine(){
+  const cols=activeCols(), ms=metricList().filter(metricFilled);
+  if(!ms.length) return '';
+  return ms.map(m=>{
+    const vals=cols.map(c=>String(state['m_'+m.k+'_'+c.id]||'-')).join(' / ');
+    const src=state['m_'+m.k+'_src']||'';
+    return m.label+' '+vals+(m.unit?' '+m.unit:'')+(src&&src!=='미측정'?`(${src})`:'');
+  }).join(', ');
+}
 function buildSpecs(){
   const sec=document.getElementById('specSection'); if(!sec)return;
   if(!SPEC_FIELDS){ sec.style.display='none'; return; }
@@ -1205,6 +1263,8 @@ function buildSummary(){
     if(und.length) o+=` ${josa(und.join('·'),'은','는')} 미정 상태로, 스펙 확정 전 단계임.`; }
   if(C.weight){ const seg=jc.map(c=>{ const s=weightStats(weightArr(c.id)); return s.n?`${c.name} ${s.min}~${s.max}${WUNIT}(편차 ${s.range}, ${s.n}개)`:null; }).filter(Boolean);
     if(seg.length) o+=` 개별 무게 실측 — ${seg.join(', ')}.`; }
+  const mline=(typeof metricSummaryLine==='function')?metricSummaryLine():'';
+  if(mline) o+=` 측정 수치 — ${mline}.`;
   S.push(o);
 
   /* 2 ─ 판정 집계 */
@@ -1461,7 +1521,7 @@ function exportPDF(){
   const openStates=[...document.querySelectorAll('.acc-body')].map(b=>b.classList.contains('open'));
   // 인쇄 전: 모든 아코디언 펼침
   document.querySelectorAll('.acc-body').forEach(b=>b.classList.add('open'));
-  collect(); refreshPhotoPairs(); buildPrintTables(); fillReportHead(); fillSpecPrint(); fillFinalPrint();   // 현재 입력값을 표·헤더에 반영
+  collect(); refreshPhotoPairs(); buildPrintTables(); fillReportHead(); fillSpecPrint(); fillMetricPrint(); fillFinalPrint();   // 현재 입력값을 표·헤더에 반영
   // 사진: 사진·메모·미촬영표시 아무 것도 없는 칸/줄은 인쇄에서 숨김 (미촬영은 인쇄에 표시)
   document.querySelectorAll('#photoBox > div.pdf-keep').forEach(row=>{
     row.querySelectorAll('.photo-cell').forEach(cell=>{
@@ -1505,6 +1565,11 @@ async function exportExcel(){
   cols.forEach(c=> push('meta',[c.name,'',c.desc||''],{metaRow:true}));
   if(SPEC_FIELDS){ push('section',['■ 제조회사 · 상세 스펙']); push('head',['','항목', ...cols.map(c=>c.name)]);
     SPEC_FIELDS.forEach((f,fi)=> push('item',['', ekv('spec.'+fi,f), ...cols.map(c=>state['spec_'+fi+'_'+c.id]||'')]));
+  }
+  { const ms=(typeof metricList==='function')?metricList().filter(metricFilled):[];
+    if(ms.length){ push('section',['■ 측정 수치']);
+      ms.forEach(m=> push('item',['', m.label+(m.unit?' ('+m.unit+')':''), ...cols.map(c=>state['m_'+m.k+'_'+c.id]||''), state['m_'+m.k+'_src']||'']));
+    }
   }
   if(state.note){ meta('특이사항', state.note); }
   const dumpT=(gs,p,title)=>{
@@ -1963,6 +2028,29 @@ const TYPES={
 };
 
 // 유형 선택 목록 순서(대분류별)
+
+// ====== 유형별 측정 수치 — 측정한 것만 채우면 되고, 빈 항목은 보고서에서 생략된다 ======
+// 간이 측정기를 쓰는 경우가 많아 값과 함께 '측정 방법'을 같이 남긴다.
+const TYPE_METRICS={
+ '수산_연체류':[['yield','자숙 수율','%'],['deglaze','탈빙률','%'],['piece','개체 중량','g']],
+ '수산_순살'  :[['yield','자숙 수율','%'],['deglaze','탈빙률','%'],['piece','개체 중량','g']],
+ '수산_패류'  :[['yield','자숙 수율','%'],['piece','개체 중량','g']],
+ '수산_갑각'  :[['yield','자숙 수율','%'],['deglaze','탈빙률','%'],['piece','개체 중량','g']],
+ '수산_어란'  :[['yield','자숙 수율','%'],['deglaze','탈빙률','%'],['piece','알집 중량','g'],['salt','염도','%']],
+ '수산_곤이'  :[['yield','자숙 수율','%'],['deglaze','탈빙률','%'],['piece','개체 중량','g']],
+ '수산_건해산':[['rehydr','복원율','%'],['salt','염도','%']],
+ '육_정육'    :[['fat','지방 함량','%'],['thick','두께','mm'],['yield','수율','%']],
+ '육_가금'    :[['yield','수율','%'],['thick','두께','mm']],
+ '육_가공육'  :[['fat','지방 함량','%'],['salt','염도','%'],['thick','두께','mm']],
+ '농_엽채'    :[['yield','수율','%'],['brix','당도','Brix']],
+ '농_근채'    :[['yield','수율','%'],['brix','당도','Brix']],
+ '농_나물'    :[['yield','수율','%']],
+ '농_버섯'    :[['yield','수율','%']],
+ '가공_소스'  :[['salt','염도','%'],['brix','당도','Brix'],['ph','pH','']],
+ '가공_면분식':[['salt','염도','%'],['piece','개당 중량','g']],
+ '기타'       :[['salt','염도','%'],['brix','당도','Brix'],['yield','수율','%']]
+};
+function metricsFor(key){ return (TYPE_METRICS[key]||TYPE_METRICS['기타']).map(m=>({k:m[0],label:m[1],unit:m[2]})); }
 const TYPE_ORDER=[
   ['해산물',['수산_연체류','수산_순살','수산_어란','수산_곤이','수산_패류','수산_갑각','수산_건해산']],
   ['육류',['육_정육','육_가금','육_가공육']],
@@ -1986,6 +2074,7 @@ function cfgFromType(key, product){
     process:JSON.parse(JSON.stringify(t.process)), sensory:JSON.parse(JSON.stringify(t.sensory)),
     photoRows:t.photos.slice(), radarAxes:['풍미','이취','식감','형태유지','볼륨감'],
     criteria:{symbols:'○ 사용 가능  △ 조건부 사용 가능  × 사용 불가', rules:['관능이 현행 사용 제품과 명확한 차이가 없을 것','최종: ○/△ 시 사용 가능(△는 조건부) / × 시 사용 불가']} };
+  cfg.metrics = (typeof metricsFor==='function') ? metricsFor(key) : [];
   if(t.weight) cfg.weight={unit:'g',stats:['n','min','max','range']};
   return cfg;
 }
