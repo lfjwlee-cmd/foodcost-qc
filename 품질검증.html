@@ -146,6 +146,12 @@ tailwind.config = { theme: { extend: {
   .iv[data-iv="×"].on{ background:#f43f5e; border-color:#f43f5e; color:#fff; }
   .iv[data-iv="생략"].on{ background:#94a3b8; border-color:#94a3b8; color:#fff; }
   .print-only{ display:none; }
+  /* 홈 화면 탭 — 검증 목록 / 대장 / 만들기를 한 주소에서 */
+  .sh-tab{ border:1px solid #e2e8f0; border-bottom:none; background:#e6eae8; color:#64748b;
+    font-size:13px; font-weight:700; padding:8px 15px; border-radius:10px 10px 0 0; cursor:pointer; }
+  .sh-tab:hover{ color:#16a34a; }
+  .sh-tab.on{ background:#fff; color:#16a34a; border-color:#cbd5e1; }
+  .sh-frame{ display:block; width:100%; height:calc(100vh - 150px); border:0; background:#fff; }
   /* 편집 모드 */
   body.edit-on [data-ek]{ outline:1.5px dashed #16a34a; outline-offset:2px; border-radius:4px; cursor:text; background:#f0fdf4; }
   body.edit-on #editBtn{ background:#16a34a; color:#fff; border-color:#16a34a; }
@@ -2103,7 +2109,19 @@ async function shellLogin(){
 async function shellLogout(){ await sb.auth.signOut(); location.reload(); }
 
 /* ---------- 화면 전환 ---------- */
-function showList(){ document.getElementById('shList').style.display='block'; document.getElementById('appWrap').style.display='none'; document.getElementById('edBar').style.display='none'; loadReports(); }
+// 대장·빌더는 같은 도메인이라 로그인 세션을 공유한다 — iframe 안에서 다시 로그인하지 않는다.
+// 처음 누를 때만 src 를 걸어 초기 로딩을 늦추지 않는다.
+function shTab(name){
+  const map={list:'shPanelList', ledger:'shPanelLedger', builder:'shPanelBuilder'};
+  if(!map[name]) name='list';
+  Object.keys(map).forEach(k=>{ const el=document.getElementById(map[k]); if(el) el.style.display=(k===name)?'':'none'; });
+  document.querySelectorAll('.sh-tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
+  if(name==='ledger'){ const f=document.getElementById('ifLedger'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_대장.html'); }
+  if(name==='builder'){ const f=document.getElementById('ifBuilder'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_만들기.html'); }
+  try{ history.replaceState(null,'', name==='list' ? location.pathname : ('#'+name)); }catch(e){}
+}
+function showList(){ document.getElementById('shList').style.display='block'; document.getElementById('appWrap').style.display='none'; document.getElementById('edBar').style.display='none'; loadReports();
+  const h=(location.hash||'').replace('#',''); shTab(h||'list'); }
 function showEditor(){ document.getElementById('shList').style.display='none'; document.getElementById('appWrap').style.display=''; document.getElementById('edBar').style.display='flex'; if(typeof populateEdType==='function') populateEdType(); window.scrollTo(0,0); }
 
 /* ---------- 목록 ---------- */
@@ -2268,18 +2286,26 @@ function injectShell(){
   document.body.appendChild(gate);
 
   const list=document.createElement('div'); list.id='shList'; list.style.cssText='display:none;position:fixed;inset:0;z-index:60;background:#f1f5f9;overflow:auto';
-  list.innerHTML=`<div style="max-width:760px;margin:0 auto;padding:18px 14px 60px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px">
-      <div><h1 style="font-size:20px;font-weight:800;color:#1e293b"><i class="fa-solid fa-clipboard-check text-green-600"></i> 품질검증 통합 대장</h1>
-      <p style="font-size:12px;color:#64748b">한 곳에서 작성·저장·조회 <span id="shCnt" style="color:#94a3b8"></span></p></div>
-      <div style="display:flex;gap:6px"><button onclick="loadReports()" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-rotate"></i></button>
-      <button onclick="location.href='품질검증_대장.html'" title="제조회사별 대시보드" style="background:#1e293b;color:#fff;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-gauge-high"></i></button>
-      <button onclick="shellLogout()" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-right-from-bracket"></i></button></div>
+  list.innerHTML=`<div style="position:sticky;top:0;z-index:5;background:#f1f5f9;border-bottom:1px solid #cbd5e1">
+    <div style="max-width:980px;margin:0 auto;padding:14px 14px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div><h1 style="font-size:20px;font-weight:800;color:#1e293b"><i class="fa-solid fa-clipboard-check text-green-600"></i> 품질검증</h1>
+      <p style="font-size:12px;color:#64748b">작성 · 대장 · 만들기를 한 화면에서 <span id="shCnt" style="color:#94a3b8"></span></p></div>
+      <div style="display:flex;gap:6px"><button onclick="loadReports()" title="목록 새로고침" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-rotate"></i></button>
+      <button onclick="shellLogout()" title="로그아웃" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-right-from-bracket"></i></button></div>
     </div>
+    <div style="max-width:980px;margin:0 auto;padding:10px 14px 0;display:flex;gap:5px">
+      <button type="button" class="sh-tab on" data-tab="list" onclick="shTab('list')"><i class="fa-solid fa-list-check mr-1"></i>검증 목록</button>
+      <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-gauge-high mr-1"></i>대장</button>
+      <button type="button" class="sh-tab" data-tab="builder" onclick="shTab('builder')"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>만들기</button>
+    </div>
+  </div>
+  <div id="shPanelList" style="max-width:760px;margin:0 auto;padding:16px 14px 60px">
     <button onclick="openNew()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:12px"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
     <input id="shSearch" oninput="renderReports()" placeholder="제품·제조회사 검색" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:13px;margin-bottom:14px">
     <div id="shListBody"></div>
-  </div>`;
+  </div>
+  <div id="shPanelLedger" style="display:none"><iframe id="ifLedger" title="품질검증 대장" class="sh-frame"></iframe></div>
+  <div id="shPanelBuilder" style="display:none"><iframe id="ifBuilder" title="오프라인 빌더" class="sh-frame"></iframe></div>`;
   document.body.appendChild(list);
 
   const nm=document.createElement('div'); nm.id='shNew'; nm.style.cssText='display:none;position:fixed;inset:0;z-index:80;background:#0f172acc;align-items:center;justify-content:center;padding:16px';
