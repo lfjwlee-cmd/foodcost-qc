@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<title>품질검증 | 식자재 품질 검증</title>
+<title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -147,10 +147,11 @@ tailwind.config = { theme: { extend: {
   .iv[data-iv="생략"].on{ background:#94a3b8; border-color:#94a3b8; color:#fff; }
   .print-only{ display:none; }
   /* 홈 화면 탭 — 검증 목록 / 대장 / 만들기를 한 주소에서 */
-  .sh-tab{ border:1px solid #e2e8f0; border-bottom:none; background:#e6eae8; color:#64748b;
-    font-size:13px; font-weight:700; padding:8px 15px; border-radius:10px 10px 0 0; cursor:pointer; }
-  .sh-tab:hover{ color:#16a34a; }
-  .sh-tab.on{ background:#fff; color:#16a34a; border-color:#cbd5e1; }
+  .sh-tab{ border:none; background:transparent; color:#64748b; white-space:nowrap;
+    font-size:13.5px; font-weight:700; padding:9px 14px; border-radius:9px 9px 0 0; cursor:pointer;
+    border-bottom:2px solid transparent; transition:.12s; }
+  .sh-tab:hover{ color:#0f172a; background:#e9edea; }
+  .sh-tab.on{ color:#15803d; background:#fff; border-bottom-color:#16a34a; box-shadow:0 -1px 0 #e2e8f0 inset; }
   .sh-frame{ display:block; width:100%; height:calc(100vh - 150px); border:0; background:#fff; }
   /* 구매팀 전달서 — 본문을 모두 숨기고 A4 1장만 인쇄 */
   #handoffSheet{ display:none; }
@@ -2401,7 +2402,7 @@ function renderNativeBoard(){
       ${r.note?`<div style="font-size:11px;color:#94a3b8;margin-top:4px">${esc(r.note)}</div>`:''}
     </div>`; };
   const col=a=>{ const rows=NBOARD.filter(r=>(r.action||'')===a.k);
-    return `<div style="flex:0 0 220px;display:flex;flex-direction:column;gap:8px">
+    return `<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;padding-bottom:7px;border-bottom:2px solid ${a.c};color:${a.c}">
         <span>${a.t}</span><span style="color:#94a3b8">${rows.length}</span></div>
       ${rows.map(card).join('') || '<p style="font-size:11.5px;color:#cbd5e1;padding:6px 0">없음</p>'}
@@ -2413,7 +2414,7 @@ function renderNativeBoard(){
     </div>
     ${late.length?`<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#be123c;font-weight:700">
       기한 초과 ${late.length}건 — ${late.slice(0,4).map(r=>esc(r.ingredient||'')+' ('+r.due+')').join(', ')}${late.length>4?` 외 ${late.length-4}건`:''}</div>`:''}
-    <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">${HOME_ACTS.map(col).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(224px,1fr));gap:14px;align-items:start">${HOME_ACTS.map(col).join('')}</div>
     <p style="font-size:11px;color:#94a3b8;margin-top:10px">카드를 누르면 해당 검증이 열립니다. 후속 조치는 검증 화면 PART C 에서 고릅니다.</p>`;
 }
 // ── 검증 목록 탭 상단 요약 ──
@@ -2610,13 +2611,13 @@ function injectShell(){
 
   const list=document.createElement('div'); list.id='shList'; list.style.cssText='display:none;position:fixed;inset:0;z-index:60;background:#f1f5f9;overflow:auto';
   list.innerHTML=`<div style="position:sticky;top:0;z-index:5;background:#f1f5f9;border-bottom:1px solid #cbd5e1">
-    <div style="max-width:980px;margin:0 auto;padding:14px 14px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-      <div><h1 style="font-size:20px;font-weight:800;color:#1e293b"><i class="fa-solid fa-clipboard-check text-green-600"></i> 품질검증</h1>
+    <div style="max-width:1280px;margin:0 auto;padding:16px 16px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div><h1 style="font-size:21px;font-weight:800;color:#0f172a;letter-spacing:-.02em"><i class="fa-solid fa-clipboard-check" style="color:#16a34a"></i> 식자재 검증 센터</h1>
       <p style="font-size:12px;color:#64748b">메뉴개발팀 · 구매물류팀 공용 <span id="shCnt" style="color:#94a3b8"></span></p></div>
       <div style="display:flex;gap:6px"><button onclick="loadReports()" title="목록 새로고침" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-rotate"></i></button>
       <button onclick="shellLogout()" title="로그아웃" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-right-from-bracket"></i></button></div>
     </div>
-    <div style="max-width:980px;margin:0 auto;padding:10px 14px 0;display:flex;gap:5px">
+    <div style="max-width:1280px;margin:0 auto;padding:12px 16px 0;display:flex;gap:4px;overflow-x:auto">
       <button type="button" class="sh-tab on" data-tab="board" onclick="shTab('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 현황</button>
       <button type="button" class="sh-tab" data-tab="list" onclick="shTab('list')"><i class="fa-solid fa-list-check mr-1"></i>검증 목록</button>
       <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-table-list mr-1"></i>전체 표</button>
@@ -2630,7 +2631,7 @@ function injectShell(){
     <div id="shListBody"></div>
   </div>
   <div id="shPanelLedger" style="display:none"><iframe id="ifLedger" title="품질검증 대장" class="sh-frame"></iframe></div>
-  <div id="shPanelBoard" style="display:none;max-width:1100px;margin:0 auto;padding:16px 14px 60px"></div>
+  <div id="shPanelBoard" style="display:none;max-width:1280px;margin:0 auto;padding:16px 14px 60px"></div>
   <div id="shPanelBuilder" style="display:none"><iframe id="ifBuilder" title="오프라인 빌더" class="sh-frame"></iframe></div>`;
   document.body.appendChild(list);
 
