@@ -62,6 +62,19 @@
     </div>
   </div>
 
+  <div class="flex gap-1.5 mb-3">
+    <button type="button" id="vwTable" class="btn bg-slate-800 text-white" onclick="setView('table')"><i class="fa-solid fa-table-list mr-1"></i>대장 표</button>
+    <button type="button" id="vwBoard" class="btn bg-slate-100 text-slate-500" onclick="setView('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 보드</button>
+  </div>
+
+  <div id="boardView" style="display:none">
+    <div id="boardTiles" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3"></div>
+    <div id="boardCols" class="flex gap-3 overflow-x-auto pb-2"></div>
+    <p class="text-[11px] text-slate-400 mt-2">후속 조치는 검증 화면의 <b>PART C</b> 에서 고릅니다. 기한이 지난 건은 빨갛게 표시됩니다.</p>
+  </div>
+
+  <div id="tableView">
+
   <!-- 제조회사별 요약 대시보드 -->
   <div class="mb-2"><button onclick="var s=document.getElementById('summary');s.style.display=s.style.display==='none'?'':'none';this.querySelector('i').className=s.style.display==='none'?'fa-solid fa-chevron-down':'fa-solid fa-chevron-up';" class="text-xs font-bold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-chevron-down"></i> 제조회사별 요약 보기</button></div>
   <div id="summary" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4" style="display:none"></div>
@@ -79,6 +92,7 @@
       <tbody id="body"></tbody>
     </table>
     <div id="empty" class="p-10 text-center text-slate-400 text-sm hidden">아직 대장에 추가된 검증이 없습니다.<br>검증 파일에서 <b>[이 검증을 품질검증 대장에 추가]</b>를 눌러 보세요.</div>
+  </div>
   </div>
 </div>
 
@@ -126,6 +140,72 @@ async function loadData(){
   const {data,error}=await sb.from('qc_ledger').select('*');
   if(error){ setSync('연결 오류'); toast('불러오기 오류: '+error.message); return; }
   DATA=data||[]; setSync('동기화됨'); render();
+}
+// ===== 진행 보드 — qc_reports 의 후속 조치/기한을 읽어 칸반으로 =====
+const BOARD_COLS=[
+  {k:'',                 t:'미지정',        c:'#94a3b8'},
+  {k:'최종 테스트 진행',  t:'최종 테스트',   c:'#2563eb'},
+  {k:'디벨롭 · 사양 변경 요청', t:'디벨롭 요청', c:'#d97706'},
+  {k:'재샘플 요청',       t:'재샘플 요청',   c:'#d97706'},
+  {k:'보류 — 조건부 재검토', t:'보류',       c:'#64748b'},
+  {k:'도입 진행',         t:'도입 확정',     c:'#16a34a'},
+  {k:'개발 중단',         t:'중단',          c:'#e11d48'}
+];
+let BOARD=[];
+function setView(v){
+  const t=document.getElementById('tableView'), b=document.getElementById('boardView');
+  if(t) t.style.display = v==='board'?'none':'';
+  if(b) b.style.display = v==='board'?'':'none';
+  document.getElementById('vwTable').className = 'btn '+(v==='board'?'bg-slate-100 text-slate-500':'bg-slate-800 text-white');
+  document.getElementById('vwBoard').className = 'btn '+(v==='board'?'bg-slate-800 text-white':'bg-slate-100 text-slate-500');
+  if(v==='board') loadBoard();
+}
+async function loadBoard(){
+  setSync('보드 불러오는 중…');
+  const {data,error}=await sb.from('qc_reports').select('id,ingredient,date,brand,verdict,data').order('date',{ascending:false});
+  if(error){ setSync('연결 오류'); toast('보드 불러오기 오류'); return; }
+  BOARD=(data||[]).map(r=>{ const st=(r.data&&r.data.state)||{}; const cols=st.cols||[];
+    let maker=''; try{ maker=st['spec_0_'+(cols[0]||{}).id]||''; }catch(e){}
+    return { id:r.id, name:r.ingredient||'(제품명 없음)', date:r.date||'', verdict:r.verdict||'',
+             maker:maker, action:st.nextAction||'', due:st.dueDate||'',
+             use:st.monthlyUse||'', supply:st.supplyOk||'', note:st.nextActionNote||'' }; });
+  setSync('동기화됨'); renderBoard();
+}
+function dueState(d){
+  if(!d) return {cls:'', txt:''};
+  const t=new Date(d+'T23:59:59'), now=new Date();
+  const dd=Math.ceil((t-now)/86400000);
+  if(dd<0) return {cls:'text-rose-600 font-bold', txt:d+' · 초과'};
+  if(dd<=3) return {cls:'text-rose-600 font-bold', txt:d+' · D-'+dd};
+  return {cls:'text-slate-400', txt:d};
+}
+function renderBoard(){
+  const tiles=document.getElementById('boardTiles'), box=document.getElementById('boardCols');
+  if(!tiles||!box) return;
+  const open=BOARD.filter(r=>!['도입 진행','개발 중단'].includes(r.action));
+  const late=BOARD.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action) && new Date(r.due+'T23:59:59')<new Date());
+  const adopt=BOARD.filter(r=>r.action==='도입 진행');
+  const tile=(l,v,alert)=>`<div class="card p-3 ${alert?'border border-rose-300':''}"><div class="text-[11px] font-bold text-slate-400">${l}</div><div class="text-2xl font-extrabold ${alert?'text-rose-600':'text-slate-800'}">${v}</div></div>`;
+  tiles.innerHTML = tile('진행 중', open.length) + tile('기한 임박·초과', late.length, late.length>0)
+    + tile('도입 확정', adopt.length) + tile('전체 검증', BOARD.length);
+  box.innerHTML = BOARD_COLS.map(bc=>{
+    const rows=BOARD.filter(r=>(r.action||'')===bc.k);
+    return `<div style="flex:0 0 212px">
+      <div class="flex items-center justify-between text-xs font-bold pb-1.5 mb-2" style="border-bottom:2px solid ${bc.c}">
+        <span style="color:${bc.c}">${bc.t}</span><span class="text-slate-400">${rows.length}</span></div>
+      <div class="flex flex-col gap-2">${rows.map(r=>{
+        const d=dueState(r.due);
+        return `<div class="card p-2.5" style="border-left:3px solid ${bc.c}">
+          <div class="text-[13px] font-bold text-slate-800">${esc(r.name)}</div>
+          <div class="text-[11px] text-slate-500">${esc(r.maker||'거래처 미상')}</div>
+          <div class="flex items-center gap-2 mt-1 text-[11px] flex-wrap">
+            ${r.verdict?`<span class="font-bold">${esc(r.verdict)}</span>`:''}
+            ${d.txt?`<span class="${d.cls}">${esc(d.txt)}</span>`:''}
+            ${r.use?`<span class="text-slate-400">${esc(r.use)}</span>`:''}
+          </div>
+          ${r.note?`<div class="text-[11px] text-slate-400 mt-1">${esc(r.note)}</div>`:''}
+        </div>`; }).join('') || '<p class="text-[11px] text-slate-300 py-2">없음</p>'}</div>
+    </div>`; }).join('');
 }
 function setSync(s){ const d=document.getElementById('syncDot'); if(d) d.textContent='● '+s; }
 
