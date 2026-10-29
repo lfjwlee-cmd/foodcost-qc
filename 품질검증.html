@@ -2402,10 +2402,11 @@ function renderNativeBoard(){
       ${r.note?`<div style="font-size:11px;color:#94a3b8;margin-top:4px">${esc(r.note)}</div>`:''}
     </div>`; };
   const col=a=>{ const rows=NBOARD.filter(r=>(r.action||'')===a.k);
+    if(!rows.length) return '';   // 비어 있는 칸은 그리지 않는다 — 빈 칸이 화면을 다 차지하던 문제
     return `<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;padding-bottom:7px;border-bottom:2px solid ${a.c};color:${a.c}">
         <span>${a.t}</span><span style="color:#94a3b8">${rows.length}</span></div>
-      ${rows.map(card).join('') || '<p style="font-size:11.5px;color:#cbd5e1;padding:6px 0">없음</p>'}
+      ${rows.map(card).join('')}
     </div>`; };
   box.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
@@ -2415,7 +2416,9 @@ function renderNativeBoard(){
     ${late.length?`<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#be123c;font-weight:700">
       기한 초과 ${late.length}건 — ${late.slice(0,4).map(r=>esc(r.ingredient||'')+' ('+r.due+')').join(', ')}${late.length>4?` 외 ${late.length-4}건`:''}</div>`:''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(224px,1fr));gap:14px;align-items:start">${HOME_ACTS.map(col).join('')}</div>
-    <p style="font-size:11px;color:#94a3b8;margin-top:10px">카드를 누르면 해당 검증이 열립니다. 후속 조치는 검증 화면 PART C 에서 고릅니다.</p>`;
+    <p style="font-size:11px;color:#94a3b8;margin-top:12px">카드를 누르면 해당 검증이 열립니다. 후속 조치는 검증 화면 <b>PART C</b> 에서 고릅니다${
+      (()=>{ const empty=HOME_ACTS.filter(a=>!NBOARD.some(r=>(r.action||'')===a.k)&&a.k).map(a=>a.t);
+        return empty.length?` · 아직 비어 있는 단계: ${empty.join(' · ')}`:''; })()}.</p>`;
 }
 // ── 검증 목록 탭 상단 요약 ──
 const HOME_ACTS=[
@@ -2666,7 +2669,7 @@ function injectShell(){
 
 
 (async function init(){
-  document.title='품질검증 통합 · 인생푸드';
+  document.title='식자재 검증 센터';
   if(window.__SHARE__){ try{ state=window.__SHARE__.state||{}; }catch(e){} photosObj=(window.__SHARE__&&window.__SHARE__.photos)||{}; document.body.classList.add('view-mode'); document.getElementById('appWrap').style.display=''; build(); applyPhotos(); openAllSections(); netStatus(); return; }
   injectShell();
   try{ netStatus(); }catch(e){}
