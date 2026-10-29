@@ -412,9 +412,14 @@ tailwind.config = { theme: { extend: {
             <select class="fld fld-sm" data-k="reqFrom">
               <option value="">선택…</option><option>구매물류팀</option><option>메뉴개발팀</option><option>매장</option><option>거래처 제안</option><option>경영진</option><option>기타</option>
             </select></div>
-          <div><label class="lbl">완료 기한</label><input type="date" class="fld fld-sm" data-k="dueDate"></div>
+          <div><label class="lbl">회신 기한</label><input type="date" class="fld fld-sm" data-k="dueDate"></div>
+          <div class="col-span-2"><label class="lbl">사용처 <span class="font-normal text-slate-400">어느 메뉴·브랜드에 쓸 것인지</span></label>
+            <input class="fld fld-sm" data-k="useFor" placeholder="예: 인생아구찜 — 아구찜 토핑 / 어화락 — 구이 사이드"></div>
           <div><label class="lbl">예상 월 사용량</label><input class="fld fld-sm" data-k="monthlyUse" placeholder="예: 120kg / 월"></div>
-          <div><label class="lbl">공급 가능 여부 <span class="font-normal text-slate-400">구매팀</span></label>
+          <div><label class="lbl">도입 목표 시기</label><input class="fld fld-sm" data-k="targetDate" placeholder="예: 2026-12 또는 12월 초"></div>
+          <div><label class="lbl">테스트 시작</label><input type="date" class="fld fld-sm" data-k="testFrom"></div>
+          <div><label class="lbl">테스트 종료</label><input type="date" class="fld fld-sm" data-k="testTo"></div>
+          <div class="col-span-2"><label class="lbl">공급 가능 여부 <span class="font-normal text-slate-400">구매물류팀이 입력</span></label>
             <select class="fld fld-sm" data-k="supplyOk">
               <option value="">미확인</option><option>확인 중</option><option>공급 가능</option><option>조건부 가능</option><option>공급 불가</option>
             </select></div>
@@ -1496,6 +1501,10 @@ function buildSummary(){
   S.push(c);
 
   /* 6-2 ─ 후속 조치 — 구매팀이 무엇을 할 차례인지 한 줄로 */
+  if(state.useFor||state.targetDate){
+    S.push('[사용 계획] '+[state.useFor?('사용처 '+state.useFor):'', state.monthlyUse?('예상 '+state.monthlyUse):'',
+      state.targetDate?('도입 목표 '+state.targetDate):'', (state.testFrom||state.testTo)?('테스트 '+(state.testFrom||'')+'~'+(state.testTo||'')):''].filter(Boolean).join(' · '));
+  }
   if(state.nextAction){
     let na='[후속 조치] '+state.nextAction;
     if(state.nextActionNote) na+=' — '+state.nextActionNote;
@@ -1708,6 +1717,18 @@ window.addEventListener('online',netStatus); window.addEventListener('offline',n
 
 // ── 구매물류팀 전달서 — 전체 보고서 대신 A4 1장 ──
 // st/cfg 만 받는 순수 함수. 작성 화면(현재 state)과 현황 화면(저장된 레코드) 양쪽이 같은 출력을 쓴다.
+// 판정 + 후속 조치를 합쳐 구매팀이 바로 읽을 한 마디로
+function usability(v, act){
+  if(act==='도입 진행') return '도입 가능';
+  if(act==='개발 중단') return '채택 불가';
+  if(act==='디벨롭 · 사양 변경 요청'||act==='재샘플 요청') return '조건 충족 시 가능';
+  if(act==='최종 테스트 진행') return '최종 확인 단계';
+  if(act==='보류 — 조건부 재검토') return '보류';
+  if(v==='○') return '사용 가능';
+  if(v==='△') return '조건부';
+  if(v==='×') return '현 상태 불가';
+  return '판단 전';
+}
 function handoffHTML(st, cfg, meta){
   const esc=escapeHtml, g=k=>esc(st[k]||'');
   const cols=(st.cols&&st.cols.length)?st.cols:((cfg.cols)||[]);
@@ -1758,6 +1779,7 @@ function handoffHTML(st, cfg, meta){
     </table>
     <div class="hs-band">
       <div class="hs-b"><div class="lbl">검증 결과</div><div class="big">${VT[worst]||'판정 미입력'}</div></div>
+      <div class="hs-b"><div class="lbl">사용 가능성</div><div class="big">${esc(usability(worst, st.nextAction))}</div></div>
       <div class="hs-b"><div class="lbl">후속 조치</div><div class="big">${g('nextAction')||'미정'}</div></div>
       <div class="hs-b"><div class="lbl">회신 기한</div><div class="big">${g('dueDate')||'-'}</div></div>
     </div>
@@ -1765,7 +1787,9 @@ function handoffHTML(st, cfg, meta){
     ${mTable}${aTable}
     ${st.nextActionNote?`<h4>후속 조치 메모</h4><p>${g('nextActionNote')}</p>`:''}
     <table class="hs-kv">
-      <tr><td class="k">예상 월사용량</td><td>${g('monthlyUse')||'미산정'}</td><td class="k">공급 가능</td><td>${g('supplyOk')||'미확인'}</td></tr>
+      <tr><td class="k">사용처</td><td colspan="3">${g('useFor')||'-'}</td></tr>
+      <tr><td class="k">예상 월사용량</td><td>${g('monthlyUse')||'미산정'}</td><td class="k">도입 목표</td><td>${g('targetDate')||'-'}</td></tr>
+      <tr><td class="k">테스트 기간</td><td>${(st.testFrom||st.testTo)?esc((st.testFrom||'')+' ~ '+(st.testTo||'')):'-'}</td><td class="k">공급 가능</td><td>${g('supplyOk')||'미확인'}</td></tr>
       <tr><td class="k">요청 출처</td><td>${g('reqFrom')||'-'}</td><td class="k">검증 유형</td><td>${g('purposeType')||'-'}</td></tr>
     </table>
   </div>`;
@@ -1822,7 +1846,10 @@ async function exportExcel(){
   if(state.reqFrom) meta('요청 출처', state.reqFrom);
   if(state.nextAction) meta('후속 조치', state.nextAction+(state.nextActionNote?(' — '+state.nextActionNote):''));
   if(state.dueDate) meta('회신 기한', state.dueDate);
+  if(state.useFor) meta('사용처', state.useFor);
   if(state.monthlyUse) meta('예상 월사용량', state.monthlyUse);
+  if(state.targetDate) meta('도입 목표 시기', state.targetDate);
+  if(state.testFrom||state.testTo) meta('테스트 기간', (state.testFrom||'')+' ~ '+(state.testTo||''));
   if(state.supplyOk) meta('공급 가능 여부', state.supplyOk);
   if(state.purpose) meta('검증 목적', state.purpose);
   push('section',['■ 비교 대상']);
@@ -2565,7 +2592,9 @@ function renderBoardDetail(){
   <div class="bd-sec" style="background:#fafbfa">
     <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
       ${pill('검증 결과', esc(BDETAIL.verdict||'미정'), VCOLOR[BDETAIL.verdict])}
+      ${pill('사용 가능성', esc(usability(BDETAIL.verdict, st.nextAction)), ac)}
       ${pill('예상 월사용량', esc(st.monthlyUse||'미산정'))}
+      ${pill('도입 목표', esc(st.targetDate||'-'))}
       ${pill('공급 가능', esc(st.supplyOk||'미확인'))}
     </div>
     <div class="bd-h">구매팀이 정하는 항목 — 고르면 바로 저장됩니다</div>
@@ -2579,6 +2608,12 @@ function renderBoardDetail(){
     </div>
     ${st.nextActionNote?`<div style="font-size:12px;color:#64748b;margin-top:7px">${esc(st.nextActionNote)}</div>`:''}
   </div>
+  ${(st.useFor||st.testFrom||st.testTo)?`<div class="bd-sec"><div class="bd-h">사용 계획</div>
+    <table class="bd-t"><tbody>
+      ${st.useFor?`<tr><th style="width:92px">사용처</th><td>${esc(st.useFor)}</td></tr>`:''}
+      ${(st.testFrom||st.testTo)?`<tr><th>테스트 기간</th><td class="n">${esc((st.testFrom||'')+' ~ '+(st.testTo||''))}</td></tr>`:''}
+      ${st.reqFrom?`<tr><th>요청 출처</th><td>${esc(st.reqFrom)}</td></tr>`:''}
+    </tbody></table></div>`:''}
   ${st.comment?`<div class="bd-sec"><div class="bd-h">종합 평가</div>
     <div style="font-size:12.5px;color:#334155;white-space:pre-wrap;line-height:1.65;max-height:230px;overflow:auto;background:#fafbfa;border:1px solid #eef2f6;border-radius:10px;padding:11px 13px">${esc(st.comment)}</div></div>`:''}
   <div class="bd-sec" id="bdPhotos" style="display:none"></div>
