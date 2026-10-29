@@ -4,49 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>인생푸드 · 식자재 품질검증</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script>
+  // 해시(#ledger, #builder)를 그대로 넘겨 바로 그 탭으로 들어가게 한다
+  location.replace('품질검증.html' + (location.hash || ''));
+</script>
+<meta http-equiv="refresh" content="0; url=품질검증.html">
 <style>
-  body{ font-family:'Pretendard','Malgun Gothic',system-ui,sans-serif; }
-  .tool{ transition:.15s; }
-  .tool:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(15,23,42,.10); }
+  body{ font-family:'Pretendard','Malgun Gothic',system-ui,sans-serif; background:#f1f5f9; color:#475569;
+        display:grid; place-items:center; min-height:100vh; margin:0; }
+  a{ color:#16a34a; font-weight:700; }
 </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
-<div class="max-w-xl mx-auto px-4 py-10">
-
-  <header class="flex items-center gap-3 mb-6">
-    <div class="w-12 h-12 rounded-2xl bg-green-600 text-white text-xl grid place-items-center shadow-md shrink-0">
-      <i class="fa-solid fa-shield-halved"></i></div>
-    <div>
-      <h1 class="text-xl font-extrabold text-slate-800">식자재 품질검증</h1>
-      <p class="text-xs text-slate-500">인생푸드 메뉴개발팀</p>
-    </div>
-  </header>
-
-  <a href="품질검증.html" class="tool block bg-white rounded-2xl shadow-sm border-l-4 border-green-600 p-5">
-    <div class="flex items-start gap-4">
-      <div class="w-11 h-11 rounded-xl bg-green-50 text-green-600 text-lg grid place-items-center shrink-0">
-        <i class="fa-solid fa-clipboard-check"></i></div>
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base font-bold text-slate-800">품질검증 열기</h2>
-        <p class="text-[13px] text-slate-500 mt-0.5">검증 작성 · 저장 · PDF/엑셀. <b class="text-slate-600">대장</b>과 <b class="text-slate-600">만들기</b>가 안에 탭으로 들어 있습니다.</p>
-        <div class="flex gap-1.5 mt-2 flex-wrap">
-          <span class="text-[11px] text-slate-500 bg-slate-100 rounded px-2 py-0.5">검증 목록</span>
-          <span class="text-[11px] text-slate-500 bg-slate-100 rounded px-2 py-0.5">대장</span>
-          <span class="text-[11px] text-slate-500 bg-slate-100 rounded px-2 py-0.5">만들기</span>
-        </div>
-      </div>
-      <i class="fa-solid fa-chevron-right text-slate-300 mt-3"></i>
-    </div>
-  </a>
-
-  <p class="text-[11px] text-slate-400 mt-6 leading-relaxed">
-    팀 공용 비밀번호 로그인이 필요합니다. 대장만 바로 열려면
-    <code class="bg-slate-200 rounded px-1">품질검증.html#ledger</code>,
-    만들기는 <code class="bg-slate-200 rounded px-1">#builder</code> 로 접속하세요.
-  </p>
-
-</div>
+<body>
+  <p>품질검증으로 이동 중… 넘어가지 않으면 <a href="품질검증.html">여기를 누르세요</a>.</p>
 </body>
 </html>
