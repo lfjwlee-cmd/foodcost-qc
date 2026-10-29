@@ -1716,8 +1716,10 @@ function handoffHTML(st, cfg, meta){
   const mk=c=> si>=0 ? esc(st['spec_'+si+'_'+c.id]||'') : '';
   const pk=c=> pi>=0 ? esc(st['spec_'+pi+'_'+c.id]||'') : '';
   const line=c=>{ const m=mk(c), d=esc(c.desc||''), p=pk(c);
-    const dup = m && d.replace(/\s/g,'').includes(m.replace(/\s/g,''));
-    return [dup?'':m, d, p].filter(x=>x&&x!=='-').join(' ') || '-'; };
+    const flat=d.replace(/\s/g,'');
+    const dupM = m && flat.includes(m.replace(/\s/g,''));
+    const dupP = p && flat.includes(p.replace(/\s/g,''));   // 열 설명에 포장 규격이 이미 있으면 다시 붙이지 않는다
+    return [dupM?'':m, d, dupP?'':p].filter(x=>x&&x!=='-').join(' ') || '-'; };
   const VT={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불가'};
   const vs=jc.map(c=>st['final_'+c.id+'_v']).filter(Boolean);
   const worst = vs.includes('×')?'×':(vs.includes('△')?'△':(vs.includes('○')?'○':''));
