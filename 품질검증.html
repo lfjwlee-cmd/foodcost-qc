@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030061846">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030070934">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3123,6 +3123,7 @@ const REQ_STATUS=[
   {k:'반려',          c:'#c0433a', d:'진행 불가'}
 ];
 const RQC=k=>(REQ_STATUS.find(x=>x.k===k)||{}).c||'#9a958d';
+const REQ_KINDS=['샘플 요청','테스트 요청','견적·단가 요청'];
 let REQS=[], RSEL=null;
 
 async function loadReqBadge(){
@@ -3159,7 +3160,7 @@ function renderRequests(){
       <span style="width:8px;height:8px;border-radius:50%;background:${c};flex:none"></span>
       <div style="min-width:0;flex:1">
         <div style="font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.ing||'(품목 미입력)')}</div>
-        <div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.st.reqFor||'사용처 미정')} · ${esc(r.date||'')}</div>
+        <div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.st.reqType||'샘플 요청')} · ${esc(r.st.reqFor||'사용처 미정')} · ${esc(r.date||'')}</div>
       </div>
       <div style="text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
         <span class="bd-chip" style="color:${c};background:${c}1a">${esc(stt)}</span>
@@ -3199,7 +3200,9 @@ function openNewReq(){
   w.innerHTML=`<div class="bd-card" style="max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:18px 20px">
     <div style="font-size:17px;font-weight:800;margin-bottom:3px">샘플 요청</div>
     <p style="font-size:12px;color:var(--muted);margin:0 0 14px">구매물류팀이 이 내용으로 거래처에 문의합니다. 수치로 적을수록 한 번에 끝납니다.</p>
-    <label class="lbl">필요 품목 *</label><input id="rqIng" class="fld fld-sm" placeholder="예: 영양밥 소스">
+    <label class="lbl">요청 유형</label>
+    <select id="rqType" class="fld fld-sm">${REQ_KINDS.map(k=>`<option>${k}</option>`).join('')}</select>
+    <label class="lbl mt-2.5">필요 품목 *</label><input id="rqIng" class="fld fld-sm" placeholder="예: 영양밥 소스">
     <div class="grid grid-cols-2 gap-2.5 mt-2.5">
       <div><label class="lbl">사용처 *</label><input id="rqFor" class="fld fld-sm" placeholder="예: 삼대미역 — 영양밥"></div>
       <div><label class="lbl">요청자</label><input id="rqBy" class="fld fld-sm" placeholder="성명/직급"></div>
@@ -3229,7 +3232,7 @@ async function saveNewReq(){
   if(!v('rqIng')||!v('rqFor')||!v('rqWhy')){ msg.textContent='품목 · 사용처 · 요청 사유는 꼭 적어 주세요.'; return; }
   msg.style.color='var(--muted)'; msg.textContent='올리는 중…';
   const id='rq_'+Date.now()+'_'+Math.floor(Math.random()*1e5);
-  const st={ kind:'request', reqStatus:'요청', product:v('rqIng'), reqFor:v('rqFor'), reqBy:v('rqBy'),
+  const st={ kind:'request', reqStatus:'요청', reqType:document.getElementById('rqType').value, product:v('rqIng'), reqFor:v('rqFor'), reqBy:v('rqBy'),
     monthlyUse:v('rqUse'), reqQty:v('rqQty'), reqWhen:v('rqWhen'), targetDate:v('rqTarget'),
     reqWhy:v('rqWhy'), reqWant:v('rqWant'), reqMaker:v('rqMaker'),
     date:new Date().toISOString().slice(0,10), reqAt:new Date().toISOString() };
@@ -3252,7 +3255,10 @@ async function selectReq(id, keep){
   <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;border-left:4px solid ${c};border-radius:16px 16px 0 0">
     <div><div style="font-size:18px;font-weight:800;color:var(--ink)">${esc(r.ing||'')}</div>
       <div style="font-size:11.5px;color:var(--muted)">${esc(r.date||'')}${st.reqBy?' · '+esc(st.reqBy):''} · ${esc(st.reqFor||'')}</div></div>
-    ${stt==='샘플 입고'?`<button class="bd-btn pri" onclick="reqToVerification('${id}')"><i class="fa-solid fa-flask-vial mr-1"></i>이 요청으로 검증 시작</button>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="bd-btn" onclick="printRequest('${id}')" title="A4 1장 — 구매팀·거래처 전달용"><i class="fa-solid fa-file-pdf mr-1"></i>요청서 PDF</button>
+      ${stt==='샘플 입고'?`<button class="bd-btn pri" onclick="reqToVerification('${id}')"><i class="fa-solid fa-flask-vial mr-1"></i>이 요청으로 검증 시작</button>`:''}
+    </div>
   </div>
   <div class="bd-sec" style="background:var(--surface-2)">
     <div class="bd-h">진행 상태 <span style="font-weight:600;color:var(--line-strong)">고르면 바로 저장됩니다</span></div>
@@ -3316,6 +3322,58 @@ async function postReqComment(id){
   document.getElementById('rqBody').value='';
   const r=REQS.find(x=>x.id===id); if(r) r.cmt=(r.cmt||0)+1;
   loadReqComments(id); renderRequests(); toast('코멘트를 남겼습니다');
+}
+
+// ── 요청서 (A4 1장) — 전달서와 같은 인쇄 틀을 쓴다 ──
+// 내부 협의 기록은 넣지 않는다. 이 문서는 거래처로 그대로 넘어갈 수 있다.
+function requestHTML(st, meta){
+  const esc=escapeHtml, g=k=>esc(st[k]||'');
+  const title=st.reqType||'샘플 요청';
+  const row=(k,v,full)=> v ? (full
+    ? `<tr><td class="k">${esc(k)}</td><td colspan="3">${esc(v)}</td></tr>`
+    : `<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td>`) : '';
+  const pair=(k1,v1,k2,v2)=>`<tr><td class="k">${esc(k1)}</td><td>${esc(v1||'-')}</td><td class="k">${esc(k2)}</td><td>${esc(v2||'-')}</td></tr>`;
+  return `<div class="hs-wrap">
+    <div class="hs-top"><h2>${esc(title)}서</h2>
+      <div class="hs-meta"><div>${esc(st.date||(meta&&meta.date)||'')}</div>
+        <div>메뉴개발팀 · ${g('reqBy')||'요청자 미기재'}</div></div></div>
+    <table class="hs-kv">
+      <tbody>
+      <tr><td class="k">필요 품목</td><td colspan="3"><b>${esc(st.product||(meta&&meta.ingredient)||'')}</b></td></tr>
+      <tr><td class="k">사용처</td><td colspan="3">${g('reqFor')}</td></tr>
+      <tr><td class="k">요청 사유<br>· 테스트 목적</td><td colspan="3">${g('reqWhy')}</td></tr>
+      </tbody>
+    </table>
+    <div class="hs-band">
+      <div class="hs-b"><div class="l">진행 상태</div><div class="v">${g('reqStatus')||'요청'}</div></div>
+      <div class="hs-b"><div class="l">희망 입고일</div><div class="v">${g('reqWhen')||'-'}</div></div>
+      <div class="hs-b"><div class="l">도입 목표</div><div class="v">${g('targetDate')||'-'}</div></div>
+    </div>
+    ${st.reqWant?`<h3>희망 사양</h3><p class="hs-pre">${g('reqWant')}</p>`:''}
+    <h3>요청 조건</h3>
+    <table class="hs-kv"><tbody>
+      ${pair('필요 수량', st.reqQty, '예상 월사용량', st.monthlyUse)}
+      ${pair('거래처', st.reqMaker||'지정 없음 — 구매물류팀 추천 요청', '요청일', st.date)}
+    </tbody></table>
+    <p style="font-size:11px;color:#6f6b64;margin-top:14px">
+      · 회신은 앱(식자재 검증 센터)의 해당 요청에 남겨 주시면 양 팀이 함께 확인합니다.<br>
+      · 샘플 입고 후 동일 건으로 품질 검증이 이어집니다.
+    </p>
+  </div>`;
+}
+async function printRequest(id){
+  let r=REQS.find(x=>x.id===id);
+  if(!r){
+    const {data,error}=await sb.from('qc_reports').select('ingredient,date,data').eq('id',id).single();
+    if(error){ toast('불러오기 실패'); return; }
+    r={id, ing:data.ingredient, date:data.date, st:(data.data&&data.data.state)||{}};
+  }
+  document.getElementById('handoffSheet').innerHTML=requestHTML(r.st, {ingredient:r.ing, date:r.date});
+  document.body.classList.add('handoff');
+  const back=()=>{ document.body.classList.remove('handoff'); window.removeEventListener('afterprint',back); };
+  window.addEventListener('afterprint',back);
+  toast('인쇄 창에서 "PDF로 저장"을 선택하세요 — 요청서 1장');
+  setTimeout(()=>{ window.print(); setTimeout(back,1500); },250);
 }
 // 샘플이 들어오면 요청 내용을 그대로 안고 검증으로 넘어간다
 async function reqToVerification(id){
