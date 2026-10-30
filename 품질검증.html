@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030070934">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030071400">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3126,6 +3126,55 @@ const RQC=k=>(REQ_STATUS.find(x=>x.k===k)||{}).c||'#9a958d';
 const REQ_KINDS=['샘플 요청','테스트 요청','견적·단가 요청'];
 let REQS=[], RSEL=null;
 
+
+// 품목표 — 샘플이 들어오면 품목마다 따로 검증으로 넘긴다
+function reqItemRows(st, id, stt){
+  const esc=escapeHtml, its=reqItems(st);
+  return `<table class="bd-t"><thead><tr><th>품목</th><th style="width:110px">수량</th><th style="width:110px">월사용량</th><th>희망 사양</th><th style="width:96px">거래처</th>${stt==='샘플 입고'?'<th style="width:78px"></th>':''}</tr></thead><tbody>
+    ${its.map((x,i)=>`<tr>
+      <td style="font-weight:700">${esc(x.name||'-')}</td>
+      <td>${esc(x.qty||'-')}</td><td>${esc(x.use||'-')}</td>
+      <td style="white-space:pre-wrap">${esc(x.want||'-')}</td>
+      <td>${esc(x.maker||'미지정')}</td>
+      ${stt==='샘플 입고'?`<td><button class="bd-btn" style="padding:3px 8px;font-size:11px;white-space:nowrap" onclick="reqToVerification('${id}',${i})">검증 시작</button></td>`:''}
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+// 요청 품목 줄 — 예전(단일 품목) 요청도 같은 모양으로 읽히게 한다
+function reqItems(st){
+  if(Array.isArray(st.items) && st.items.length) return st.items;
+  return [{ name:st.product||'', qty:st.reqQty||'', want:st.reqWant||'', maker:st.reqMaker||'', use:st.monthlyUse||'' }];
+}
+function reqTitle(st, fallback){
+  const it=reqItems(st).filter(x=>(x.name||'').trim());
+  if(!it.length) return fallback||'(품목 미입력)';
+  return it.length===1 ? it[0].name : it[0].name+' 외 '+(it.length-1)+'건';
+}
+let RQROWS=[];
+function rqRowHTML(i){
+  const r=RQROWS[i]||{};
+  return `<div class="bd-card" style="padding:10px 11px;margin-bottom:7px;background:var(--surface-2)">
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:800;color:var(--faint);flex:none;width:16px">${i+1}</span>
+      <input class="fld fld-sm" style="flex:1" placeholder="품목명 *" value="${escapeHtml(r.name||'')}" oninput="RQROWS[${i}].name=this.value">
+      ${RQROWS.length>1?`<button class="bd-btn" style="flex:none;padding:5px 9px" title="줄 삭제" onclick="RQROWS.splice(${i},1);renderRqRows()">✕</button>`:''}
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <input class="fld fld-sm" placeholder="필요 수량 (예: 2kg × 1종)" value="${escapeHtml(r.qty||'')}" oninput="RQROWS[${i}].qty=this.value">
+      <input class="fld fld-sm" placeholder="예상 월사용량" value="${escapeHtml(r.use||'')}" oninput="RQROWS[${i}].use=this.value">
+    </div>
+    <input class="fld fld-sm mt-2" placeholder="희망 사양 — 수치로 (예: 염도 1.2% 이하 / 개당 25g ±2g)" value="${escapeHtml(r.want||'')}" oninput="RQROWS[${i}].want=this.value">
+    <input class="fld fld-sm mt-2" placeholder="거래처 — 비우면 구매팀이 추천합니다" value="${escapeHtml(r.maker||'')}" oninput="RQROWS[${i}].maker=this.value">
+  </div>`;
+}
+function renderRqRows(){
+  const box=document.getElementById('rqRows'); if(!box) return;
+  if(!RQROWS.length) RQROWS=[{}];
+  box.innerHTML=RQROWS.map((_,i)=>rqRowHTML(i)).join('');
+}
+function addRqRow(){ RQROWS.push({}); renderRqRows(); }
+
+
 async function loadReqBadge(){
   try{
     const {data}=await sb.from('qc_reports').select('s:data->state->>reqStatus,k:data->state->>kind');
@@ -3159,7 +3208,7 @@ function renderRequests(){
       tabindex="${r.id===RSEL?0:-1}" onkeydown="boardRowKey(event)" onclick="selectReq('${r.id}')">
       <span style="width:8px;height:8px;border-radius:50%;background:${c};flex:none"></span>
       <div style="min-width:0;flex:1">
-        <div style="font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.ing||'(품목 미입력)')}</div>
+        <div style="font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(reqTitle(r.st, r.ing))}</div>
         <div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.st.reqType||'샘플 요청')} · ${esc(r.st.reqFor||'사용처 미정')} · ${esc(r.date||'')}</div>
       </div>
       <div style="text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
@@ -3202,21 +3251,19 @@ function openNewReq(){
     <p style="font-size:12px;color:var(--muted);margin:0 0 14px">구매물류팀이 이 내용으로 거래처에 문의합니다. 수치로 적을수록 한 번에 끝납니다.</p>
     <label class="lbl">요청 유형</label>
     <select id="rqType" class="fld fld-sm">${REQ_KINDS.map(k=>`<option>${k}</option>`).join('')}</select>
-    <label class="lbl mt-2.5">필요 품목 *</label><input id="rqIng" class="fld fld-sm" placeholder="예: 영양밥 소스">
     <div class="grid grid-cols-2 gap-2.5 mt-2.5">
       <div><label class="lbl">사용처 *</label><input id="rqFor" class="fld fld-sm" placeholder="예: 삼대미역 — 영양밥"></div>
       <div><label class="lbl">요청자</label><input id="rqBy" class="fld fld-sm" placeholder="성명/직급"></div>
-      <div><label class="lbl">예상 월 사용량</label><input id="rqUse" class="fld fld-sm" placeholder="예: 80kg / 월"></div>
-      <div><label class="lbl">필요 수량</label><input id="rqQty" class="fld fld-sm" placeholder="예: 2kg × 3종"></div>
       <div><label class="lbl">희망 입고일</label><input id="rqWhen" type="date" class="fld fld-sm" value="${today}"></div>
       <div><label class="lbl">도입 목표 시기</label><input id="rqTarget" class="fld fld-sm" placeholder="예: 2026-12"></div>
     </div>
     <label class="lbl mt-2.5">요청 사유 · 테스트 목적 *</label>
     <textarea id="rqWhy" class="fld fld-sm" rows="2" placeholder="예: 기존 소스 단가 상승으로 대체품 검토. 기존과 맛 방향이 같아야 함"></textarea>
-    <label class="lbl mt-2.5">희망 사양 <span class="font-normal text-slate-400">수치로</span></label>
-    <textarea id="rqWant" class="fld fld-sm" rows="2" placeholder="예: 당도 12Brix 내외 / 염도 1.8% / 점도 기존 수준 / 2kg 파우치"></textarea>
-    <label class="lbl mt-2.5">거래처</label>
-    <input id="rqMaker" class="fld fld-sm" placeholder="지정 업체가 있으면 입력 — 없으면 비워두면 구매팀이 추천합니다">
+    <div class="flex items-center justify-between mt-3 mb-1.5">
+      <label class="lbl mb-0">필요 품목 <span class="font-normal text-slate-400">여러 개면 줄을 추가하세요</span></label>
+      <button type="button" class="bd-btn" style="padding:4px 10px;font-size:11.5px" onclick="addRqRow()"><i class="fa-solid fa-plus mr-1"></i>품목 추가</button>
+    </div>
+    <div id="rqRows"></div>
     <div style="display:flex;gap:7px;margin-top:16px">
       <button class="bd-btn" style="flex:1" onclick="document.getElementById('reqForm').remove()">취소</button>
       <button class="bd-btn pri" style="flex:2" onclick="saveNewReq()"><i class="fa-solid fa-paper-plane mr-1"></i>요청 올리기</button>
@@ -3224,19 +3271,23 @@ function openNewReq(){
     <p id="rqMsg" style="font-size:12px;color:#c0433a;margin:8px 0 0;text-align:center"></p>
   </div>`;
   document.body.appendChild(w);
-  setTimeout(()=>document.getElementById('rqIng').focus(),50);
+  RQROWS=[{}]; renderRqRows();
+  setTimeout(()=>{ const f=document.querySelector('#rqRows input'); if(f) f.focus(); },50);
 }
 async function saveNewReq(){
   const v=id=>(document.getElementById(id).value||'').trim();
   const msg=document.getElementById('rqMsg');
-  if(!v('rqIng')||!v('rqFor')||!v('rqWhy')){ msg.textContent='품목 · 사용처 · 요청 사유는 꼭 적어 주세요.'; return; }
+  const items=RQROWS.map(r=>({ name:(r.name||'').trim(), qty:(r.qty||'').trim(),
+    use:(r.use||'').trim(), want:(r.want||'').trim(), maker:(r.maker||'').trim() })).filter(r=>r.name);
+  if(!items.length||!v('rqFor')||!v('rqWhy')){ msg.style.color='#c0433a'; msg.textContent='품목 · 사용처 · 요청 사유는 꼭 적어 주세요.'; return; }
   msg.style.color='var(--muted)'; msg.textContent='올리는 중…';
   const id='rq_'+Date.now()+'_'+Math.floor(Math.random()*1e5);
-  const st={ kind:'request', reqStatus:'요청', reqType:document.getElementById('rqType').value, product:v('rqIng'), reqFor:v('rqFor'), reqBy:v('rqBy'),
-    monthlyUse:v('rqUse'), reqQty:v('rqQty'), reqWhen:v('rqWhen'), targetDate:v('rqTarget'),
-    reqWhy:v('rqWhy'), reqWant:v('rqWant'), reqMaker:v('rqMaker'),
+  const st={ kind:'request', reqStatus:'요청', reqType:document.getElementById('rqType').value,
+    items, product:items[0].name, reqFor:v('rqFor'), reqBy:v('rqBy'),
+    reqWhen:v('rqWhen'), targetDate:v('rqTarget'), reqWhy:v('rqWhy'),
     date:new Date().toISOString().slice(0,10), reqAt:new Date().toISOString() };
-  const rec={ id, date:st.date, ingredient:st.product, brand:'', category:'요청', maker:st.reqMaker||'',
+  const makers=[...new Set(items.map(x=>x.maker).filter(Boolean))];
+  const rec={ id, date:st.date, ingredient:reqTitle(st), brand:'', category:'요청', maker:makers.join(', '),
     verdict:'', data:{ config:null, state:st, photoKeys:[] }, updated_at:new Date().toISOString() };
   const {error}=await sb.from('qc_reports').insert(rec);
   if(error){ msg.style.color='#c0433a'; msg.textContent='저장 실패 — '+(error.message||error); return; }
@@ -3253,11 +3304,11 @@ async function selectReq(id, keep){
   const kv=(k,v)=>v?`<tr><th style="width:96px">${k}</th><td>${esc(v)}</td></tr>`:'';
   el.innerHTML=`
   <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;border-left:4px solid ${c};border-radius:16px 16px 0 0">
-    <div><div style="font-size:18px;font-weight:800;color:var(--ink)">${esc(r.ing||'')}</div>
-      <div style="font-size:11.5px;color:var(--muted)">${esc(r.date||'')}${st.reqBy?' · '+esc(st.reqBy):''} · ${esc(st.reqFor||'')}</div></div>
+    <div><div style="font-size:18px;font-weight:800;color:var(--ink)">${esc(reqTitle(st, r.ing))}</div>
+      <div style="font-size:11.5px;color:var(--muted)">${esc(st.reqType||'샘플 요청')} · ${esc(r.date||'')}${st.reqBy?' · '+esc(st.reqBy):''} · ${esc(st.reqFor||'')}</div></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="bd-btn" onclick="printRequest('${id}')" title="A4 1장 — 구매팀·거래처 전달용"><i class="fa-solid fa-file-pdf mr-1"></i>요청서 PDF</button>
-      ${stt==='샘플 입고'?`<button class="bd-btn pri" onclick="reqToVerification('${id}')"><i class="fa-solid fa-flask-vial mr-1"></i>이 요청으로 검증 시작</button>`:''}
+      ${(stt==='샘플 입고'&&reqItems(st).length===1)?`<button class="bd-btn pri" onclick="reqToVerification('${id}',0)"><i class="fa-solid fa-flask-vial mr-1"></i>이 요청으로 검증 시작</button>`:''}
     </div>
   </div>
   <div class="bd-sec" style="background:var(--surface-2)">
@@ -3272,9 +3323,10 @@ async function selectReq(id, keep){
   </div>
   <div class="bd-sec"><div class="bd-h">요청 내용</div>
     <table class="bd-t"><tbody>
-      ${kv('요청 사유', st.reqWhy)}${kv('희망 사양', st.reqWant)}${kv('거래처', st.reqMaker||'지정 없음 — 구매팀 추천 요청')}
-      ${kv('예상 월사용량', st.monthlyUse)}${kv('필요 수량', st.reqQty)}${kv('희망 입고일', st.reqWhen)}${kv('도입 목표', st.targetDate)}
+      ${kv('요청 사유', st.reqWhy)}${kv('희망 입고일', st.reqWhen)}${kv('도입 목표', st.targetDate)}
     </tbody></table></div>
+  <div class="bd-sec"><div class="bd-h">요청 품목 ${reqItems(st).length}건</div>
+    ${reqItemRows(st, id, stt)}</div>
   <div class="bd-sec">
     <div class="bd-h">협의 기록 <span style="font-weight:600;color:var(--line-strong)">구매물류팀 ↔ 메뉴개발팀</span></div>
     <div id="rqCmts" style="display:flex;flex-direction:column;gap:9px;margin-bottom:9px"></div>
@@ -3329,17 +3381,12 @@ async function postReqComment(id){
 function requestHTML(st, meta){
   const esc=escapeHtml, g=k=>esc(st[k]||'');
   const title=st.reqType||'샘플 요청';
-  const row=(k,v,full)=> v ? (full
-    ? `<tr><td class="k">${esc(k)}</td><td colspan="3">${esc(v)}</td></tr>`
-    : `<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td>`) : '';
-  const pair=(k1,v1,k2,v2)=>`<tr><td class="k">${esc(k1)}</td><td>${esc(v1||'-')}</td><td class="k">${esc(k2)}</td><td>${esc(v2||'-')}</td></tr>`;
   return `<div class="hs-wrap">
     <div class="hs-top"><h2>${esc(title)}서</h2>
       <div class="hs-meta"><div>${esc(st.date||(meta&&meta.date)||'')}</div>
         <div>메뉴개발팀 · ${g('reqBy')||'요청자 미기재'}</div></div></div>
     <table class="hs-kv">
       <tbody>
-      <tr><td class="k">필요 품목</td><td colspan="3"><b>${esc(st.product||(meta&&meta.ingredient)||'')}</b></td></tr>
       <tr><td class="k">사용처</td><td colspan="3">${g('reqFor')}</td></tr>
       <tr><td class="k">요청 사유<br>· 테스트 목적</td><td colspan="3">${g('reqWhy')}</td></tr>
       </tbody>
@@ -3349,12 +3396,10 @@ function requestHTML(st, meta){
       <div class="hs-b"><div class="l">희망 입고일</div><div class="v">${g('reqWhen')||'-'}</div></div>
       <div class="hs-b"><div class="l">도입 목표</div><div class="v">${g('targetDate')||'-'}</div></div>
     </div>
-    ${st.reqWant?`<h3>희망 사양</h3><p class="hs-pre">${g('reqWant')}</p>`:''}
-    <h3>요청 조건</h3>
-    <table class="hs-kv"><tbody>
-      ${pair('필요 수량', st.reqQty, '예상 월사용량', st.monthlyUse)}
-      ${pair('거래처', st.reqMaker||'지정 없음 — 구매물류팀 추천 요청', '요청일', st.date)}
-    </tbody></table>
+    <h3>요청 품목 ${reqItems(st).length}건</h3>
+    <table class="hs-t"><tr><th style="width:26px">No</th><th>품목</th><th style="width:84px">필요 수량</th><th style="width:84px">월사용량</th><th>희망 사양</th><th style="width:88px">거래처</th></tr>
+      ${reqItems(st).map((x,i)=>`<tr><td>${i+1}</td><td><b>${esc(x.name||'')}</b></td><td>${esc(x.qty||'-')}</td><td>${esc(x.use||'-')}</td><td>${esc(x.want||'-')}</td><td>${esc(x.maker||'미지정')}</td></tr>`).join('')}
+    </table>
     <p style="font-size:11px;color:#6f6b64;margin-top:14px">
       · 회신은 앱(식자재 검증 센터)의 해당 요청에 남겨 주시면 양 팀이 함께 확인합니다.<br>
       · 샘플 입고 후 동일 건으로 품질 검증이 이어집니다.
@@ -3376,13 +3421,14 @@ async function printRequest(id){
   setTimeout(()=>{ window.print(); setTimeout(back,1500); },250);
 }
 // 샘플이 들어오면 요청 내용을 그대로 안고 검증으로 넘어간다
-async function reqToVerification(id){
+async function reqToVerification(id, idx){
   const r=REQS.find(x=>x.id===id); if(!r) return;
+  window.__FROM_REQ_IDX = (idx==null?0:idx);
   const sel=document.getElementById('newType');
   if(!sel.options.length && typeof TYPE_ORDER!=='undefined'){
     sel.innerHTML=TYPE_ORDER.map(([g,keys])=>`<optgroup label="${g}">`+keys.map(k=>`<option value="${k}">${TYPES[k].label.split(' (')[0]}</option>`).join('')+`</optgroup>`).join('');
   }
-  document.getElementById('newProd').value=r.ing||'';
+  document.getElementById('newProd').value=(reqItems(r.st)[window.__FROM_REQ_IDX]||{}).name||r.ing||'';
   document.getElementById('shNew').style.display='flex';
   window.__FROM_REQ=id;
   toast('품목 유형만 고르면 요청 내용이 그대로 넘어갑니다');
@@ -3405,14 +3451,14 @@ function createNew(){
   // 샘플 요청에서 넘어온 경우 — 적은 내용을 다시 치게 하지 않는다
   const fromReq = window.__FROM_REQ ? (REQS.find(x=>x.id===window.__FROM_REQ)||null) : null;
   if(fromReq){
-    const q=fromReq.st;
-    Object.assign(init, { useFor:q.reqFor||'', monthlyUse:q.monthlyUse||'', targetDate:q.targetDate||'',
-      purpose:q.reqWhy||'', reqFrom:'메뉴개발팀', _fromReq:fromReq.id });
-    if(q.reqWant) init.improve=' · 희망 사양 — '+q.reqWant;
+    const q=fromReq.st, it=(reqItems(q)[window.__FROM_REQ_IDX||0])||{};
+    Object.assign(init, { useFor:q.reqFor||'', monthlyUse:it.use||'', targetDate:q.targetDate||'',
+      purpose:q.reqWhy||'', reqFrom:'메뉴개발팀', _fromReq:fromReq.id, _fromReqItem:it.name||'' });
+    if(it.want) init.improve=' · 희망 사양 — '+it.want;
   }
   applyConfig(cfgFromType(key, prod), init);
   showEditor(); loadComments();
-  if(fromReq){ window.__FROM_REQ=null; toast('요청 내용을 가져왔습니다 — 사용처·목적·희망 사양이 채워졌습니다'); }
+  if(fromReq){ window.__FROM_REQ=null; window.__FROM_REQ_IDX=0; toast('요청 내용을 가져왔습니다 — 사용처·목적·희망 사양이 채워졌습니다'); }
   else toast('새 검증 시작 — 작성 후 자동 저장됩니다');
 }
 // 품목 유형 변경(항목만 다시 구성, 나머지 입력 유지)
