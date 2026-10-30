@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030034446">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030035624">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2590,8 +2590,8 @@ const VWORD={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불
 function dueInfo(d){
   if(!d) return null;
   const dd=Math.ceil((new Date(d+'T23:59:59')-new Date())/86400000);
-  if(dd<0) return {t:d+' · 초과', c:'#c0433a', hot:1};
-  if(dd<=3) return {t:d+' · D-'+dd, c:'#c0433a', hot:1};
+  if(dd<0) return {t:d+' · '+(-dd)+'일 초과', c:'#c0433a', hot:1};
+  if(dd<=7) return {t:d+' · D-'+dd, c:'#c0433a', hot:1};
   return {t:d, c:'#9a958d', hot:0};
 }
 async function loadNativeBoard(){
@@ -2616,9 +2616,10 @@ function inScope(r, sc){
   return v==='all' ? true : (v==='old' ? old : !old);
 }
 const TERMINAL=['도입 진행','개발 중단'];
+// 거래처 회신·재샘플 발송에 3일은 이미 늦다. 주 단위로 보는 팀 기준 D-7.
 function isLate(r){
   if(!r.due || TERMINAL.includes(r.action||'')) return false;
-  return Math.ceil((new Date(r.due+'T23:59:59')-new Date())/86400000) <= 3;
+  return Math.ceil((new Date(r.due+'T23:59:59')-new Date())/86400000) <= 7;
 }
 // 타일에서 고르는 빠른 보기 — 같은 타일을 다시 누르면 해제
 const QUICK={
@@ -2884,6 +2885,7 @@ function renderBoardDetail(){
       <span id="bdSaveMsg" style="font-size:11.5px;color:#9a958d"></span>
     </div>
     ${st.nextActionNote?`<div style="font-size:12px;color:#6f6b64;margin-top:7px">${esc(st.nextActionNote)}</div>`:''}
+    ${st.nextActionAt?`<div style="font-size:11px;color:#9a958d;margin-top:5px"><i class="fa-regular fa-clock mr-1"></i>마지막 변경 ${esc(String(st.nextActionAt).slice(0,16).replace('T',' '))}</div>`:''}
   </div>
   ${(st.useFor||st.testFrom||st.testTo)?`<div class="bd-sec"><div class="bd-h">사용 계획</div>
     <table class="bd-t"><tbody>
@@ -2926,6 +2928,7 @@ async function saveBoardAction(field, value){
     const {data,error}=await sb.from('qc_reports').select('data').eq('id',BDETAIL.id).single();
     if(error) throw error;
     const d=data.data||{}; d.state=d.state||{}; d.state[field]=value;
+    if(field==='nextAction'||field==='dueDate') d.state.nextActionAt=new Date().toISOString();
     const up=await sb.from('qc_reports').update({data:d, updated_at:new Date().toISOString()}).eq('id',BDETAIL.id);
     if(up.error) throw up.error;
     BDETAIL.data=d;
