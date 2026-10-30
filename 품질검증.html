@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030005447">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030005752">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -178,6 +178,7 @@ tailwind.config = { theme: { extend: {
   .bd-t{ width:100%; border-collapse:collapse; font-size:12.5px; }
   .bd-t th,.bd-t td{ border-bottom:1px solid #f1f5f9; padding:7px 9px; text-align:left; }
   .bd-t th{ font-size:11px; color:#94a3b8; font-weight:700; }
+  .bd-t thead th{ position:sticky; top:0; background:#fff; z-index:1; box-shadow:0 1px 0 #f1f5f9; }
   .bd-t td.n{ font-variant-numeric:tabular-nums; }
   /* 범위 탭 — "어떤 데이터를 보는가"는 필터가 아니라 모드다 */
   .bd-tabs{ display:flex; background:#f1f5f9; border-radius:12px; padding:3px; gap:2px; margin-bottom:12px;
@@ -2578,7 +2579,11 @@ function clearBFil(k){
 }
 function setScope(v){ if(BFIL.scope===v) return; BFIL.scope=v; BOPEN={}; renderNativeBoard(); }
 function setQuick(k){ BFIL.quick=(BFIL.quick===k)?'':k; renderNativeBoard(); }
-function pickMaker(m){ BFIL.maker=(BFIL.maker===m)?'':m; renderNativeBoard(); }
+function pickMaker(m){
+  BFIL.maker=(BFIL.maker===m)?'':m; renderNativeBoard();
+  const t=document.getElementById('shPanelBoard'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'});
+  toast(BFIL.maker ? BFIL.maker+' 건만 봅니다' : '거래처 조건을 해제했습니다');
+}
 function toggleFilterPanel(){ BFIL.panel=!BFIL.panel; renderNativeBoard(); }
 function setBFil(k,v){ BFIL[k]=v; renderNativeBoard(); }
 
@@ -2586,12 +2591,17 @@ function renderNativeBoard(){
   const box=document.getElementById('shPanelBoard'); if(!box) return;
   // 검색 중이면 캐럿 위치까지 복원한다(매 글자 innerHTML 을 갈아끼우므로)
   const ae=document.activeElement, keepQ = !!(ae && ae.id==='bdq'), caret = keepQ ? ae.selectionStart : 0;
+  // 보고 있던 상세는 유지한다(필터·검색은 왼쪽 목록을 거르는 것이지 오른쪽을 닫는 동작이 아니다)
+  const dEl=document.getElementById('boardDetail');
+  if(dEl){ const ob=dEl.querySelector('#bdOffBand'); if(ob) ob.remove(); }
+  const prevDetail = dEl ? dEl.innerHTML : '';
 
   const SC=NBOARD.filter(r=>inScope(r));
   const rows=boardFiltered();
   const makers=[...new Set(SC.map(r=>r.maker).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
   const cnt=s=>NBOARD.filter(r=>inScope(r,s)).length;
   const af=activeFilters();
+  const panelN=af.filter(x=>['action','verdict','maker','due'].includes(x[0])).length;
 
   const opt=(v,t,cur)=>`<option value="${esc(v)}"${cur===v?' selected':''}>${esc(t)}</option>`;
   const tab=(v,t)=>`<button class="bd-tab${BFIL.scope===v?' on':''}" onclick="setScope('${v}')">${t}<span class="c">${cnt(v)}</span></button>`;
@@ -2662,11 +2672,14 @@ function renderNativeBoard(){
       <td class="n" style="color:${v.adopt?'#16a34a':'#cbd5e1'}">${v.adopt}</td>
       <td class="n" style="color:${v.stop?'#e11d48':'#cbd5e1'}">${v.stop}</td></tr>`).join('');
 
+  const detailInner = prevDetail || '<p style="padding:40px 20px;text-align:center;color:#94a3b8;font-size:13px">왼쪽에서 품목을 고르세요.</p>';
+  const offList = !!(BSEL && prevDetail && !rows.some(r=>r.id===BSEL));
+
   box.innerHTML = `
   <div class="bd-tabs">${tab('live','현재 자료')}${tab('old','예전 자료')}${tab('all','전체')}</div>
   ${BFIL.scope==='old'?`<div style="display:flex;align-items:center;gap:8px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:#475569">
     <i class="fa-solid fa-box-archive" style="color:#94a3b8"></i>
-    <span style="flex:1"><b>예전 자료</b>를 보고 있습니다 — 2026-10-30 이전에 쌓인 기록입니다.</span>
+    <span style="flex:1"><b>예전 자료</b>를 보고 있습니다 — 보관 처리한 지난 기록입니다. 수정·코멘트는 그대로 됩니다.</span>
     <button class="bd-btn" style="padding:4px 10px;font-size:11.5px" onclick="setScope('live')">현재 자료로</button></div>`:''}
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:12px">
@@ -2676,7 +2689,7 @@ function renderNativeBoard(){
   <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:${af.length||BFIL.panel?'8px':'12px'}">
     <input class="bd-f" style="flex:1 1 200px;min-width:150px" placeholder="제품·거래처 검색" value="${esc(BFIL.q)}" oninput="BFIL.q=this.value;renderNativeBoard()" id="bdq">
     <button class="bd-btn" onclick="toggleFilterPanel()" style="${BFIL.panel?'border-color:#0f172a;color:#0f172a;':''}">
-      <i class="fa-solid fa-sliders mr-1"></i>상세 필터${af.filter(x=>x[0]!=='q').length?` <span class="bd-chip" style="background:#0f172a;color:#fff;margin-left:3px">${af.filter(x=>x[0]!=='q').length}</span>`:''}</button>
+      <i class="fa-solid fa-sliders mr-1"></i>상세 필터${panelN?` <span class="bd-chip" style="background:#0f172a;color:#fff;margin-left:3px">${panelN}</span>`:''}</button>
     <select class="bd-f" onchange="setBFil('sort',this.value)" title="정렬">
       ${opt('date','최신순',BFIL.sort)}${opt('due','기한 임박순',BFIL.sort)}${opt('maker','거래처순',BFIL.sort)}</select>
   </div>
@@ -2704,7 +2717,9 @@ function renderNativeBoard(){
       ${cross}
       <div style="max-height:62vh;overflow:auto">${list}</div>
     </div>
-    <div class="bd-card" id="boardDetail"><p style="padding:40px 20px;text-align:center;color:#94a3b8;font-size:13px">왼쪽에서 품목을 고르세요.</p></div>
+    <div class="bd-card" id="boardDetail">${offList?`<div id="bdOffBand" class="bd-note" style="border-radius:16px 16px 0 0">
+      <i class="fa-solid fa-circle-info"></i><span style="flex:1">지금 보시는 건은 왼쪽 목록 조건에 들어 있지 않습니다.</span>
+      <button class="bd-btn" style="padding:4px 9px;font-size:11.5px" onclick="clearBFil()">조건 해제</button></div>`:''}${detailInner}</div>
   </div>
 
   <div class="bd-card" style="margin-top:14px;padding:14px 16px">
