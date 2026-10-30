@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030020812">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030020957">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -64,8 +64,15 @@ tailwind.config = { theme: { extend: {
   .acc-body.open{ max-height:8000px; }
   .acc-arrow{ transition:transform .3s ease; }
   .acc-arrow.open{ transform:rotate(180deg); }
-  .verdict-btn{ transition:all .2s ease; opacity:.45; transform:scale(.94); }
-  .verdict-btn.active{ opacity:1; transform:scale(1.06); box-shadow:0 4px 14px rgba(0,0,0,.18); }
+  /* 종합 판정 — 고르기 전엔 윤곽선, 고른 것만 채운다 */
+  .verdict-btn{ transition:all .18s ease; background:var(--surface); border:1.5px solid var(--line-strong); }
+  .vb-good{ color:var(--good); } .vb-warn{ color:var(--warn); } .vb-bad{ color:var(--bad); }
+  .verdict-btn:hover{ border-color:currentColor; }
+  .verdict-btn.active{ color:#fff !important; transform:none; }
+  .vb-good.active{ background:var(--good); border-color:var(--good); }
+  .vb-warn.active{ background:var(--warn); border-color:var(--warn); }
+  .vb-bad.active{ background:var(--bad);  border-color:var(--bad); }
+  .verdict-btn.active{ box-shadow:0 2px 8px rgba(30,25,20,.16); }
   .switch{ position:relative; width:128px; height:38px; background:#e6e3dd; border-radius:999px; cursor:pointer; }
   .switch-knob{ position:absolute; top:3px; left:3px; width:62px; height:32px; background:#c1553a; border-radius:999px; transition:transform .28s cubic-bezier(.4,0,.2,1); }
   .switch.detail .switch-knob{ transform:translateX(60px); background:#4a72a8; }
@@ -418,9 +425,9 @@ tailwind.config = { theme: { extend: {
         <h1 id="hdrProduct" class="text-lg font-extrabold text-slate-800 truncate leading-tight">제품명</h1>
       </div>
       <div class="flex gap-1.5 shrink-0">
-        <button data-verdict="○" class="verdict-btn w-11 h-11 rounded-xl bg-green-500 text-white text-xl font-bold flex items-center justify-center">○</button>
-        <button data-verdict="△" class="verdict-btn w-11 h-11 rounded-xl bg-amber-400 text-white text-xl font-bold flex items-center justify-center">△</button>
-        <button data-verdict="×" class="verdict-btn w-11 h-11 rounded-xl bg-rose-500 text-white text-xl font-bold flex items-center justify-center">×</button>
+        <button data-verdict="○" title="사용 가능" class="verdict-btn vb-good w-11 h-11 rounded-xl text-xl font-bold flex items-center justify-center">○</button>
+        <button data-verdict="△" title="조건부" class="verdict-btn vb-warn w-11 h-11 rounded-xl text-xl font-bold flex items-center justify-center">△</button>
+        <button data-verdict="×" title="사용 불가" class="verdict-btn vb-bad w-11 h-11 rounded-xl text-xl font-bold flex items-center justify-center">×</button>
       </div>
     </div>
   </div>
