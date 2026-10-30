@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030071400">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030071731">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2565,8 +2565,8 @@ let REPORTS=[];
 function withTimeout(p,ms){ return Promise.race([ Promise.resolve(p), new Promise((_,rej)=>setTimeout(()=>rej(new Error('시간 초과 — 네트워크/로그인/프로젝트 상태를 확인하세요')), ms||12000)) ]); }
 // ===== 진행 현황 — 메뉴개발팀이 쓰고 구매물류팀이 보고 판단하는 화면 =====
 let NBOARD=[], BSEL=null, BDETAIL=null;
-const BFIL={q:'',action:'',verdict:'',maker:'',due:'',grp:'maker',scope:'live',quick:'',sort:'date',panel:false};
-// scope: live=현재 자료 / old=예전 자료 / all · quick: 타일 선택 · panel: 상세 필터 펼침
+const BFIL={q:'',action:'',verdict:'',maker:'',due:'',grp:'maker',scope:'open',quick:'',sort:'date',panel:false};
+// scope: VIEWS 의 키(open/done/drop/old/all) · quick: 타일 선택 · panel: 상세 필터 펼침
 let BOPEN={}, BGRP=[];   // 접힌 그룹 기억 / 현재 그룹 키 목록
 // 목록은 listbox — 선택된 행 하나만 Tab 대상이고(roving tabindex) 이동은 화살표로 한다.
 // 행마다 tabindex=0 을 주면 Tab 순서가 수십 개로 늘어 마우스 사용자가 손해를 본다.
@@ -2612,11 +2612,20 @@ async function loadNativeBoard(){
     if(BSEL) selectBoardItem(BSEL, true);
   }catch(e){ box.innerHTML='<p style="color:#c0433a;font-size:13px;padding:24px 0;text-align:center">현황을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
 }
-function inScope(r, sc){
-  const old=!!r.arch, v=sc||BFIL.scope;
-  return v==='all' ? true : (v==='old' ? old : !old);
-}
 const TERMINAL=['도입 진행','개발 중단'];
+// 탭 = 보관 여부(예전) + 후속 조치의 종결 값(완료·중단). 새 상태를 따로 만들지 않는다.
+const VIEWS=[
+  {k:'open', t:'진행 중', f:r=>!r.arch && !TERMINAL.includes(r.action||'')},
+  {k:'done', t:'완료',    f:r=>!r.arch && r.action==='도입 진행'},
+  {k:'drop', t:'중단',    f:r=>!r.arch && r.action==='개발 중단'},
+  {k:'old',  t:'예전 자료',f:r=>!!r.arch},
+  {k:'all',  t:'전체',    f:r=>true}
+];
+function inScope(r, sc){
+  const v=sc||BFIL.scope;
+  const d=VIEWS.find(x=>x.k===v) || VIEWS[0];
+  return d.f(r);
+}
 // 거래처 회신·재샘플 발송에 3일은 이미 늦다. 주 단위로 보는 팀 기준 D-7.
 function isLate(r){
   if(!r.due || TERMINAL.includes(r.action||'')) return false;
@@ -2624,10 +2633,9 @@ function isLate(r){
 }
 // 타일에서 고르는 빠른 보기 — 같은 타일을 다시 누르면 해제
 const QUICK={
-  open:{ label:'진행 중',          f:r=>!TERMINAL.includes(r.action||'') },
   late:{ label:'기한 임박·초과',   f:isLate, hot:'auto' },
   none:{ label:'후속 조치 미지정', f:r=>!(r.action||'') },
-  adopt:{ label:'도입 확정',       f:r=>r.action==='도입 진행' }
+  cmt:{  label:'협의 기록 있음',   f:r=>!!r.cmt }
 };
 function passFil(r){
   const q=(BFIL.q||'').toLowerCase();
@@ -2693,7 +2701,7 @@ function renderNativeBoard(){
   const panelN=af.filter(x=>['action','verdict','maker','due'].includes(x[0])).length;
 
   const opt=(v,t,cur)=>`<option value="${esc(v)}"${cur===v?' selected':''}>${esc(t)}</option>`;
-  const tab=(v,t)=>`<button class="bd-tab${BFIL.scope===v?' on':''}" onclick="setScope('${v}')">${t}<span class="c">${cnt(v)}</span></button>`;
+  const tab=v=>`<button class="bd-tab${BFIL.scope===v.k?' on':''}" onclick="setScope('${v.k}')">${v.t}<span class="c">${cnt(v.k)}</span></button>`;
   const tile=(k)=>{ const q=QUICK[k], n=SC.filter(q.f).length, hot=q.hot==='auto'?n>0:!!q.hot;
     return `<button class="bd-tile${hot?' hot':''}${BFIL.quick===k?' on':''}" onclick="setQuick('${k}')">
     <div class="l">${q.label}${BFIL.quick===k?' <i class="fa-solid fa-circle-check" style="font-size:9px"></i>':''}</div>
@@ -2744,11 +2752,10 @@ function renderNativeBoard(){
   // 찾는 게 다른 범위에 있을 때 — 기록이 쌓일수록 이게 제일 자주 막히는 지점이다
   let cross='';
   if(BFIL.scope!=='all' && (BFIL.q || af.length)){
-    const other = BFIL.scope==='live' ? 'old' : 'live';
-    const n = NBOARD.filter(r=>inScope(r,other)&&passFil(r)).length;
-    if(n) cross=`<div class="bd-note"><i class="fa-solid fa-circle-info"></i>
-      <span style="flex:1">같은 조건으로 <b>${other==='old'?'예전 자료':'현재 자료'}</b>에 ${n}건이 더 있습니다.</span>
-      <button class="bd-btn" style="padding:4px 9px;font-size:11.5px" onclick="setScope('${other}')">보러 가기</button></div>`;
+    const n = NBOARD.filter(r=>passFil(r)).length - rows.length;   // 다른 탭에 묻혀 있는 건수
+    if(n>0) cross=`<div class="bd-note"><i class="fa-solid fa-circle-info"></i>
+      <span style="flex:1">같은 조건으로 <b>다른 탭</b>에 ${n}건이 더 있습니다.</span>
+      <button class="bd-btn" style="padding:4px 9px;font-size:11.5px" onclick="setScope('all')">전체에서 보기</button></div>`;
   }
 
   // 거래처별 결과 — 보고 있는 범위만 센다(위 타일과 숫자가 어긋나면 안 된다)
@@ -2767,14 +2774,18 @@ function renderNativeBoard(){
   const offList = !!(BSEL && prevDetail && !rows.some(r=>r.id===BSEL));
 
   box.innerHTML = `
-  <div class="bd-tabs">${tab('live','현재 자료')}${tab('old','예전 자료')}${tab('all','전체')}</div>
-  ${BFIL.scope==='old'?`<div style="display:flex;align-items:center;gap:8px;background:#f4f2ee;border:1px solid #e6e3dd;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:#5a564f">
-    <i class="fa-solid fa-box-archive" style="color:#9a958d"></i>
-    <span style="flex:1"><b>예전 자료</b>를 보고 있습니다 — 보관 처리한 지난 기록입니다. 수정·코멘트는 그대로 됩니다.</span>
-    <button class="bd-btn" style="padding:4px 10px;font-size:11.5px" onclick="setScope('live')">현재 자료로</button></div>`:''}
+  <div class="bd-tabs">${VIEWS.map(tab).join('')}</div>
+  ${(BFIL.scope!=='open')?`<div style="display:flex;align-items:center;gap:8px;background:#f4f2ee;border:1px solid #e6e3dd;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:#5a564f">
+    <i class="fa-solid fa-${BFIL.scope==='old'?'box-archive':(BFIL.scope==='done'?'circle-check':(BFIL.scope==='drop'?'circle-minus':'layer-group'))}" style="color:#9a958d"></i>
+    <span style="flex:1"><b>${esc((VIEWS.find(v=>v.k===BFIL.scope)||{}).t||'')}</b>${
+      BFIL.scope==='old' ? '를 보고 있습니다 — 보관 처리한 지난 기록입니다. 수정·코멘트는 그대로 됩니다.'
+      : BFIL.scope==='done' ? '된 건입니다 — 후속 조치를 「도입 진행」으로 정하면 여기로 넘어옵니다.'
+      : BFIL.scope==='drop' ? '된 건입니다 — 후속 조치를 「개발 중단」으로 정하면 여기로 넘어옵니다.'
+      : ' 보기 — 보관한 기록까지 모두 포함합니다.'}</span>
+    <button class="bd-btn" style="padding:4px 10px;font-size:11.5px" onclick="setScope('open')">진행 중으로</button></div>`:''}
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:12px">
-    ${tile('open')}${tile('late')}${tile('none')}${tile('adopt')}
+    ${tile('late')}${tile('none')}${tile('cmt')}
   </div>
 
   <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:${af.length||BFIL.panel?'8px':'12px'}">
