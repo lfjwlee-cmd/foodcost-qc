@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030012600">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030012841">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -2819,7 +2819,7 @@ function renderBoardDetail(){
     <div style="font-size:12.5px;color:#92400e;white-space:pre-wrap;line-height:1.65;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:11px 13px">${esc(st.improve)}</div></div>`:''}
   ${st.comment?`<div class="bd-sec"><div class="bd-h">종합 평가</div>
     <div id="bdCmtBox"${(st.comment||'').length>300?' class="bd-clamp"':''} style="font-size:12.5px;color:#334155;white-space:pre-wrap;line-height:1.65;background:#fafbfa;border:1px solid #eef2f6;border-radius:10px;padding:11px 13px">${esc(st.comment)}</div>
-    ${(st.comment||'').length>300?`<button class="bd-btn" style="margin-top:7px;padding:4px 11px;font-size:11.5px" onclick="const b=document.getElementById('bdCmtBox');const c=b.classList.toggle('bd-clamp');this.innerHTML=c?'<i class='fa-solid fa-chevron-down mr-1'></i>전문 보기':'<i class='fa-solid fa-chevron-up mr-1'></i>접기'"><i class="fa-solid fa-chevron-down mr-1"></i>전문 보기</button>`:''}
+    ${(st.comment||'').length>300?`<button class="bd-btn" style="margin-top:7px;padding:4px 11px;font-size:11.5px" onclick="toggleCmtBox(this)"><i class="fa-solid fa-chevron-down mr-1"></i>전문 보기</button>`:''}
   </div>`:''}
   <div class="bd-sec" id="bdPhotos" style="display:none"></div>
   ${basis.length?`<div class="bd-sec"><div class="bd-h">판단 근거</div><ul style="margin:0;padding-left:17px;font-size:12.5px;color:#334155">${basis.join('')}</ul></div>`:''}
@@ -2836,6 +2836,11 @@ function renderBoardDetail(){
     <textarea id="bdBody" class="bd-f" style="width:100%;resize:vertical" rows="2" placeholder="협의 내용 · 회신 · 요청"></textarea>
     <button class="bd-btn pri" style="width:100%;margin-top:6px" onclick="postBoardComment()"><i class="fa-solid fa-paper-plane mr-1"></i>코멘트 남기기</button>
   </div>`;
+}
+function toggleCmtBox(btn){
+  const b=document.getElementById('bdCmtBox'); if(!b) return;
+  const clamped=b.classList.toggle('bd-clamp');
+  btn.innerHTML='<i class="fa-solid fa-chevron-'+(clamped?'down':'up')+' mr-1"></i>'+(clamped?'전문 보기':'접기');
 }
 // 현황 화면에서 후속 조치·기한을 바로 저장 — 구매팀이 화면을 떠나지 않게
 async function saveBoardAction(field, value){
