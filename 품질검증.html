@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030003409">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030003715">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -2898,7 +2898,8 @@ async function saveReport(){
   }
   const cols=activeCols(); const mi=(typeof specIdx==='function')?specIdx('제조회사'):-1;
   const rec={ id:CURRENT_ID, date:state.date||'', ingredient:state.product||C.ingredient||'', brand:(typeof selectedBrands==='function'?selectedBrands().join(', '):''),
-    category:C.category||'', maker:(mi>=0?(state['spec_'+mi+'_'+cols[0].id]||''):''),
+    // 보드는 "어느 거래처 샘플인가"로 묶는다 — 기준 열이 아니라 평가 대상 열의 제조회사를 쓴다
+    category:C.category||'', maker:(mi>=0?(state['spec_'+mi+'_'+((judgeCols()[0]||cols[0]).id)]||''):''),
     verdict:(judgeCols().map(c=>state['final_'+c.id+'_v']).find(Boolean)||''),   // 기준 열 제외
     data:{ config:C, state:state, photoKeys:keys }, updated_at:new Date().toISOString() };
   const {error}=await sb.from('qc_reports').upsert(rec,{onConflict:'id'});
