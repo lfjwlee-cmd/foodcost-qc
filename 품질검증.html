@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030061545">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030061846">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3309,9 +3309,9 @@ async function loadReqComments(id){
 }
 async function postReqComment(id){
   const body=(document.getElementById('rqBody').value||'').trim(); if(!body){ toast('내용을 입력하세요'); return; }
-  const rec={ id:'c_'+Date.now()+'_'+Math.floor(Math.random()*1e5), report_id:id,
-    team:document.getElementById('rqTeam').value, author:(document.getElementById('rqWho').value||'').trim(), body };
-  const {error}=await sb.from('qc_comments').insert(rec);
+  // qc_comments.id 는 bigint 자동 증가 — id 를 직접 넣으면 안 된다
+  const {error}=await sb.from('qc_comments').insert({ report_id:id,
+    team:document.getElementById('rqTeam').value, author:(document.getElementById('rqWho').value||'').trim(), body });
   if(error){ toast('저장 실패: '+(error.message||error)); return; }
   document.getElementById('rqBody').value='';
   const r=REQS.find(x=>x.id===id); if(r) r.cmt=(r.cmt||0)+1;
