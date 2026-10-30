@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030021404">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030034446">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,6 +197,7 @@ tailwind.config = { theme: { extend: {
     cursor:pointer; transition:.1s; }
   .bd-row:last-child{ border-bottom:none; }
   .bd-row:hover{ background:#faf9f7; }
+  .bd-row:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
   .bd-row.on{ background:#f7ede8; box-shadow:inset 3px 0 0 #c1553a; }
   .bd-f{ border:1px solid #e6e3dd; border-radius:9px; background:#fff; font-size:12.5px; padding:7px 10px; color:#403c36; }
   .bd-f:focus{ outline:2px solid #eccabc; border-color:#c1553a; }
@@ -1350,8 +1351,21 @@ function onPhotoFiles(pk,files){
   };
   r.readAsDataURL(f);
 }
-function setPhoto(pk,src){ const box=document.getElementById('pb_'+pk); if(!box)return; let img=box.querySelector('img'); if(!img){ img=document.createElement('img'); box.insertBefore(img,box.firstChild);} img.src=src; box.classList.add('has-img'); refreshPhotoPairs(); }
-function delPhoto(pk){ const box=document.getElementById('pb_'+pk); if(!box)return; const img=box.querySelector('img'); if(img)img.remove(); box.classList.remove('has-img'); delete photosObj[pk]; idbSavePhotos(); const pf=document.getElementById('pf_'+pk); if(pf)pf.value=''; refreshPhotoPairs(); }
+// 사진은 data URL 로 들고 있지만 DOM 에는 Blob URL 만 넣는다.
+// (수 MB 짜리 base64 문자열이 img.src 에 그대로 들어가면 사진 많은 기록에서 렌더가 눈에 띄게 무겁다)
+const _objURL={};
+function photoSrc(pk, durl){
+  if(!durl || durl.slice(0,5)!=='data:') return durl;
+  if(_objURL[pk]){ try{ URL.revokeObjectURL(_objURL[pk]); }catch(e){} }
+  try{
+    const c=durl.indexOf(','), mime=(durl.slice(0,c).match(/data:([^;]+)/)||[])[1]||'image/jpeg';
+    const bin=atob(durl.slice(c+1)), u=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    return (_objURL[pk]=URL.createObjectURL(new Blob([u],{type:mime})));
+  }catch(e){ return durl; }
+}
+function setPhoto(pk,src){ const box=document.getElementById('pb_'+pk); if(!box)return; let img=box.querySelector('img'); if(!img){ img=document.createElement('img'); box.insertBefore(img,box.firstChild);} img.src=photoSrc(pk,src); box.classList.add('has-img'); refreshPhotoPairs(); }
+function delPhoto(pk){ const box=document.getElementById('pb_'+pk); if(!box)return; const img=box.querySelector('img'); if(img)img.remove(); box.classList.remove('has-img'); if(_objURL[pk]){ try{ URL.revokeObjectURL(_objURL[pk]); }catch(e){} delete _objURL[pk]; } delete photosObj[pk]; idbSavePhotos(); const pf=document.getElementById('pf_'+pk); if(pf)pf.value=''; refreshPhotoPairs(); }
 function addPhotoRow(){ photoRowsArr().push('추가 사진'); persist(); buildPhotos(); }
 function delPhotoRow(i){ const rows=photoRowsArr(); const n=rows.length; const ids=activeCols().map(c=>c.id).concat('all');
   for(let j=i;j<n-1;j++){ ids.forEach(s=>{ photosObj[s+'_'+j]=photosObj[s+'_'+(j+1)]; state['pmemo_'+s+'_'+j]=state['pmemo_'+s+'_'+(j+1)]; });
@@ -2553,6 +2567,19 @@ let NBOARD=[], BSEL=null, BDETAIL=null;
 const BFIL={q:'',action:'',verdict:'',maker:'',due:'',grp:'maker',scope:'live',quick:'',sort:'date',panel:false};
 // scope: live=현재 자료 / old=예전 자료 / all · quick: 타일 선택 · panel: 상세 필터 펼침
 let BOPEN={}, BGRP=[];   // 접힌 그룹 기억 / 현재 그룹 키 목록
+// 목록은 listbox — 선택된 행 하나만 Tab 대상이고(roving tabindex) 이동은 화살표로 한다.
+// 행마다 tabindex=0 을 주면 Tab 순서가 수십 개로 늘어 마우스 사용자가 손해를 본다.
+function boardRowKey(e){
+  const rows=[...document.querySelectorAll('#shPanelBoard .bd-row')];
+  const i=rows.indexOf(e.currentTarget); if(i<0) return;
+  const go=n=>{ const el=rows[n]; if(!el) return; e.preventDefault();
+    rows.forEach(x=>x.setAttribute('tabindex','-1')); el.setAttribute('tabindex','0'); el.focus(); el.click(); };
+  if(e.key==='ArrowDown') go(i+1);
+  else if(e.key==='ArrowUp') go(i-1);
+  else if(e.key==='Home') go(0);
+  else if(e.key==='End') go(rows.length-1);
+  else if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.currentTarget.click(); }
+}
 function toggleGrp(i){ const e=BGRP[i]; if(!e) return; const k=e[0]; BOPEN[k]=(BOPEN[k]===false); renderNativeBoard(); }
 const ACT_LIST=['도입 진행','최종 테스트 진행','디벨롭 · 사양 변경 요청','재샘플 요청','보류 — 조건부 재검토','개발 중단'];
 const ACT_COLOR={'도입 진행':'#2f8f5b','최종 테스트 진행':'#4a72a8','디벨롭 · 사양 변경 요청':'#c9922b',
@@ -2672,7 +2699,8 @@ function renderNativeBoard(){
 
   const rowHTML = r=>{
     const d=dueInfo(r.due), ac=ACT_COLOR[r.action||''];
-    return `<div class="bd-row${r.id===BSEL?' on':''}" onclick="selectBoardItem('${r.id}')">
+    return `<div class="bd-row${r.id===BSEL?' on':''}" role="option" aria-selected="${r.id===BSEL}"
+      tabindex="${r.id===BSEL?0:-1}" onkeydown="boardRowKey(event)" onclick="selectBoardItem('${r.id}')">
       <span title="${esc(r.verdict||'판정 미입력')}" style="width:8px;height:8px;border-radius:50%;background:${VCOLOR[r.verdict]||'#d4d0c8'};flex:none"></span>
       <div style="min-width:0;flex:1">
         <div style="font-size:13.5px;font-weight:700;color:#1d1b18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.ingredient||'(제품명 없음)')}</div>
@@ -2776,7 +2804,7 @@ function renderNativeBoard(){
         <button class="bd-btn" style="padding:4px 9px;font-size:11.5px;white-space:nowrap" onclick="openNew()"><i class="fa-solid fa-plus mr-1"></i>새 검증</button>
       </div>
       ${cross}
-      <div style="max-height:62vh;overflow:auto">${list}</div>
+      <div role="listbox" aria-label="검증 목록" style="max-height:62vh;overflow:auto">${list}</div>
     </div>
     <div class="bd-card" id="boardDetail">${offList?`<div id="bdOffBand" class="bd-note" style="border-radius:16px 16px 0 0">
       <i class="fa-solid fa-circle-info"></i><span style="flex:1">지금 보시는 건은 왼쪽 목록 조건에 들어 있지 않습니다.</span>
