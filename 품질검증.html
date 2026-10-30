@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030005752">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030005953">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -2519,7 +2519,8 @@ async function loadNativeBoard(){
     let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
       if(!c.error&&c.data) c.data.forEach(x=>{ cm[x.report_id]=(cm[x.report_id]||0)+1; }); }catch(e){}
     NBOARD.forEach(r=> r.cmt=cm[r.id]||0);
-    if(!BSEL && NBOARD.length) BSEL=NBOARD[0].id;
+    // 첫 선택은 "지금 보고 있는 범위"의 첫 건이어야 한다 — 보관된 건이 먼저 열리면 안 된다
+    if(!BSEL){ const f=boardFiltered(); if(f.length) BSEL=f[0].id; }
     renderNativeBoard();
     if(BSEL) selectBoardItem(BSEL, true);
   }catch(e){ box.innerHTML='<p style="color:#e11d48;font-size:13px;padding:24px 0;text-align:center">현황을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
