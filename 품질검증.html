@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030020124">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030020355">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3002,28 +3002,61 @@ async function loadReports(){
   }catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="loadReports()" style="margin-top:8px;text-decoration:underline;color:#1d1b18">다시 시도</button></p>'; }
 }
 function vBadge(v){ const m={'○':['#2f8f5b','사용 가능'],'△':['#c9922b','조건부'],'×':['#c0433a','사용 불가']}[v]; return m?`<span style="color:${m[0]};font-weight:800">${v} ${m[1]}</span>`:'<span class="text-slate-400">미정</span>'; }
-function renderReports(){
-  const box=document.getElementById('shListBody'); const q=(document.getElementById('shSearch').value||'').toLowerCase();
-  const sc=REPORTS.filter(inScope);
-  const d=sc.filter(r=>!q||[r.ingredient,r.maker,r.brand].some(x=>String(x||'').toLowerCase().includes(q)));
-  document.getElementById('shCnt').textContent=sc.length+'건';
-  if(!d.length){ box.innerHTML='<p class="text-slate-400 text-sm p-8 text-center">저장된 검증이 없습니다. <b>[+ 새 검증]</b>으로 시작하세요.</p>'; return; }
-  const grp={}; d.forEach(r=>{ (grp[r.maker||'(제조회사 미입력)']=grp[r.maker||'(제조회사 미입력)']||[]).push(r); });
-  window.__RFLAT=[]; window.__COLLAPSED=window.__COLLAPSED||{};
-  const mkeys=Object.keys(grp).sort(); window.__MKEYS=mkeys;
-  if(!window.__COLLINIT){ mkeys.forEach(m=>{ window.__COLLAPSED[m]=true; }); window.__COLLINIT=1; }  // 처음엔 전부 접힘
-  box.innerHTML=mkeys.map((m,mi)=>{
-    const collapsed=!!window.__COLLAPSED[m];
-    const items=grp[m].map(r=>{ const i=window.__RFLAT.push(r)-1; return `<div class="bg-white rounded-xl shadow-sm p-2.5 mb-1.5 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="openReportIdx(${i})">
-      <div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate text-sm">${esc(r.ingredient||'(제품명 없음)')}</p>
-      <p class="text-xs text-slate-500 truncate">${esc(r.brand||'')} · ${esc(r.date||'')}</p></div>
-      <div class="text-sm">${vBadge(r.verdict)}</div>
-      <span class="text-slate-300 hover:text-rose-500 px-1" onclick="event.stopPropagation();delReportIdx(${i})"><i class="fa-solid fa-trash"></i></span>
-    </div>`; }).join('');
-    return `<div class="mb-2"><button onclick="toggleGroupList(${mi})" class="w-full flex items-center justify-between text-xs font-extrabold text-slate-600 bg-white rounded-xl px-3 py-2.5 shadow-sm mb-1.5"><span><i class="fa-solid fa-industry text-slate-400 mr-1.5"></i>${esc(m)} <span class="text-slate-400 font-normal">(${grp[m].length})</span></span><i class="fa-solid fa-chevron-${collapsed?'down':'up'} text-slate-300"></i></button><div style="${collapsed?'display:none':''}">${items}</div></div>`;
+function repRowHTML(r){
+  const i=window.__RFLAT.push(r)-1;
+  return `<div class="bg-white rounded-xl shadow-sm p-2.5 mb-1.5 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="openReportIdx(${i})">
+    <div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate text-sm">${esc(r.ingredient||'(제품명 없음)')}</p>
+    <p class="text-xs text-slate-500 truncate">${esc(r.maker||'')}${r.brand?' · '+esc(r.brand):''} · ${esc(r.date||'')}</p></div>
+    <div class="text-sm">${vBadge(r.verdict)}</div>
+    <span class="text-slate-300 hover:text-rose-500 px-1" onclick="event.stopPropagation();delReportIdx(${i})"><i class="fa-solid fa-trash"></i></span>
+  </div>`;
+}
+// 거래처별 묶음 — 현재/예전 두 틀에서 같은 모양으로 쓴다
+function renderRepGroups(rows, ns){
+  const grp={}; rows.forEach(r=>{ (grp[r.maker||'(제조회사 미입력)']=grp[r.maker||'(제조회사 미입력)']||[]).push(r); });
+  const keys=Object.keys(grp).sort((a,b)=>a.localeCompare(b,'ko'));
+  window.__MKEYS=(window.__MKEYS||[]).concat(keys.map(k=>ns+'|'+k));
+  return keys.map(m=>{
+    const key=ns+'|'+m, mi=window.__MKEYS.indexOf(key);
+    const collapsed = window.__COLLAPSED[key]!==false;   // 기본 접힘
+    const items = collapsed ? '' : grp[m].map(repRowHTML).join('');
+    return `<div class="mb-2"><button onclick="toggleGroupList(${mi})" class="w-full flex items-center justify-between text-xs font-extrabold text-slate-600 bg-white rounded-xl px-3 py-2.5 shadow-sm mb-1.5">
+      <span><i class="fa-solid fa-industry text-slate-400 mr-1.5"></i>${esc(m)} <span class="text-slate-400 font-normal">(${grp[m].length})</span></span>
+      <i class="fa-solid fa-chevron-${collapsed?'down':'up'} text-slate-300"></i></button>
+      <div>${items}</div></div>`;
   }).join('');
 }
-function toggleGroupList(mi){ const m=(window.__MKEYS||[])[mi]; if(m==null)return; window.__COLLAPSED=window.__COLLAPSED||{}; window.__COLLAPSED[m]=!window.__COLLAPSED[m]; renderReports(); }
+function toggleOldBox(){ window.__OLDOPEN=!window.__OLDOPEN; renderReports(); }
+function renderReports(){
+  const box=document.getElementById('shListBody');
+  const q=(document.getElementById('shSearch').value||'').toLowerCase();
+  const hit=r=>!q||[r.ingredient,r.maker,r.brand].some(x=>String(x||'').toLowerCase().includes(q));
+  const live=REPORTS.filter(r=>!r.arch).filter(hit);
+  const old =REPORTS.filter(r=> r.arch).filter(hit);
+  document.getElementById('shCnt').textContent=REPORTS.filter(r=>!r.arch).length+'건';
+  window.__RFLAT=[]; window.__MKEYS=[]; window.__COLLAPSED=window.__COLLAPSED||{};
+  if(q && window.__OLDOPEN===undefined) window.__OLDOPEN=true;   // 검색 중엔 예전 자료도 펼쳐 둔다
+
+  let h='';
+  h += live.length
+    ? `<div class="text-[11px] font-extrabold tracking-wide text-slate-400 mb-1.5 px-0.5">현재 자료 ${live.length}건</div>` + renderRepGroups(live,'L')
+    : `<p class="text-slate-400 text-sm p-6 text-center bg-white rounded-xl mb-2">${q?'현재 자료에는 결과가 없습니다.':'저장된 검증이 없습니다. <b>[+ 새 검증]</b>으로 시작하세요.'}</p>`;
+
+  if(old.length){
+    const open=!!window.__OLDOPEN;
+    h += `<div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-2.5">
+      <button onclick="toggleOldBox()" class="w-full flex items-center gap-2 text-left px-1.5 py-1">
+        <i class="fa-solid fa-box-archive text-slate-400"></i>
+        <span class="text-xs font-extrabold text-slate-600 flex-1">예전 자료 <span class="text-slate-400 font-normal">${old.length}건${q?' · 검색 일치':''}</span></span>
+        <i class="fa-solid fa-chevron-${open?'up':'down'} text-slate-300 text-xs"></i>
+      </button>
+      ${open?`<div class="mt-2">${renderRepGroups(old,'O')}</div>`
+            :`<p class="text-[11px] text-slate-400 px-1.5 pb-1">눌러서 지난 기록을 찾아볼 수 있습니다.</p>`}
+    </div>`;
+  }
+  box.innerHTML=h;
+}
+function toggleGroupList(mi){ const k=(window.__MKEYS||[])[mi]; if(k==null)return; window.__COLLAPSED=window.__COLLAPSED||{}; window.__COLLAPSED[k]=(window.__COLLAPSED[k]===false); renderReports(); }
 function openReportIdx(i){ const r=(window.__RFLAT||[])[i]; if(r) openReport(r.id); }
 function delReportIdx(i){ const r=(window.__RFLAT||[])[i]; if(r) delReport(r.id); }
 async function delReport(id){ if(!confirm('이 검증을 삭제할까요? (되돌릴 수 없음)'))return; await sb.from('qc_reports').delete().eq('id',id); loadReports(); }
@@ -3171,10 +3204,7 @@ function injectShell(){
     <div id="homeBoard" style="margin-bottom:14px"></div>
     <button onclick="openNew()" style="width:100%;background:#c1553a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:12px"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
     <div style="display:flex;gap:7px;margin-bottom:14px">
-      <select onchange="BFIL.scope=this.value;BOPEN={};renderReports();if(NBOARD.length)renderNativeBoard()" style="flex:0 0 118px;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px 8px;font-size:13px;font-weight:700;background:#fff">
-        <option value="live">현재 자료</option><option value="old">예전 자료</option><option value="all">전체</option>
-      </select>
-      <input id="shSearch" oninput="renderReports()" placeholder="제품·제조회사 검색" style="flex:1;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px;font-size:13px">
+      <input id="shSearch" oninput="window.__OLDOPEN=undefined;renderReports()" placeholder="제품·제조회사·거래처 검색" style="flex:1;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px;font-size:13px">
     </div>
     <div id="shListBody"></div>
   </div>
