@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030005953">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030010228">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -2500,6 +2500,7 @@ const ACT_LIST=['도입 진행','최종 테스트 진행','디벨롭 · 사양 �
 const ACT_COLOR={'도입 진행':'#16a34a','최종 테스트 진행':'#2563eb','디벨롭 · 사양 변경 요청':'#d97706',
   '재샘플 요청':'#d97706','보류 — 조건부 재검토':'#64748b','개발 중단':'#e11d48','':'#94a3b8'};
 const VCOLOR={'○':'#16a34a','△':'#d97706','×':'#e11d48'};
+const VWORD={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불가'};
 
 function dueInfo(d){
   if(!d) return null;
@@ -2537,7 +2538,7 @@ function isLate(r){
 // 타일에서 고르는 빠른 보기 — 같은 타일을 다시 누르면 해제
 const QUICK={
   open:{ label:'진행 중',          f:r=>!TERMINAL.includes(r.action||'') },
-  late:{ label:'기한 임박·초과',   f:isLate, hot:1 },
+  late:{ label:'기한 임박·초과',   f:isLate, hot:'auto' },
   none:{ label:'후속 조치 미지정', f:r=>!(r.action||'') },
   adopt:{ label:'도입 확정',       f:r=>r.action==='도입 진행' }
 };
@@ -2606,9 +2607,10 @@ function renderNativeBoard(){
 
   const opt=(v,t,cur)=>`<option value="${esc(v)}"${cur===v?' selected':''}>${esc(t)}</option>`;
   const tab=(v,t)=>`<button class="bd-tab${BFIL.scope===v?' on':''}" onclick="setScope('${v}')">${t}<span class="c">${cnt(v)}</span></button>`;
-  const tile=(k)=>{ const q=QUICK[k]; return `<button class="bd-tile${q.hot?' hot':''}${BFIL.quick===k?' on':''}" onclick="setQuick('${k}')">
+  const tile=(k)=>{ const q=QUICK[k], n=SC.filter(q.f).length, hot=q.hot==='auto'?n>0:!!q.hot;
+    return `<button class="bd-tile${hot?' hot':''}${BFIL.quick===k?' on':''}" onclick="setQuick('${k}')">
     <div class="l">${q.label}${BFIL.quick===k?' <i class="fa-solid fa-circle-check" style="font-size:9px"></i>':''}</div>
-    <div class="v">${SC.filter(q.f).length}</div></button>`; };
+    <div class="v">${n}</div></button>`; };
 
   const rowHTML = r=>{
     const d=dueInfo(r.due), ac=ACT_COLOR[r.action||''];
@@ -2780,7 +2782,7 @@ function renderBoardDetail(){
     <div style="font-size:13px;color:#0c4a6e;white-space:pre-wrap;line-height:1.6">${esc(st.purpose||'(목적 미입력)')}</div></div>`:''}
   <div class="bd-sec" style="background:#fafbfa">
     <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
-      ${pill('검증 결과', esc(BDETAIL.verdict||'미정'), VCOLOR[BDETAIL.verdict])}
+      ${pill('검증 결과', esc(VWORD[BDETAIL.verdict]||'판정 미입력'), VCOLOR[BDETAIL.verdict])}
       ${pill('사용 가능성', esc(usability(BDETAIL.verdict, st.nextAction)), ac)}
       ${pill('예상 월사용량', esc(st.monthlyUse||'미산정'))}
       ${pill('도입 목표', esc(st.targetDate||'-'))}
