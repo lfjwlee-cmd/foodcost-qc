@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030020355">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030020523">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2971,9 +2971,10 @@ const HOME_ACTS=[
 async function loadHomeBoard(){
   const box=document.getElementById('homeBoard'); if(!box) return;
   try{
-    const {data,error}=await sb.from('qc_reports')
-      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate');
-    if(error||!data) { box.innerHTML=''; return; }
+    const {data:data0,error}=await sb.from('qc_reports')
+      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate,arch:data->state->>archived');
+    if(error||!data0) { box.innerHTML=''; return; }
+    const data=data0.filter(r=>!r.arch);   // 요약은 현재 자료만 — 아래 목록과 숫자가 어긋나면 안 된다
     const now=new Date();
     const late=data.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
     const open=data.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
