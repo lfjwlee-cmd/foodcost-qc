@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030035624">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030061545">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2545,12 +2545,13 @@ async function shellLogout(){ await sb.auth.signOut(); location.reload(); }
 // 처음 누를 때만 src 를 걸어 초기 로딩을 늦추지 않는다.
 // 보드와 대장 표는 같은 iframe 을 쓴다 — 두 번 로드하지 않도록 뷰만 바꾼다
 function shTab(name){
-  const map={board:'shPanelBoard', list:'shPanelList', ledger:'shPanelLedger', builder:'shPanelBuilder'};
+  const map={board:'shPanelBoard', req:'shPanelReq', list:'shPanelList', ledger:'shPanelLedger', builder:'shPanelBuilder'};
   if(!map[name]) name='board';
   const shown=map[name];
-  ['shPanelBoard','shPanelList','shPanelLedger','shPanelBuilder'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=(id===shown)?'':'none'; });
+  ['shPanelBoard','shPanelReq','shPanelList','shPanelLedger','shPanelBuilder'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=(id===shown)?'':'none'; });
   document.querySelectorAll('.sh-tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
   if(name==='board') loadNativeBoard();
+  if(name==='req') loadRequests();
   if(name==='ledger'){ const f=document.getElementById('ifLedger'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_대장.html'); }
   if(name==='builder'){ const f=document.getElementById('ifBuilder'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_만들기.html'); }
   try{ history.replaceState(null,'', name==='board' ? location.pathname : ('#'+name)); }catch(e){}
@@ -2599,9 +2600,9 @@ async function loadNativeBoard(){
   if(!NBOARD.length) box.innerHTML='<p style="color:#9a958d;font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
   try{
     const {data,error}=await sb.from('qc_reports')
-      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived');
+      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived,kind:data->state->>kind');
     if(error) throw error;
-    NBOARD=(data||[]).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+    NBOARD=(data||[]).filter(r=>r.kind!=='request').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
     let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
       if(!c.error&&c.data) c.data.forEach(x=>{ cm[x.report_id]=(cm[x.report_id]||0)+1; }); }catch(e){}
     NBOARD.forEach(r=> r.cmt=cm[r.id]||0);
@@ -3020,9 +3021,9 @@ async function loadHomeBoard(){
   const box=document.getElementById('homeBoard'); if(!box) return;
   try{
     const {data:data0,error}=await sb.from('qc_reports')
-      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate,arch:data->state->>archived');
+      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate,arch:data->state->>archived,kind:data->state->>kind');
     if(error||!data0) { box.innerHTML=''; return; }
-    const data=data0.filter(r=>!r.arch);   // 요약은 현재 자료만 — 아래 목록과 숫자가 어긋나면 안 된다
+    const data=data0.filter(r=>!r.arch && r.kind!=='request');   // 요약은 현재 자료만 — 아래 목록과 숫자가 어긋나면 안 된다
     const now=new Date();
     const late=data.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
     const open=data.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
@@ -3044,10 +3045,10 @@ async function loadHomeBoard(){
 async function loadReports(){
   const box=document.getElementById('shListBody'); box.innerHTML='<p class="text-slate-400 text-sm p-6 text-center">불러오는 중…</p>';
   try{
-    const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at,arch:data->state->>archived').order('updated_at',{ascending:false});
+    const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at,arch:data->state->>archived,kind:data->state->>kind').order('updated_at',{ascending:false});
     const {data,error}=await withTimeout(q,12000);
     if(error) throw error;
-    REPORTS=data||[]; renderReports(); loadHomeBoard();
+    REPORTS=(data||[]).filter(r=>r.kind!=='request'); renderReports(); loadHomeBoard(); loadReqBadge();
   }catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="loadReports()" style="margin-top:8px;text-decoration:underline;color:#1d1b18">다시 시도</button></p>'; }
 }
 function vBadge(v){ const m={'○':['#2f8f5b','사용 가능'],'△':['#c9922b','조건부'],'×':['#c0433a','사용 불가']}[v]; return m?`<span style="color:${m[0]};font-weight:800">${v} ${m[1]}</span>`:'<span class="text-slate-400">미정</span>'; }
@@ -3110,6 +3111,225 @@ function openReportIdx(i){ const r=(window.__RFLAT||[])[i]; if(r) openReport(r.i
 function delReportIdx(i){ const r=(window.__RFLAT||[])[i]; if(r) delReport(r.id); }
 async function delReport(id){ if(!confirm('이 검증을 삭제할까요? (되돌릴 수 없음)'))return; await sb.from('qc_reports').delete().eq('id',id); loadReports(); }
 
+/* ═══════════ 샘플 요청 ═══════════
+   메뉴개발팀이 "이 품목 샘플 좀 받아주세요" 를 남기고, 구매물류팀이 받아서 상태를 올린다.
+   샘플이 들어오면 같은 건을 그대로 검증으로 전환한다(입력한 내용이 그대로 넘어간다). */
+const REQ_STATUS=[
+  {k:'요청',          c:'#6f6b64', d:'메뉴개발팀이 올림'},
+  {k:'접수',          c:'#4a72a8', d:'구매물류팀 확인'},
+  {k:'거래처 컨택 중', c:'#c9922b', d:'업체 문의·견적 진행'},
+  {k:'샘플 입고',      c:'#2f8f5b', d:'도착 — 검증 시작 가능'},
+  {k:'보류',          c:'#9a958d', d:'조건 미정·대기'},
+  {k:'반려',          c:'#c0433a', d:'진행 불가'}
+];
+const RQC=k=>(REQ_STATUS.find(x=>x.k===k)||{}).c||'#9a958d';
+let REQS=[], RSEL=null;
+
+async function loadReqBadge(){
+  try{
+    const {data}=await sb.from('qc_reports').select('s:data->state->>reqStatus,k:data->state->>kind');
+    const n=(data||[]).filter(r=>r.k==='request' && !['샘플 입고','반려'].includes(r.s||'요청')).length;
+    const b=document.getElementById('reqBadge'); if(b){ b.textContent=n||''; b.style.display=n?'':'none'; }
+  }catch(e){}
+}
+async function loadRequests(){
+  const box=document.getElementById('shPanelReq'); if(!box) return;
+  if(!REQS.length) box.innerHTML='<p style="color:#9a958d;font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
+  try{
+    const {data,error}=await sb.from('qc_reports')
+      .select('id,ingredient,date,data,kind:data->state->>kind').order('date',{ascending:false});
+    if(error) throw error;
+    REQS=(data||[]).filter(r=>r.kind==='request').map(r=>({id:r.id, ing:r.ingredient, date:r.date, st:(r.data&&r.data.state)||{}}));
+    let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
+      if(!c.error&&c.data) c.data.forEach(x=>{ cm[x.report_id]=(cm[x.report_id]||0)+1; }); }catch(e){}
+    REQS.forEach(r=>r.cmt=cm[r.id]||0);
+    if(!RSEL && REQS.length) RSEL=REQS[0].id;
+    renderRequests(); loadReqBadge();
+  }catch(e){ box.innerHTML='<p style="color:#c0433a;font-size:13px;padding:24px 0;text-align:center">요청을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
+}
+function renderRequests(){
+  const box=document.getElementById('shPanelReq'); if(!box) return;
+  const live=REQS.filter(r=>!['샘플 입고','반려'].includes(r.st.reqStatus||'요청'));
+  const done=REQS.filter(r=> ['샘플 입고','반려'].includes(r.st.reqStatus||'요청'));
+  const card=r=>{
+    const stt=r.st.reqStatus||'요청', c=RQC(stt);
+    const want=r.st.reqWant||'';
+    return `<div class="bd-row${r.id===RSEL?' on':''}" role="option" aria-selected="${r.id===RSEL}"
+      tabindex="${r.id===RSEL?0:-1}" onkeydown="boardRowKey(event)" onclick="selectReq('${r.id}')">
+      <span style="width:8px;height:8px;border-radius:50%;background:${c};flex:none"></span>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.ing||'(품목 미입력)')}</div>
+        <div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.st.reqFor||'사용처 미정')} · ${esc(r.date||'')}</div>
+      </div>
+      <div style="text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <span class="bd-chip" style="color:${c};background:${c}1a">${esc(stt)}</span>
+        ${r.st.reqBy?`<span style="font-size:10.5px;color:var(--faint)">${esc(r.st.reqBy)}</span>`:''}
+        ${r.cmt?`<span style="font-size:10px;color:var(--faint)"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
+      </div></div>`;
+  };
+  const tile=(l,n,c)=>`<div class="bd-tile" style="cursor:default"><div class="l">${l}</div><div class="v" style="color:${c||'var(--ink)'}">${n}</div></div>`;
+  const cnt=k=>REQS.filter(r=>(r.st.reqStatus||'요청')===k).length;
+  box.innerHTML=`
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:12px">
+    ${tile('요청 대기',cnt('요청'),cnt('요청')?'var(--accent)':null)}
+    ${tile('구매팀 진행 중',cnt('접수')+cnt('거래처 컨택 중'))}
+    ${tile('샘플 입고',cnt('샘플 입고'),'#2f8f5b')}
+    ${tile('전체 요청',REQS.length)}
+  </div>
+  <div class="bd-wrap">
+    <div class="bd-card" style="overflow:hidden">
+      <div style="display:flex;align-items:center;gap:7px;padding:8px 10px 8px 12px;border-bottom:1px solid var(--line)">
+        <span style="font-size:11.5px;font-weight:700;color:var(--muted);flex:1">진행 중 ${live.length}건</span>
+        <button class="bd-btn pri" style="padding:5px 11px;font-size:11.5px" onclick="openNewReq()"><i class="fa-solid fa-plus mr-1"></i>샘플 요청</button>
+      </div>
+      <div role="listbox" aria-label="샘플 요청" style="max-height:62vh;overflow:auto">
+        ${live.length?live.map(card).join(''):'<p style="font-size:12.5px;color:var(--faint);padding:26px 12px;text-align:center">진행 중인 요청이 없습니다.</p>'}
+        ${done.length?`<div class="bd-grp" style="cursor:default"><span style="font-size:11.5px;font-weight:800;color:var(--faint);flex:1">끝난 요청 ${done.length}</span></div>`+done.map(card).join(''):''}
+      </div>
+    </div>
+    <div class="bd-card" id="reqDetail"><p style="padding:40px 20px;text-align:center;color:var(--faint);font-size:13px">왼쪽에서 요청을 고르세요.</p></div>
+  </div>`;
+  if(RSEL) selectReq(RSEL, true);
+}
+function openNewReq(){
+  const d=document.getElementById('reqForm'); if(d) d.remove();
+  const today=new Date().toISOString().slice(0,10);
+  const w=document.createElement('div'); w.id='reqForm';
+  w.style.cssText='position:fixed;inset:0;background:rgba(29,27,24,.45);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px';
+  w.innerHTML=`<div class="bd-card" style="max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:18px 20px">
+    <div style="font-size:17px;font-weight:800;margin-bottom:3px">샘플 요청</div>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 14px">구매물류팀이 이 내용으로 거래처에 문의합니다. 수치로 적을수록 한 번에 끝납니다.</p>
+    <label class="lbl">필요 품목 *</label><input id="rqIng" class="fld fld-sm" placeholder="예: 영양밥 소스">
+    <div class="grid grid-cols-2 gap-2.5 mt-2.5">
+      <div><label class="lbl">사용처 *</label><input id="rqFor" class="fld fld-sm" placeholder="예: 삼대미역 — 영양밥"></div>
+      <div><label class="lbl">요청자</label><input id="rqBy" class="fld fld-sm" placeholder="성명/직급"></div>
+      <div><label class="lbl">예상 월 사용량</label><input id="rqUse" class="fld fld-sm" placeholder="예: 80kg / 월"></div>
+      <div><label class="lbl">필요 수량</label><input id="rqQty" class="fld fld-sm" placeholder="예: 2kg × 3종"></div>
+      <div><label class="lbl">희망 입고일</label><input id="rqWhen" type="date" class="fld fld-sm" value="${today}"></div>
+      <div><label class="lbl">도입 목표 시기</label><input id="rqTarget" class="fld fld-sm" placeholder="예: 2026-12"></div>
+    </div>
+    <label class="lbl mt-2.5">요청 사유 · 테스트 목적 *</label>
+    <textarea id="rqWhy" class="fld fld-sm" rows="2" placeholder="예: 기존 소스 단가 상승으로 대체품 검토. 기존과 맛 방향이 같아야 함"></textarea>
+    <label class="lbl mt-2.5">희망 사양 <span class="font-normal text-slate-400">수치로</span></label>
+    <textarea id="rqWant" class="fld fld-sm" rows="2" placeholder="예: 당도 12Brix 내외 / 염도 1.8% / 점도 기존 수준 / 2kg 파우치"></textarea>
+    <label class="lbl mt-2.5">거래처</label>
+    <input id="rqMaker" class="fld fld-sm" placeholder="지정 업체가 있으면 입력 — 없으면 비워두면 구매팀이 추천합니다">
+    <div style="display:flex;gap:7px;margin-top:16px">
+      <button class="bd-btn" style="flex:1" onclick="document.getElementById('reqForm').remove()">취소</button>
+      <button class="bd-btn pri" style="flex:2" onclick="saveNewReq()"><i class="fa-solid fa-paper-plane mr-1"></i>요청 올리기</button>
+    </div>
+    <p id="rqMsg" style="font-size:12px;color:#c0433a;margin:8px 0 0;text-align:center"></p>
+  </div>`;
+  document.body.appendChild(w);
+  setTimeout(()=>document.getElementById('rqIng').focus(),50);
+}
+async function saveNewReq(){
+  const v=id=>(document.getElementById(id).value||'').trim();
+  const msg=document.getElementById('rqMsg');
+  if(!v('rqIng')||!v('rqFor')||!v('rqWhy')){ msg.textContent='품목 · 사용처 · 요청 사유는 꼭 적어 주세요.'; return; }
+  msg.style.color='var(--muted)'; msg.textContent='올리는 중…';
+  const id='rq_'+Date.now()+'_'+Math.floor(Math.random()*1e5);
+  const st={ kind:'request', reqStatus:'요청', product:v('rqIng'), reqFor:v('rqFor'), reqBy:v('rqBy'),
+    monthlyUse:v('rqUse'), reqQty:v('rqQty'), reqWhen:v('rqWhen'), targetDate:v('rqTarget'),
+    reqWhy:v('rqWhy'), reqWant:v('rqWant'), reqMaker:v('rqMaker'),
+    date:new Date().toISOString().slice(0,10), reqAt:new Date().toISOString() };
+  const rec={ id, date:st.date, ingredient:st.product, brand:'', category:'요청', maker:st.reqMaker||'',
+    verdict:'', data:{ config:null, state:st, photoKeys:[] }, updated_at:new Date().toISOString() };
+  const {error}=await sb.from('qc_reports').insert(rec);
+  if(error){ msg.style.color='#c0433a'; msg.textContent='저장 실패 — '+(error.message||error); return; }
+  document.getElementById('reqForm').remove();
+  RSEL=id; REQS=[]; await loadRequests();
+  toast('샘플 요청을 올렸습니다 — 구매물류팀이 확인합니다');
+}
+async function selectReq(id, keep){
+  RSEL=id;
+  document.querySelectorAll('#shPanelReq .bd-row').forEach(el=>el.classList.toggle('on', el.getAttribute('onclick').includes("'"+id+"'")));
+  const el=document.getElementById('reqDetail'); if(!el) return;
+  const r=REQS.find(x=>x.id===id); if(!r){ el.innerHTML=''; return; }
+  const st=r.st, stt=st.reqStatus||'요청', c=RQC(stt);
+  const kv=(k,v)=>v?`<tr><th style="width:96px">${k}</th><td>${esc(v)}</td></tr>`:'';
+  el.innerHTML=`
+  <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;border-left:4px solid ${c};border-radius:16px 16px 0 0">
+    <div><div style="font-size:18px;font-weight:800;color:var(--ink)">${esc(r.ing||'')}</div>
+      <div style="font-size:11.5px;color:var(--muted)">${esc(r.date||'')}${st.reqBy?' · '+esc(st.reqBy):''} · ${esc(st.reqFor||'')}</div></div>
+    ${stt==='샘플 입고'?`<button class="bd-btn pri" onclick="reqToVerification('${id}')"><i class="fa-solid fa-flask-vial mr-1"></i>이 요청으로 검증 시작</button>`:''}
+  </div>
+  <div class="bd-sec" style="background:var(--surface-2)">
+    <div class="bd-h">진행 상태 <span style="font-weight:600;color:var(--line-strong)">고르면 바로 저장됩니다</span></div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <select class="bd-f" style="flex:1 1 200px" onchange="saveReqStatus('${id}',this.value)">
+        ${REQ_STATUS.map(x=>`<option${stt===x.k?' selected':''}>${esc(x.k)}</option>`).join('')}
+      </select>
+      <span id="rqSaveMsg" style="font-size:11.5px;color:var(--faint)"></span>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:6px">${esc((REQ_STATUS.find(x=>x.k===stt)||{}).d||'')}${st.reqStatusAt?' · 마지막 변경 '+esc(String(st.reqStatusAt).slice(0,16).replace('T',' ')):''}</div>
+  </div>
+  <div class="bd-sec"><div class="bd-h">요청 내용</div>
+    <table class="bd-t"><tbody>
+      ${kv('요청 사유', st.reqWhy)}${kv('희망 사양', st.reqWant)}${kv('거래처', st.reqMaker||'지정 없음 — 구매팀 추천 요청')}
+      ${kv('예상 월사용량', st.monthlyUse)}${kv('필요 수량', st.reqQty)}${kv('희망 입고일', st.reqWhen)}${kv('도입 목표', st.targetDate)}
+    </tbody></table></div>
+  <div class="bd-sec">
+    <div class="bd-h">협의 기록 <span style="font-weight:600;color:var(--line-strong)">구매물류팀 ↔ 메뉴개발팀</span></div>
+    <div id="rqCmts" style="display:flex;flex-direction:column;gap:9px;margin-bottom:9px"></div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <select id="rqTeam" class="bd-f" style="flex:0 0 118px"><option>구매물류팀</option><option>메뉴개발팀</option></select>
+      <input id="rqWho" class="bd-f" style="flex:1" placeholder="작성자">
+    </div>
+    <textarea id="rqBody" class="bd-f" style="width:100%;resize:vertical" rows="2" placeholder="회신 · 견적 · 입고 예정일 등"></textarea>
+    <button class="bd-btn pri" style="width:100%;margin-top:6px" onclick="postReqComment('${id}')"><i class="fa-solid fa-paper-plane mr-1"></i>코멘트 남기기</button>
+  </div>`;
+  loadReqComments(id);
+  if(!keep && window.innerWidth<=860) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function saveReqStatus(id, v){
+  const m=document.getElementById('rqSaveMsg'); if(m) m.textContent='저장 중…';
+  try{
+    const {data,error}=await sb.from('qc_reports').select('data').eq('id',id).single();
+    if(error) throw error;
+    const d=data.data||{}; d.state=d.state||{}; d.state.reqStatus=v; d.state.reqStatusAt=new Date().toISOString();
+    const up=await sb.from('qc_reports').update({data:d, updated_at:new Date().toISOString()}).eq('id',id);
+    if(up.error) throw up.error;
+    const r=REQS.find(x=>x.id===id); if(r){ r.st.reqStatus=v; r.st.reqStatusAt=d.state.reqStatusAt; }
+    if(m){ m.textContent='저장됨'; setTimeout(()=>{ if(m) m.textContent=''; },1600); }
+    renderRequests();
+  }catch(e){ if(m) m.textContent='저장 실패'; toast('저장 실패: '+(e.message||e)); }
+}
+async function loadReqComments(id){
+  const box=document.getElementById('rqCmts'); if(!box) return;
+  try{
+    const {data,error}=await sb.from('qc_comments').select('*').eq('report_id',id).order('created_at');
+    if(error) throw error;
+    box.innerHTML=(data||[]).length?data.map(c=>{ const buy=c.team==='구매물류팀';
+      return `<div style="border-left:3px solid ${buy?'#4a72a8':'var(--accent)'};padding:2px 0 2px 9px">
+        <div style="font-size:10.5px;color:var(--faint)"><b style="color:${buy?'#4a72a8':'var(--accent)'}">${esc(c.team||'')}</b> ${esc(c.author||'')} · ${esc(String(c.created_at||'').slice(0,16).replace('T',' '))}</div>
+        <div style="font-size:12.5px;color:var(--ink);white-space:pre-wrap">${esc(c.body||'')}</div></div>`; }).join('')
+      : '<p style="font-size:12px;color:var(--faint)">아직 협의 기록이 없습니다.</p>';
+  }catch(e){ box.innerHTML='<p style="font-size:12px;color:#c0433a">코멘트를 불러오지 못했습니다.</p>'; }
+}
+async function postReqComment(id){
+  const body=(document.getElementById('rqBody').value||'').trim(); if(!body){ toast('내용을 입력하세요'); return; }
+  const rec={ id:'c_'+Date.now()+'_'+Math.floor(Math.random()*1e5), report_id:id,
+    team:document.getElementById('rqTeam').value, author:(document.getElementById('rqWho').value||'').trim(), body };
+  const {error}=await sb.from('qc_comments').insert(rec);
+  if(error){ toast('저장 실패: '+(error.message||error)); return; }
+  document.getElementById('rqBody').value='';
+  const r=REQS.find(x=>x.id===id); if(r) r.cmt=(r.cmt||0)+1;
+  loadReqComments(id); renderRequests(); toast('코멘트를 남겼습니다');
+}
+// 샘플이 들어오면 요청 내용을 그대로 안고 검증으로 넘어간다
+async function reqToVerification(id){
+  const r=REQS.find(x=>x.id===id); if(!r) return;
+  const sel=document.getElementById('newType');
+  if(!sel.options.length && typeof TYPE_ORDER!=='undefined'){
+    sel.innerHTML=TYPE_ORDER.map(([g,keys])=>`<optgroup label="${g}">`+keys.map(k=>`<option value="${k}">${TYPES[k].label.split(' (')[0]}</option>`).join('')+`</optgroup>`).join('');
+  }
+  document.getElementById('newProd').value=r.ing||'';
+  document.getElementById('shNew').style.display='flex';
+  window.__FROM_REQ=id;
+  toast('품목 유형만 고르면 요청 내용이 그대로 넘어갑니다');
+}
+
 /* ---------- 새 검증 ---------- */
 function openNew(){
   const sel=document.getElementById('newType');
@@ -3124,8 +3344,18 @@ function createNew(){
   document.getElementById('shNew').style.display='none';
   CURRENT_ID=null; uploadedPhotos={};
   const init={ product:prod, date:new Date().toISOString().slice(0,10), store:'', inspector:'', brands:['인생아구찜'], _type:key };
+  // 샘플 요청에서 넘어온 경우 — 적은 내용을 다시 치게 하지 않는다
+  const fromReq = window.__FROM_REQ ? (REQS.find(x=>x.id===window.__FROM_REQ)||null) : null;
+  if(fromReq){
+    const q=fromReq.st;
+    Object.assign(init, { useFor:q.reqFor||'', monthlyUse:q.monthlyUse||'', targetDate:q.targetDate||'',
+      purpose:q.reqWhy||'', reqFrom:'메뉴개발팀', _fromReq:fromReq.id });
+    if(q.reqWant) init.improve=' · 희망 사양 — '+q.reqWant;
+  }
   applyConfig(cfgFromType(key, prod), init);
-  showEditor(); loadComments(); toast('새 검증 시작 — 작성 후 자동 저장됩니다');
+  showEditor(); loadComments();
+  if(fromReq){ window.__FROM_REQ=null; toast('요청 내용을 가져왔습니다 — 사용처·목적·희망 사양이 채워졌습니다'); }
+  else toast('새 검증 시작 — 작성 후 자동 저장됩니다');
 }
 // 품목 유형 변경(항목만 다시 구성, 나머지 입력 유지)
 function populateEdType(){
@@ -3244,11 +3474,13 @@ function injectShell(){
     </div>
     <div style="max-width:1280px;margin:0 auto;padding:12px 16px 0;display:flex;gap:4px;overflow-x:auto">
       <button type="button" class="sh-tab on" data-tab="board" onclick="shTab('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 현황</button>
+      <button type="button" class="sh-tab" data-tab="req" onclick="shTab('req')"><i class="fa-solid fa-paper-plane mr-1"></i>샘플 요청 <span id="reqBadge" class="bd-chip" style="background:var(--accent);color:#fff;display:none"></span></button>
       <button type="button" class="sh-tab" data-tab="list" onclick="shTab('list')"><i class="fa-solid fa-list-check mr-1"></i>검증 목록</button>
       <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-table-list mr-1"></i>전체 표</button>
       <button type="button" class="sh-tab" data-tab="builder" onclick="shTab('builder')"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>만들기</button>
     </div>
   </div>
+  <div id="shPanelReq" style="display:none;max-width:1280px;margin:0 auto;padding:16px 16px 60px"></div>
   <div id="shPanelList" style="max-width:760px;margin:0 auto;padding:16px 14px 60px">
     <div id="homeBoard" style="margin-bottom:14px"></div>
     <button onclick="openNew()" style="width:100%;background:#c1553a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:12px"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
