@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030013725">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030014252">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -2049,7 +2049,7 @@ async function saveShareFile(){
   let src;
   try{ const r=await fetch(location.href); if(!r.ok) throw 0; src=await r.text(); }
   catch(e){ toast('로컬 파일은 공유본 저장 제한 — PDF로 공유하세요'); alert('공유본(보기 전용) 파일 저장은 이 파일이 웹(GitHub Pages 등)에 올라가 있을 때 동작합니다.\n\n내 PC 로컬 파일에서는 브라우저 보안상 원본을 읽지 못합니다.\n→ 지금은 [PDF] 버튼으로 저장해 그 PDF를 공유해 주세요. (보기 전용 · 사진 포함)'); return; }
-  const payload=JSON.stringify({state:state, photos:photosObj||{}, view:true}).replace(/<\//g,'<\\/');
+  const payload=JSON.stringify({state:state, photos:photosObj||{}, config:C, view:true}).replace(/<\//g,'<\\/');
   const inject='<script>window.__SHARE__='+payload+';<\/script>\n</head>';
   const out=src.replace('</head>', inject);
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([out],{type:'text/html'}));
@@ -3230,7 +3230,16 @@ function injectShell(){
 
 (async function init(){
   document.title='식자재 검증 센터';
-  if(window.__SHARE__){ try{ state=window.__SHARE__.state||{}; }catch(e){} photosObj=(window.__SHARE__&&window.__SHARE__.photos)||{}; document.body.classList.add('view-mode'); document.getElementById('appWrap').style.display=''; build(); applyPhotos(); openAllSections(); netStatus(); return; }
+  if(window.__SHARE__){
+    // 공유본은 설정(C)까지 들고 와야 한다. state 만 넣으면 항목 키가 어긋나 전부 빈칸으로 그려진다.
+    const sh=window.__SHARE__;
+    document.body.classList.add('view-mode');
+    document.getElementById('appWrap').style.display='';
+    if(sh.config){ applyConfig(sh.config, sh.state||{}); }
+    else { try{ state=sh.state||{}; }catch(e){} build(); }
+    photosObj=sh.photos||{};          // applyConfig 가 photosObj 를 비우므로 그 뒤에 넣는다
+    applyPhotos(); openAllSections(); netStatus(); return;
+  }
   injectShell();
   try{ netStatus(); }catch(e){}
   try{ const {data}=await sb.auth.getSession(); if(data&&data.session){ document.getElementById('shGate').style.display='none'; showList(); } else { document.getElementById('shGate').style.display='flex'; document.getElementById('shPw').focus(); } }
