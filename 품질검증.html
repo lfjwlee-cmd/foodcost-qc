@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030014730">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030015045">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -665,7 +665,7 @@ tailwind.config = { theme: { extend: {
       <label class="lbl no-print">제품별 종합 판정</label>
       <div id="finalVerdicts" class="space-y-2 mb-3 screen-only"></div>
       <div id="finalVerdictsPrint" class="print-only"></div>
-      <div class="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3">
+      <div id="actionBox" class="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3">
         <label class="lbl no-print"><i class="fa-solid fa-forward mr-1 text-brand-500"></i>후속 조치</label>
         <select class="fld fld-sm no-print" data-k="nextAction">
           <option value="">선택…</option>
@@ -688,7 +688,7 @@ tailwind.config = { theme: { extend: {
           <div id="askPrint" class="print-only"></div>
         </div>
       </div>
-      <div class="mt-4 mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 pdf-keep">
+      <div id="improveBox" class="mt-4 mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 pdf-keep">
         <div class="flex items-center justify-between mb-1.5 gap-2">
           <label class="lbl mb-0 text-amber-900"><i class="fa-solid fa-screwdriver-wrench mr-1"></i>개선 바라는 점 <span class="font-normal text-amber-700">거래처에 요청할 내용</span></label>
           <button type="button" onclick="fillImprove()" class="no-print flex-none flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-bold"><i class="fa-solid fa-list-check"></i>항목 불러오기</button>
@@ -1903,6 +1903,11 @@ function exportPDF(){
     const rowHas=[...row.querySelectorAll('.photo-cell')].some(c=>!c.classList.contains('pcell-empty'));
     row.classList.toggle('hide-print', !rowHas);
   });
+  // 내용이 없는 섹션은 제목·빈 상자만 남으므로 인쇄에서 뺀다
+  const hideIfEmpty=(secId, test)=>{ const el=document.getElementById(secId); if(el) el.classList.toggle('hide-print', !test); };
+  hideIfEmpty('metricSection', (document.getElementById('metricPrint')||{}).innerHTML);
+  hideIfEmpty('actionBox',     (document.getElementById('askPrint')||{}).innerHTML);
+  hideIfEmpty('improveBox',    ((document.querySelector('[data-k=improve]')||{}).value||'').trim());
   const anyContent=[...document.querySelectorAll('#photoBox .photo-cell')].some(c=>c.querySelector('.photo-box.has-img')||((c.querySelector('.pmemo')||{}).value||'').trim());
   const photoSection=document.getElementById('photoBox').closest('section');
   if(photoSection) photoSection.classList.toggle('hide-print', !anyContent);   // 사진/메모 하나도 없으면 섹션째 숨김
