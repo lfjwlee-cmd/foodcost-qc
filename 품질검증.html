@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030071731">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030084635">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -250,6 +250,11 @@ tailwind.config = { theme: { extend: {
   .bd-grp:hover{ background:#f4f2ee; }
   .bd-clamp{ max-height:170px; overflow:hidden;
     -webkit-mask-image:linear-gradient(#000 68%,transparent); mask-image:linear-gradient(#000 68%,transparent); }
+  /* 요청 진행 단계 — 드롭다운은 '고르는 곳'으로 안 읽힌다 */
+  .rq-step{ border:1.5px solid var(--line-strong); background:var(--surface); border-radius:999px;
+    padding:6px 13px; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; transition:.12s; }
+  .rq-step:hover{ border-color:currentColor; }
+  .rq-step.on{ box-shadow:0 1px 4px rgba(30,25,20,.18); }
   .bd-note{ display:flex; align-items:center; gap:8px; padding:9px 12px; font-size:12px;
     background:#fffbeb; color:#92400e; border-bottom:1px solid #fde68a; }
   @media (max-width:560px){
@@ -3228,12 +3233,12 @@ function renderRequests(){
         ${r.cmt?`<span style="font-size:10px;color:var(--faint)"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
       </div></div>`;
   };
-  const tile=(l,n,c)=>`<div class="bd-tile" style="cursor:default"><div class="l">${l}</div><div class="v" style="color:${c||'var(--ink)'}">${n}</div></div>`;
+  const tile=(l,n,c)=>`<div class="bd-tile" style="cursor:default" title="집계입니다 — 상태는 오른쪽 상세에서 바꿉니다"><div class="l">${l}</div><div class="v" style="color:${c||'var(--ink)'}">${n}</div></div>`;
   const cnt=k=>REQS.filter(r=>(r.st.reqStatus||'요청')===k).length;
   box.innerHTML=`
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:12px">
     ${tile('요청 대기',cnt('요청'),cnt('요청')?'var(--accent)':null)}
-    ${tile('구매팀 진행 중',cnt('접수')+cnt('거래처 컨택 중'))}
+    ${tile('접수·컨택 중',cnt('접수')+cnt('거래처 컨택 중'))}
     ${tile('샘플 입고',cnt('샘플 입고'),'#2f8f5b')}
     ${tile('전체 요청',REQS.length)}
   </div>
@@ -3323,12 +3328,11 @@ async function selectReq(id, keep){
     </div>
   </div>
   <div class="bd-sec" style="background:var(--surface-2)">
-    <div class="bd-h">진행 상태 <span style="font-weight:600;color:var(--line-strong)">고르면 바로 저장됩니다</span></div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-      <select class="bd-f" style="flex:1 1 200px" onchange="saveReqStatus('${id}',this.value)">
-        ${REQ_STATUS.map(x=>`<option${stt===x.k?' selected':''}>${esc(x.k)}</option>`).join('')}
-      </select>
-      <span id="rqSaveMsg" style="font-size:11.5px;color:var(--faint)"></span>
+    <div class="bd-h">진행 상태 <span style="font-weight:600;color:var(--line-strong)">눌러서 단계를 넘깁니다 — 바로 저장됩니다</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      ${REQ_STATUS.map(x=>`<button class="rq-step${stt===x.k?' on':''}" style="${stt===x.k?`background:${x.c};border-color:${x.c};color:#fff`:`color:${x.c}`}"
+        title="${esc(x.d)}" onclick="saveReqStatus('${id}','${esc(x.k)}')">${esc(x.k)}</button>`).join('')}
+      <span id="rqSaveMsg" style="font-size:11.5px;color:var(--faint);margin-left:4px"></span>
     </div>
     <div style="font-size:11.5px;color:var(--muted);margin-top:6px">${esc((REQ_STATUS.find(x=>x.k===stt)||{}).d||'')}${st.reqStatusAt?' · 마지막 변경 '+esc(String(st.reqStatusAt).slice(0,16).replace('T',' ')):''}</div>
   </div>
