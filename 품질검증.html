@@ -3,10 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030015045">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="theme-color" content="#c1553a">
+<meta name="qc-build" content="20261030020124">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -24,24 +27,39 @@ const QC_CONFIG = {"ingredient":"","category":"해산물","brands":["인생아�
 
 <script>
 tailwind.config = { theme: { extend: {
-  colors: { brand: { 50:'#f0fdf4',100:'#dcfce7',500:'#16a34a',600:'#15803d',700:'#166534' } },
-  fontFamily: { sans: ['Pretendard','-apple-system','Malgun Gothic','sans-serif'] }
+  colors: {
+    // 사내 공용 팔레트 — 통합 시식설문과 동일 계열
+    brand: { 50:'#f9f0ec',100:'#f3e2db',300:'#dba694',500:'#c1553a',600:'#a8462e',700:'#8c3a26' },
+    slate: { 50:'#faf9f7',100:'#f4f2ee',200:'#e6e3dd',300:'#d4d0c8',400:'#9a958d',
+             500:'#6f6b64',600:'#5a564f',700:'#403c36',800:'#2b2823',900:'#1d1b18' }
+  },
+  fontFamily: { sans: ['IBM Plex Sans KR','Pretendard','-apple-system','Malgun Gothic','sans-serif'] }
 }}}
 </script>
 
 <style>
   *{ -webkit-tap-highlight-color: transparent; }
-  body{ font-family:'Pretendard','Malgun Gothic',sans-serif; background:#f1f5f9; }
+    /* ── 사내 공용 디자인 토큰 (통합 시식설문과 동일) ── */
+  :root{
+    --bg:#ecebe7; --surface:#fff; --surface-2:#faf9f7; --field:#f4f2ee;
+    --ink:#1d1b18; --muted:#6f6b64; --faint:#9a958d; --line:#e6e3dd; --line-strong:#d4d0c8;
+    --accent:#c1553a; --accent-ink:#fff; --accent-soft:#f3e2db;
+    --good:#2f8f5b; --warn:#c9922b; --bad:#c0433a;
+    --shadow:0 1px 2px rgba(30,25,20,.04),0 10px 30px -14px rgba(30,25,20,.18);
+    --r:14px;
+  }
+  body{ -webkit-font-smoothing:antialiased; }
+  body{ font-family:'IBM Plex Sans KR','Pretendard','Malgun Gothic',sans-serif; background:var(--bg); color:var(--ink); }
   .acc-body{ max-height:0; overflow:hidden; transition:max-height .4s ease; }
   .acc-body.open{ max-height:8000px; }
   .acc-arrow{ transition:transform .3s ease; }
   .acc-arrow.open{ transform:rotate(180deg); }
   .verdict-btn{ transition:all .2s ease; opacity:.45; transform:scale(.94); }
   .verdict-btn.active{ opacity:1; transform:scale(1.06); box-shadow:0 4px 14px rgba(0,0,0,.18); }
-  .switch{ position:relative; width:128px; height:38px; background:#e2e8f0; border-radius:999px; cursor:pointer; }
-  .switch-knob{ position:absolute; top:3px; left:3px; width:62px; height:32px; background:#16a34a; border-radius:999px; transition:transform .28s cubic-bezier(.4,0,.2,1); }
-  .switch.detail .switch-knob{ transform:translateX(60px); background:#2563eb; }
-  .photo-box{ border:2px dashed #cbd5e1; border-radius:14px; height:150px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:.2s; overflow:hidden; position:relative; background:#f8fafc; }
+  .switch{ position:relative; width:128px; height:38px; background:#e6e3dd; border-radius:999px; cursor:pointer; }
+  .switch-knob{ position:absolute; top:3px; left:3px; width:62px; height:32px; background:#c1553a; border-radius:999px; transition:transform .28s cubic-bezier(.4,0,.2,1); }
+  .switch.detail .switch-knob{ transform:translateX(60px); background:#4a72a8; }
+  .photo-box{ border:2px dashed #d4d0c8; border-radius:14px; height:150px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:.2s; overflow:hidden; position:relative; background:#faf9f7; }
   /* 컴팩트: 스크롤 줄이기 */
   .qc-item{ padding:8px 9px !important; }
   .qc-item .rounded-lg{ padding:3px 6px !important; }
@@ -60,7 +78,7 @@ tailwind.config = { theme: { extend: {
   .wt-list > *{ margin-bottom:0 !important; }
   .wt-in{ min-width:0; padding:4px 6px !important; font-size:12px !important; }
   .acc-body{ padding-bottom:10px !important; }
-  .photo-box:hover{ border-color:#16a34a; background:#f0fdf4; }
+  .photo-box:hover{ border-color:#c1553a; background:#f7ede8; }
   .photo-box img{ position:absolute; inset:0; z-index:1; width:100%; height:100%; object-fit:cover; background:#fff; }
   /* 첨부 사진: 빈 칸은 작게, 사진이 있으면 칸이 사진에 맞춰 커짐(자름없음) */
   #photoBox .photo-box{ height:100px !important; max-width:210px; }
@@ -80,29 +98,29 @@ tailwind.config = { theme: { extend: {
     #photoBox .photo-cell.pcommon .photo-box.has-img img{ width:100% !important; height:auto !important; max-width:100% !important; max-height:105mm !important; }
   }
   .ptag{ position:absolute; top:6px; left:6px; z-index:20; font-size:9px; color:#fff; padding:2px 7px; border-radius:999px; font-weight:700; }
-  .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#94a3b8; font-size:10px; text-align:center; pointer-events:none; }
+  .photo-add{ display:flex; flex-direction:column; align-items:center; gap:3px; color:#9a958d; font-size:10px; text-align:center; pointer-events:none; }
   .photo-add i{ font-size:20px; }
   .photo-box.has-img .photo-add{ display:none !important; }
   .photo-del{ position:absolute; top:4px; right:4px; background:rgba(0,0,0,.6); color:#fff; width:24px; height:24px; border-radius:50%; display:none; align-items:center; justify-content:center; font-size:12px; z-index:25; }
   .photo-box.has-img .photo-del{ display:flex; }
-  .photo-box.dragover{ border-color:#16a34a; background:#dcfce7; transform:scale(1.02); }
-  .photo-box.active{ box-shadow:0 0 0 3px rgba(22,163,74,.45); border-color:#16a34a; }
+  .photo-box.dragover{ border-color:#c1553a; background:#f3e2db; transform:scale(1.02); }
+  .photo-box.active{ box-shadow:0 0 0 3px rgba(193,85,58,.35); border-color:#c1553a; }
   /* 미촬영 표시: 기존/변경 짝 중 한쪽만 사진이 있을 때 빈쪽에 '미촬영'을 크게 표기 */
-  .miss-tag{ display:none; position:absolute; inset:0; z-index:16; align-items:center; justify-content:center; color:#f59e0b; font-weight:800; font-size:15px; pointer-events:none; }
-  .photo-cell.show-missing .photo-box{ height:64px; border-style:solid; border-color:#f59e0b; background:#fff7ed; }
+  .miss-tag{ display:none; position:absolute; inset:0; z-index:16; align-items:center; justify-content:center; color:#c9922b; font-weight:800; font-size:15px; pointer-events:none; }
+  .photo-cell.show-missing .photo-box{ height:64px; border-style:solid; border-color:#c9922b; background:#fff7ed; }
   .photo-cell.show-missing .photo-box .photo-add{ display:none; }
   .photo-cell.show-missing .miss-tag{ display:flex; }
   .photo-box.has-img .miss-tag{ display:none !important; }
   /* 메모만 있는 칸(미촬영 등): 사진칸과 같은 크기의 박스에 메모를 크게 가운데 표시 */
   .photo-cell.memo-only .photo-box{ display:none; }
-  .photo-cell.memo-only .pmemo{ margin-top:0; height:140px !important; box-sizing:border-box; border:2px dashed #f59e0b; background:#fff7ed; color:#b45309; font-weight:800; font-size:16px; text-align:center; border-radius:14px; padding:56px 8px 0; resize:none; }
+  .photo-cell.memo-only .pmemo{ margin-top:0; height:140px !important; box-sizing:border-box; border:2px dashed #c9922b; background:#fff7ed; color:#9a6b1f; font-weight:800; font-size:16px; text-align:center; border-radius:14px; padding:56px 8px 0; resize:none; }
   /* 사진 설명/메모: 박스 밖에 두어 탭해도 카메라가 안 열리고 바로 입력됨 */
-  .pmemo{ display:block; width:100%; margin-top:5px; border:1.5px solid #e2e8f0; border-radius:8px; padding:6px 8px; font-size:12px; color:#334155; background:#fff; resize:none; overflow:hidden; outline:none; line-height:1.35; }
-  .pmemo:focus{ border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
-  .pmemo::placeholder{ color:#cbd5e1; }
+  .pmemo{ display:block; width:100%; margin-top:5px; border:1.5px solid #e6e3dd; border-radius:8px; padding:6px 8px; font-size:12px; color:#403c36; background:#fff; resize:none; overflow:hidden; outline:none; line-height:1.35; }
+  .pmemo:focus{ border-color:#c1553a; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
+  .pmemo::placeholder{ color:#d4d0c8; }
   /* 사진 항목 제목(어떤 사진인지) — 눈에 잘 띄는 제목 바 */
-  .pcap{ background:#f1f5f9 !important; border:none !important; border-left:4px solid #16a34a !important; border-radius:6px !important; font-weight:800 !important; font-size:14px !important; color:#0f172a !important; padding:7px 10px !important; }
-  .pcap::placeholder{ color:#94a3b8 !important; font-weight:600; }
+  .pcap{ background:#f4f2ee !important; border:none !important; border-left:4px solid #c1553a !important; border-radius:6px !important; font-weight:800 !important; font-size:14px !important; color:#1d1b18 !important; padding:7px 10px !important; }
+  .pcap::placeholder{ color:#9a958d !important; font-weight:600; }
   /* 신규 등록 모드: 비교(기존) 열 숨김 + 단일 열 */
   body.new-mode .col-old{ display:none !important; }
   body.new-mode .cmp-grid{ grid-template-columns:1fr !important; }
@@ -130,88 +148,88 @@ tailwind.config = { theme: { extend: {
   body.view-mode #brandBox .brand-chip:not(.on){ display:none !important; }
   body.view-mode #colBox{ display:none !important; }
   /* 제품별 종합 판정 버튼 */
-  .fiv{ border:1.5px solid #e2e8f0; color:#94a3b8; background:#fff; }
-  .fiv[data-iv="○"].on{ background:#16a34a; border-color:#16a34a; color:#fff; }
-  .fiv[data-iv="△"].on{ background:#f59e0b; border-color:#f59e0b; color:#fff; }
-  .fiv[data-iv="×"].on{ background:#f43f5e; border-color:#f43f5e; color:#fff; }
+  .fiv{ border:1.5px solid #e6e3dd; color:#9a958d; background:#fff; }
+  .fiv[data-iv="○"].on{ background:#2f8f5b; border-color:#2f8f5b; color:#fff; }
+  .fiv[data-iv="△"].on{ background:#c9922b; border-color:#c9922b; color:#fff; }
+  .fiv[data-iv="×"].on{ background:#c0433a; border-color:#c0433a; color:#fff; }
   /* 검증 방식 세그먼트 */
-  .mode-seg{ background:#fff; color:#64748b; border-color:#e2e8f0; }
-  .mode-seg.on{ background:#16a34a; color:#fff; border-color:#16a34a; }
+  .mode-seg{ background:#fff; color:#6f6b64; border-color:#e6e3dd; }
+  .mode-seg.on{ background:#c1553a; color:#fff; border-color:#c1553a; }
   /* 브랜드 선택 칩 */
-  .brand-chip{ display:inline-flex; align-items:center; gap:5px; padding:7px 13px; border-radius:999px; border:1.5px solid #e2e8f0; background:#fff; color:#64748b; font-size:13px; font-weight:600; cursor:pointer; }
-  .brand-chip.on{ background:#16a34a; color:#fff; border-color:#16a34a; }
+  .brand-chip{ display:inline-flex; align-items:center; gap:5px; padding:7px 13px; border-radius:999px; border:1.5px solid #e6e3dd; background:#fff; color:#6f6b64; font-size:13px; font-weight:600; cursor:pointer; }
+  .brand-chip.on{ background:#c1553a; color:#fff; border-color:#c1553a; }
   /* 항목별 ○△× 판정 버튼 */
-  .iv{ border:1.5px solid #e2e8f0; color:#94a3b8; background:#fff; transition:.15s; }
-  .iv[data-iv="○"].on{ background:#16a34a; border-color:#16a34a; color:#fff; }
-  .iv[data-iv="△"].on{ background:#f59e0b; border-color:#f59e0b; color:#fff; }
-  .iv[data-iv="×"].on{ background:#f43f5e; border-color:#f43f5e; color:#fff; }
-  .iv[data-iv="생략"].on{ background:#94a3b8; border-color:#94a3b8; color:#fff; }
+  .iv{ border:1.5px solid #e6e3dd; color:#9a958d; background:#fff; transition:.15s; }
+  .iv[data-iv="○"].on{ background:#2f8f5b; border-color:#2f8f5b; color:#fff; }
+  .iv[data-iv="△"].on{ background:#c9922b; border-color:#c9922b; color:#fff; }
+  .iv[data-iv="×"].on{ background:#c0433a; border-color:#c0433a; color:#fff; }
+  .iv[data-iv="생략"].on{ background:#9a958d; border-color:#9a958d; color:#fff; }
   .print-only{ display:none; }
   /* 홈 화면 탭 — 검증 목록 / 대장 / 만들기를 한 주소에서 */
-  .sh-tab{ border:none; background:transparent; color:#64748b; white-space:nowrap;
+  .sh-tab{ border:none; background:transparent; color:#6f6b64; white-space:nowrap;
     font-size:13.5px; font-weight:700; padding:9px 14px; border-radius:9px 9px 0 0; cursor:pointer;
     border-bottom:2px solid transparent; transition:.12s; }
-  .sh-tab:hover{ color:#0f172a; background:#e9edea; }
-  .sh-tab.on{ color:#15803d; background:#fff; border-bottom-color:#16a34a; box-shadow:0 -1px 0 #e2e8f0 inset; }
+  .sh-tab:hover{ color:#1d1b18; background:#e9edea; }
+  .sh-tab.on{ color:#a8462e; background:#fff; border-bottom-color:#c1553a; box-shadow:0 -1px 0 #e6e3dd inset; }
   .sh-frame{ display:block; width:100%; height:calc(100vh - 150px); border:0; background:#fff; }
   /* 진행 현황 — 목록·상세 2단 */
   .bd-wrap{ display:grid; grid-template-columns:minmax(0,340px) minmax(0,1fr); gap:14px; align-items:start; }
   @media (max-width:860px){ .bd-wrap{ grid-template-columns:1fr; } }
-  .bd-card{ background:#fff; border:1px solid #e6eae8; border-radius:16px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
-  .bd-row{ display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid #f1f5f9;
+  .bd-card{ background:#fff; border:1px solid #e6e3dd; border-radius:16px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+  .bd-row{ display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid #f4f2ee;
     cursor:pointer; transition:.1s; }
   .bd-row:last-child{ border-bottom:none; }
-  .bd-row:hover{ background:#f8fafc; }
-  .bd-row.on{ background:#f0fdf4; box-shadow:inset 3px 0 0 #16a34a; }
-  .bd-f{ border:1px solid #e2e8f0; border-radius:9px; background:#fff; font-size:12.5px; padding:7px 10px; color:#334155; }
-  .bd-f:focus{ outline:2px solid #bbf7d0; border-color:#16a34a; }
-  .bd-sec{ padding:14px 16px; border-bottom:1px solid #f1f5f9; }
+  .bd-row:hover{ background:#faf9f7; }
+  .bd-row.on{ background:#f7ede8; box-shadow:inset 3px 0 0 #c1553a; }
+  .bd-f{ border:1px solid #e6e3dd; border-radius:9px; background:#fff; font-size:12.5px; padding:7px 10px; color:#403c36; }
+  .bd-f:focus{ outline:2px solid #eccabc; border-color:#c1553a; }
+  .bd-sec{ padding:14px 16px; border-bottom:1px solid #f4f2ee; }
   .bd-sec:last-child{ border-bottom:none; }
-  .bd-h{ font-size:10.5px; font-weight:800; letter-spacing:.07em; color:#94a3b8; margin-bottom:8px; text-transform:none; }
-  .bd-btn{ border:1px solid #e2e8f0; background:#fff; border-radius:9px; padding:7px 12px;
-    font-size:12.5px; font-weight:700; color:#334155; cursor:pointer; }
-  .bd-btn:hover{ border-color:#16a34a; color:#15803d; }
-  .bd-btn.pri{ background:#0f172a; border-color:#0f172a; color:#fff; }
-  .bd-btn.pri:hover{ background:#1e293b; border-color:#1e293b; color:#fff; }
+  .bd-h{ font-size:10.5px; font-weight:800; letter-spacing:.07em; color:#9a958d; margin-bottom:8px; text-transform:none; }
+  .bd-btn{ border:1px solid #e6e3dd; background:#fff; border-radius:9px; padding:7px 12px;
+    font-size:12.5px; font-weight:700; color:#403c36; cursor:pointer; }
+  .bd-btn:hover{ border-color:#c1553a; color:#a8462e; }
+  .bd-btn.pri{ background:#1d1b18; border-color:#1d1b18; color:#fff; }
+  .bd-btn.pri:hover{ background:#2b2823; border-color:#2b2823; color:#fff; }
   .bd-chip{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:800;
     border-radius:999px; padding:2px 8px; white-space:nowrap; }
   .bd-t{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  .bd-t th,.bd-t td{ border-bottom:1px solid #f1f5f9; padding:7px 9px; text-align:left; }
-  .bd-t th{ font-size:11px; color:#94a3b8; font-weight:700; }
-  .bd-t thead th{ position:sticky; top:0; background:#fff; z-index:1; box-shadow:0 1px 0 #f1f5f9; }
+  .bd-t th,.bd-t td{ border-bottom:1px solid #f4f2ee; padding:7px 9px; text-align:left; }
+  .bd-t th{ font-size:11px; color:#9a958d; font-weight:700; }
+  .bd-t thead th{ position:sticky; top:0; background:#fff; z-index:1; box-shadow:0 1px 0 #f4f2ee; }
   .bd-t td.n{ font-variant-numeric:tabular-nums; }
   /* 범위 탭 — "어떤 데이터를 보는가"는 필터가 아니라 모드다 */
-  .bd-tabs{ display:flex; background:#f1f5f9; border-radius:12px; padding:3px; gap:2px; margin-bottom:12px;
+  .bd-tabs{ display:flex; background:#f4f2ee; border-radius:12px; padding:3px; gap:2px; margin-bottom:12px;
     overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .bd-tab{ border:0; background:transparent; border-radius:9px; padding:8px 15px; font-size:12.5px; font-weight:700;
-    color:#64748b; cursor:pointer; display:inline-flex; align-items:center; gap:7px; white-space:nowrap; flex:none; }
-  .bd-tab:hover{ color:#0f172a; }
-  .bd-tab.on{ background:#fff; color:#0f172a; box-shadow:0 1px 2px rgba(15,23,42,.1); }
-  .bd-tab .c{ font-size:11px; font-weight:800; color:#64748b; background:#e2e8f0; border-radius:999px;
+    color:#6f6b64; cursor:pointer; display:inline-flex; align-items:center; gap:7px; white-space:nowrap; flex:none; }
+  .bd-tab:hover{ color:#1d1b18; }
+  .bd-tab.on{ background:#fff; color:#1d1b18; box-shadow:0 1px 2px rgba(15,23,42,.1); }
+  .bd-tab .c{ font-size:11px; font-weight:800; color:#6f6b64; background:#e6e3dd; border-radius:999px;
     padding:1px 7px; font-variant-numeric:tabular-nums; }
-  .bd-tab.on .c{ background:#0f172a; color:#fff; }
+  .bd-tab.on .c{ background:#1d1b18; color:#fff; }
   /* 숫자 타일 = 필터 버튼 */
-  .bd-tile{ text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:12px 15px;
+  .bd-tile{ text-align:left; background:#fff; border:1px solid #e6e3dd; border-radius:14px; padding:12px 15px;
     cursor:pointer; transition:.12s; font-family:inherit; }
-  .bd-tile:hover{ border-color:#cbd5e1; box-shadow:0 2px 8px rgba(15,23,42,.06); }
+  .bd-tile:hover{ border-color:#d4d0c8; box-shadow:0 2px 8px rgba(15,23,42,.06); }
   .bd-tile.hot{ border-color:#fecdd3; }
-  .bd-tile.on{ border-color:#0f172a; box-shadow:0 0 0 1px #0f172a; }
-  .bd-tile.hot.on{ border-color:#e11d48; box-shadow:0 0 0 1px #e11d48; }
-  .bd-tile .l{ font-size:11px; font-weight:700; color:#94a3b8; display:flex; align-items:center; gap:4px; }
-  .bd-tile .v{ font-size:26px; font-weight:800; line-height:1.15; font-variant-numeric:tabular-nums; color:#0f172a; }
-  .bd-tile.hot .v{ color:#e11d48; }
+  .bd-tile.on{ border-color:#1d1b18; box-shadow:0 0 0 1px #1d1b18; }
+  .bd-tile.hot.on{ border-color:#c0433a; box-shadow:0 0 0 1px #c0433a; }
+  .bd-tile .l{ font-size:11px; font-weight:700; color:#9a958d; display:flex; align-items:center; gap:4px; }
+  .bd-tile .v{ font-size:26px; font-weight:800; line-height:1.15; font-variant-numeric:tabular-nums; color:#1d1b18; }
+  .bd-tile.hot .v{ color:#c0433a; }
   /* 활성 필터 칩 */
-  .bd-tag{ display:inline-flex; align-items:center; gap:3px; background:#eef2f6; color:#334155;
+  .bd-tag{ display:inline-flex; align-items:center; gap:3px; background:#eceae4; color:#403c36;
     border-radius:999px; padding:3px 5px 3px 11px; font-size:11.5px; font-weight:700; }
-  .bd-tag button{ border:0; background:transparent; color:#94a3b8; cursor:pointer; font-size:13px;
+  .bd-tag button{ border:0; background:transparent; color:#9a958d; cursor:pointer; font-size:13px;
     line-height:1; padding:0 4px; font-family:inherit; }
-  .bd-tag button:hover{ color:#e11d48; }
+  .bd-tag button:hover{ color:#c0433a; }
   .bd-t tr.clk{ cursor:pointer; }
-  .bd-t tr.clk:hover{ background:#f8fafc; }
-  .bd-t tr.clk.on{ background:#f0fdf4; box-shadow:inset 3px 0 0 #16a34a; }
-  .bd-grp{ display:flex; align-items:center; gap:7px; padding:8px 12px; background:#f8fafc;
-    border-bottom:1px solid #eef2f6; cursor:pointer; }
-  .bd-grp:hover{ background:#f1f5f9; }
+  .bd-t tr.clk:hover{ background:#faf9f7; }
+  .bd-t tr.clk.on{ background:#f7ede8; box-shadow:inset 3px 0 0 #c1553a; }
+  .bd-grp{ display:flex; align-items:center; gap:7px; padding:8px 12px; background:#faf9f7;
+    border-bottom:1px solid #eceae4; cursor:pointer; }
+  .bd-grp:hover{ background:#f4f2ee; }
   .bd-clamp{ max-height:170px; overflow:hidden;
     -webkit-mask-image:linear-gradient(#000 68%,transparent); mask-image:linear-gradient(#000 68%,transparent); }
   .bd-note{ display:flex; align-items:center; gap:8px; padding:9px 12px; font-size:12px;
@@ -251,8 +269,8 @@ tailwind.config = { theme: { extend: {
   #handoffSheet table.hs-t th{ background:#f1f4f1; font-weight:700; font-size:10.5px; }
   @media print{ body.handoff{ background:#fff !important; } #handoffSheet .hs-wrap{ max-width:none; padding:0; } }
   /* 편집 모드 */
-  body.edit-on [data-ek]{ outline:1.5px dashed #16a34a; outline-offset:2px; border-radius:4px; cursor:text; background:#f0fdf4; }
-  body.edit-on #editBtn{ background:#16a34a; color:#fff; border-color:#16a34a; }
+  body.edit-on [data-ek]{ outline:1.5px dashed #c1553a; outline-offset:2px; border-radius:4px; cursor:text; background:#f7ede8; }
+  body.edit-on #editBtn{ background:#c1553a; color:#fff; border-color:#c1553a; }
   #editHint{ display:none; }
   body.edit-on #editHint{ display:block; }
   /* PDF: 페이지 경계에서 카드/블록이 잘리지 않도록 */
@@ -260,15 +278,15 @@ tailwind.config = { theme: { extend: {
   body.pdf-mode section{ break-inside:auto; }
   body.pdf-mode .acc-body{ max-height:none !important; overflow:visible !important; }
   input,select,textarea{ outline:none; }
-  .fld{ width:100%; border:1.5px solid #e2e8f0; border-radius:10px; padding:9px 12px; font-size:14px; transition:.15s; background:#fff; }
-  .fld:focus{ border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
+  .fld{ width:100%; border:1.5px solid #e6e3dd; border-radius:10px; padding:9px 12px; font-size:14px; transition:.15s; background:#fff; }
+  .fld:focus{ border-color:#c1553a; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
   .fld-sm{ font-size:12.5px; padding:7px 10px; }
   .qc-ta{ min-height:22px; line-height:1.4; field-sizing:content; }
   /* 작성용 텍스트영역은 짧아도 최소 높이 유지(자동높이가 1줄로 쪼그라들지 않게) */
   textarea.fld{ min-height:60px !important; line-height:1.5; }
   textarea[data-k=comment]{ field-sizing:content; min-height:130px !important; }
   textarea[data-k=improve]{ field-sizing:content; min-height:84px !important; }
-  .lbl{ font-size:12.5px; font-weight:600; color:#475569; margin-bottom:5px; display:block; }
+  .lbl{ font-size:12.5px; font-weight:600; color:#5a564f; margin-bottom:5px; display:block; }
   @media print{
     @page{ size:A4; margin:10mm; }
     .no-print, #viewBanner{ display:none !important; }
@@ -289,8 +307,8 @@ tailwind.config = { theme: { extend: {
     .qc-item .grid{ margin-top:3px !important; gap:4px !important; }
     .qc-item p.text-sm{ font-size:11.5px !important; }
     .qc-item p.text-\[11px\]{ font-size:9.5px !important; margin-top:0 !important; }
-    .fld{ padding:3px 7px !important; font-size:10.5px !important; border-color:#cbd5e1 !important; }
-    .iv{ padding:2px 0 !important; font-size:11px !important; border-color:#cbd5e1 !important; }
+    .fld{ padding:3px 7px !important; font-size:10.5px !important; border-color:#d4d0c8 !important; }
+    .iv{ padding:2px 0 !important; font-size:11px !important; border-color:#d4d0c8 !important; }
     .lbl{ margin-bottom:2px !important; }
     .pdf-keep,.photo-box{ break-inside:avoid; }
     /* ── PDF 페이지 나눔 정리(가독성): 블록이 페이지 경계에서 잘리지 않게 ── */
@@ -315,22 +333,22 @@ tailwind.config = { theme: { extend: {
     .screen-only{ display:none !important; }
     .print-only{ display:block !important; }
     .ptbl{ width:100%; border-collapse:collapse; font-size:9.5px; table-layout:fixed; }
-    .ptbl th,.ptbl td{ border:1px solid #cbd5e1; padding:3px 4px; vertical-align:top; text-align:left; word-break:break-word; }
-    .ptbl th{ background:#f1f5f9; font-weight:700; color:#334155; }
-    .ptbl .pt-grp td{ background:#ecfdf5; font-weight:700; color:#166534; }
+    .ptbl th,.ptbl td{ border:1px solid #d4d0c8; padding:3px 4px; vertical-align:top; text-align:left; word-break:break-word; }
+    .ptbl th{ background:#f4f2ee; font-weight:700; color:#403c36; }
+    .ptbl .pt-grp td{ background:#ecfdf5; font-weight:700; color:#8c3a26; }
     .ptbl .pt-v{ text-align:center; font-weight:800; font-size:11px; }
-    .ptbl .pt-no{ text-align:center; color:#64748b; }
-    .ptbl .pt-m{ color:#64748b; }
+    .ptbl .pt-no{ text-align:center; color:#6f6b64; }
+    .ptbl .pt-m{ color:#6f6b64; }
     .ptbl col.c-no{ width:6%; } .ptbl col.c-item{ width:26%; }
     .ptbl col.c-old{ width:19%; } .ptbl col.c-new{ width:19%; } .ptbl col.c-v{ width:8%; }
-    .print-only h4{ font-size:11px; font-weight:800; color:#166534; margin:2px 0 4px; }
+    .print-only h4{ font-size:11px; font-weight:800; color:#8c3a26; margin:2px 0 4px; }
     /* 인쇄: 사진 섹션 컴팩트 + 빈 줄 숨김 */
     .hide-print{ display:none !important; }
     .sec-off{ display:none !important; }   /* 제외한 측정 섹션은 인쇄에서 통째 숨김 */
     /* 빈 안내 박스: 인쇄 시 투명 처리(내용 있으면 그대로) */
     #autoVerdict, #costSummary{ background:transparent !important; padding:0 !important; margin:0 !important; }
     /* 사진: 모든 칸 동일 높이, 전체 표시(contain), 잘림 없음 */
-    #photoBox .photo-box{ height:52mm !important; border:1px solid #cbd5e1 !important; background:#fff !important; }
+    #photoBox .photo-box{ height:52mm !important; border:1px solid #d4d0c8 !important; background:#fff !important; }
     #photoBox .photo-box img{ object-fit:contain !important; }
     #photoBox .photo-box.has-img{ height:auto !important; width:fit-content !important; margin-left:auto !important; margin-right:auto !important; }
     #photoBox .photo-box.has-img img{ position:relative !important; inset:auto !important; width:auto !important; height:auto !important; max-width:85mm !important; max-height:72mm !important; object-fit:contain !important; }
@@ -342,9 +360,9 @@ tailwind.config = { theme: { extend: {
     .pcell-empty{ display:none !important; }
     /* 미촬영/메모만 있는 칸: 큰 박스 숨기고 '미촬영'만 크게 */
     #photoBox .photo-cell.memo-only .photo-box{ display:none !important; }
-    #photoBox .photo-cell.memo-only .pmemo{ height:50mm !important; box-sizing:border-box !important; border:1px solid #f59e0b !important; background:#fff7ed !important; color:#b45309 !important; text-align:center !important; font-weight:800 !important; font-size:13px !important; padding:22mm 2mm 0 !important; }
-    #photoBox .photo-cell.show-missing .photo-box{ height:14mm !important; border-color:#f59e0b !important; background:#fff7ed !important; }
-    #photoBox .pmemo{ border:none !important; background:transparent !important; padding:2px 0 !important; font-weight:800 !important; font-size:11px !important; color:#334155 !important; }
+    #photoBox .photo-cell.memo-only .pmemo{ height:50mm !important; box-sizing:border-box !important; border:1px solid #c9922b !important; background:#fff7ed !important; color:#9a6b1f !important; text-align:center !important; font-weight:800 !important; font-size:13px !important; padding:22mm 2mm 0 !important; }
+    #photoBox .photo-cell.show-missing .photo-box{ height:14mm !important; border-color:#c9922b !important; background:#fff7ed !important; }
+    #photoBox .pmemo{ border:none !important; background:transparent !important; padding:2px 0 !important; font-weight:800 !important; font-size:11px !important; color:#403c36 !important; }
     #photoBox .pmemo:placeholder-shown{ display:none !important; }
     /* 인쇄: 개별 무게 입력칸은 숨기고 요약(개수·최소·최대·편차)만 */
     #weightBox .wt-list, #weightBox button{ display:none !important; }
@@ -352,12 +370,12 @@ tailwind.config = { theme: { extend: {
     #step1, #specSection{ display:none !important; }
     /* 보고서 헤더 */
     #reportHead{ margin-bottom:10px; }
-    #reportHead .rh-title{ font-size:18px; font-weight:800; color:#0f172a; letter-spacing:-.3px; }
-    #reportHead .rh-sub{ font-size:10px; color:#64748b; margin-top:1px; }
-    #reportHead .rh-bar{ height:3px; background:#16a34a; margin-top:6px; border-radius:2px; }
+    #reportHead .rh-title{ font-size:18px; font-weight:800; color:#1d1b18; letter-spacing:-.3px; }
+    #reportHead .rh-sub{ font-size:10px; color:#6f6b64; margin-top:1px; }
+    #reportHead .rh-bar{ height:3px; background:#c1553a; margin-top:6px; border-radius:2px; }
     #reportHead .rh-meta{ width:100%; border-collapse:collapse; margin-top:8px; font-size:10.5px; }
-    #reportHead .rh-meta td{ border:1px solid #cbd5e1; padding:4px 7px; vertical-align:top; }
-    #reportHead .rh-meta .k{ background:#f1f5f9; font-weight:700; width:15%; white-space:nowrap; }
+    #reportHead .rh-meta td{ border:1px solid #d4d0c8; padding:4px 7px; vertical-align:top; }
+    #reportHead .rh-meta .k{ background:#f4f2ee; font-weight:700; width:15%; white-space:nowrap; }
     #reportHead .rh-verdict{ font-weight:800; }
   }
   /* 전달서 인쇄 — 위 본문 인쇄 규칙보다 뒤에 와야 덮이지 않는다 */
@@ -430,7 +448,7 @@ tailwind.config = { theme: { extend: {
         <div id="colBox" class="space-y-2"></div>
         <button type="button" id="addColBtn" onclick="addCol()" class="no-print mt-2 w-full py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm font-bold"><i class="fa-solid fa-plus mr-1"></i>비교 대상(열) 추가</button>
         <label class="no-print flex items-center gap-2 mt-2 px-1 text-xs font-bold text-slate-600 cursor-pointer" title="기존 제품 없이 신규 샘플만 여러 개 비교할 때 체크하세요">
-          <input type="checkbox" id="noBaseChk" onchange="toggleNoBase(this.checked)" style="width:15px;height:15px;accent-color:#16a34a">
+          <input type="checkbox" id="noBaseChk" onchange="toggleNoBase(this.checked)" style="width:15px;height:15px;accent-color:#c1553a">
           기존 제품 없음 — 전부 신규 샘플 <span id="colHint" class="font-normal text-slate-400"></span>
         </label>
       </div>
@@ -474,7 +492,7 @@ tailwind.config = { theme: { extend: {
             </select></div>
         </div>
         <label class="no-print flex items-center gap-2 mt-2 px-1 text-xs font-bold text-slate-600 cursor-pointer">
-          <input type="checkbox" data-k="buyerJoin" style="width:15px;height:15px;accent-color:#16a34a">구매물류팀 시식 참여
+          <input type="checkbox" data-k="buyerJoin" style="width:15px;height:15px;accent-color:#c1553a">구매물류팀 시식 참여
         </label>
       </div>
       <div class="mt-3"><label class="lbl">특이사항</label><textarea class="fld" rows="2" data-k="note" placeholder="입고/검수 특이사항 · 원산지/알레르기 표기 관련 전달사항 등"></textarea></div>
@@ -845,19 +863,19 @@ function renderFinalVerdicts(){
 }
 function renderVerdictBanner(){
   const el=document.getElementById('verdictBanner'); if(!el)return; const cols=activeCols();
-  const MAP={'○':{t:'사용 가능',c:'#16a34a',bg:'#f0fdf4',ic:'fa-circle-check'},'△':{t:'조건부 사용 가능',c:'#d97706',bg:'#fffbeb',ic:'fa-triangle-exclamation'},'×':{t:'사용 불가',c:'#e11d48',bg:'#fef2f2',ic:'fa-circle-xmark'}};
+  const MAP={'○':{t:'사용 가능',c:'#2f8f5b',bg:'#f7ede8',ic:'fa-circle-check'},'△':{t:'조건부 사용 가능',c:'#c9922b',bg:'#fffbeb',ic:'fa-triangle-exclamation'},'×':{t:'사용 불가',c:'#c0433a',bg:'#fef2f2',ic:'fa-circle-xmark'}};
   el.innerHTML=cols.map((c,ci)=>{ if(isBaseCol(ci,cols)) return '';   // 기준 열 제외
     const v=state['final_'+c.id+'_v']; const m=MAP[v];
-    if(!m) return `<div style="border:2px dashed #e5e7eb;border-radius:14px;padding:12px 16px;text-align:center;color:#94a3b8;font-weight:700;margin-bottom:6px">${escapeHtml(c.name)} · 판정 미입력</div>`;
+    if(!m) return `<div style="border:2px dashed #e5e7eb;border-radius:14px;padding:12px 16px;text-align:center;color:#9a958d;font-weight:700;margin-bottom:6px">${escapeHtml(c.name)} · 판정 미입력</div>`;
     return `<div style="border:2px solid ${m.c};background:${m.bg};border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:6px">
       <i class="fa-solid ${m.ic}" style="color:${m.c};font-size:26px"></i>
-      <div><div style="font-size:12px;color:#64748b;font-weight:700">${escapeHtml(c.name)} 검증 결과</div>
+      <div><div style="font-size:12px;color:#6f6b64;font-weight:700">${escapeHtml(c.name)} 검증 결과</div>
       <div style="font-size:22px;font-weight:900;color:${m.c};line-height:1.15">${v} ${m.t}</div></div></div>`;
   }).join('');
 }
 function fillFinalPrint(){
   const el=document.getElementById('finalVerdictsPrint'); if(!el)return; const cols=activeCols();
-  const VC={'○':'#16a34a','△':'#d97706','×':'#e11d48','생략':'#94a3b8'};
+  const VC={'○':'#2f8f5b','△':'#c9922b','×':'#c0433a','생략':'#9a958d'};
   el.innerHTML='<p style="font-size:13px;font-weight:800;margin:2px 0 6px;">■ 제품별 종합 판정</p>'+
     cols.map((c,ci)=>{ if(isBaseCol(ci,cols)) return '';   // 기준 열 제외
       const v=state['final_'+c.id+'_v']||'-'; return `<p style="font-size:11.5px;margin:1px 0;"><b>${escapeHtml(c.name)}</b> : <b style="color:${VC[v]||'#111'}">${v}</b> ${escapeHtml(state['final_'+c.id+'_note']||'')}</p>`; }).join('');
@@ -877,10 +895,10 @@ function syncBrandHeader(){ const sel=selectedBrands(); document.getElementById(
 
 // ── 비교 열(대상) 모델: 2~4개, 이름·설명 편집 · 1개면 신규 등록과 동일 ──
 const COL_STYLE=[
-  {c:'#2563eb',bg:'#eff6ff',bd:'#bfdbfe',fill:'#3b82f6',line:'#2563eb'},   // 파랑
-  {c:'#e11d48',bg:'#fff1f2',bd:'#fecdd3',fill:'#f43f5e',line:'#e11d48'},   // 빨강
+  {c:'#4a72a8',bg:'#eff6ff',bd:'#bfdbfe',fill:'#3b82f6',line:'#4a72a8'},   // 파랑
+  {c:'#c0433a',bg:'#fff1f2',bd:'#fecdd3',fill:'#c0433a',line:'#c0433a'},   // 빨강
   {c:'#059669',bg:'#ecfdf5',bd:'#a7f3d0',fill:'#10b981',line:'#059669'},   // 초록
-  {c:'#d97706',bg:'#fffbeb',bd:'#fde68a',fill:'#f59e0b',line:'#d97706'}    // 주황
+  {c:'#c9922b',bg:'#fffbeb',bd:'#fde68a',fill:'#c9922b',line:'#c9922b'}    // 주황
 ];
 const COL_IDS=['old','new','c2','c3'];
 const COL_NAMES=['기존','변경','비교3','비교4'];
@@ -1083,7 +1101,7 @@ function renderComments(){
   if(!CMTS.length){ box.innerHTML='<p class="text-[12px] text-slate-400">아직 협의 기록이 없습니다.</p>'; return; }
   box.innerHTML = CMTS.map(c=>{
     const buy = c.team==='구매물류팀';
-    const bg = buy?'#2563eb':'#16a34a';
+    const bg = buy?'#4a72a8':'#c1553a';
     return `<div class="flex gap-2.5 items-start">
       <span class="shrink-0 grid place-items-center rounded-full text-white text-[10px] font-bold" style="width:30px;height:30px;background:${bg}">${escapeHtml(buy?'구매':'메뉴')}</span>
       <div class="min-w-0 flex-1">
@@ -1126,7 +1144,7 @@ function buildSpecs(){
   sec.style.display='';
   const cols=activeCols(); const gt='minmax(88px,120px) repeat('+cols.length+',minmax(120px,1fr))';
   let h='<div class="grid gap-1.5 mb-1.5" style="grid-template-columns:'+gt+'"><div></div>'
-    + cols.map((c,ci)=>`<div class="text-xs font-bold text-center py-1 rounded" style="color:${colStyle(ci).c};background:#f8fafc"><span class="colname" data-ci="${ci}">${escapeHtml(c.name)}</span></div>`).join('') + '</div>';
+    + cols.map((c,ci)=>`<div class="text-xs font-bold text-center py-1 rounded" style="color:${colStyle(ci).c};background:#faf9f7"><span class="colname" data-ci="${ci}">${escapeHtml(c.name)}</span></div>`).join('') + '</div>';
   SPEC_FIELDS.forEach((f,fi)=>{
     h+='<div class="grid gap-1.5 mb-1.5 items-center" style="grid-template-columns:'+gt+'">'
       + `<div class="text-xs font-bold text-slate-600" data-ek="spec.${fi}">${escapeHtml(f)}</div>`
@@ -1142,7 +1160,7 @@ function fillSpecPrint(){
   let h='<p style="font-size:13px;font-weight:800;margin:6px 0 4px;">■ 제조회사 · 상세 스펙</p><table class="ptbl"><colgroup><col style="width:16%">'+cols.map(()=>'<col>').join('')+'</colgroup><thead><tr><th>항목</th>'+cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join('')+'</tr></thead><tbody>';
   // 대표 사진 행 (한 열이라도 사진이 있으면 표시)
   if(cols.some(c=>photosObj['colpic_'+c.id])){
-    h+='<tr><td style="font-weight:700;vertical-align:middle">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;vertical-align:middle;padding:1mm">${src?`<img src="${src}" style="display:block;width:100%;height:auto;max-height:55mm;object-fit:contain;margin:0 auto">`:'<span style="color:#94a3b8">—</span>'}</td>`; }).join('')+'</tr>';
+    h+='<tr><td style="font-weight:700;vertical-align:middle">대표 사진</td>'+cols.map(c=>{ const src=photosObj['colpic_'+c.id]; return `<td style="text-align:center;vertical-align:middle;padding:1mm">${src?`<img src="${src}" style="display:block;width:100%;height:auto;max-height:55mm;object-fit:contain;margin:0 auto">`:'<span style="color:#9a958d">—</span>'}</td>`; }).join('')+'</tr>';
   }
   SPEC_FIELDS.forEach((f,fi)=>{ if(!cols.some(c=>(state['spec_'+fi+'_'+c.id]||'').trim())) return;   // 전 열이 비면 인쇄에서 생략
     h+='<tr><td style="font-weight:700">'+escapeHtml(ekv('spec.'+fi,f))+'</td>'+cols.map(c=>`<td>${escapeHtml(state['spec_'+fi+'_'+c.id]||'')}</td>`).join('')+'</tr>'; });
@@ -1217,7 +1235,7 @@ function photoRowsArr(){ if(!Array.isArray(state.photoRows)) state.photoRows=(C.
 function buildPhotos(){
   const rows=photoRowsArr(); const cols=activeCols(); const single=cols.length===1;   // 단일 제품이면 사진을 2열로
   const header= single ? '' : `<div class="grid gap-2 text-center text-xs font-bold mb-2" style="grid-template-columns:repeat(${cols.length},minmax(0,1fr))">`
-    + cols.map((c,ci)=>{ const s=colStyle(ci); return `<div class="rounded-lg py-1" style="color:${s.c};background:#f8fafc;border-bottom:2px solid ${s.c}"><i class="fa-solid fa-box mr-1"></i><span class="colname" data-ci="${ci}">${escapeHtml(c.name)}</span></div>`; }).join('')
+    + cols.map((c,ci)=>{ const s=colStyle(ci); return `<div class="rounded-lg py-1" style="color:${s.c};background:#faf9f7;border-bottom:2px solid ${s.c}"><i class="fa-solid fa-box mr-1"></i><span class="colname" data-ci="${ci}">${escapeHtml(c.name)}</span></div>`; }).join('')
     + `</div>`;
   const rowsHtml = rows.map((label,i)=>`<div class="pdf-keep border border-slate-100 rounded-xl p-2">
         <div class="flex items-center gap-1 mb-1.5">
@@ -1265,7 +1283,7 @@ function photoCellCommon(rowIdx){
   const pk='all_'+rowIdx;
   return `<div class="photo-cell pcommon flex-1 min-w-0" data-pk="${pk}">
     <div class="photo-box" id="pb_${pk}" data-pk="${pk}" onpointerdown="setActivePhoto('${pk}')" onclick="document.getElementById('pf_${pk}').click()">
-      <span class="ptag" style="background:#475569">전체 한 컷</span>
+      <span class="ptag" style="background:#5a564f">전체 한 컷</span>
       <div class="photo-del" onclick="event.stopPropagation();delPhoto('${pk}')"><i class="fa-solid fa-xmark"></i></div>
       <div class="photo-add"><i class="fa-solid fa-camera"></i><span>탭 · 드래그로 사진 추가</span></div>
       <input type="file" id="pf_${pk}" accept="image/*" capture="environment" class="hidden" onchange="onPhotoFiles('${pk}',this.files)">
@@ -1381,7 +1399,7 @@ function tableFor(groups,prefix){
   groups.forEach((g,gi)=>{
     if(isGroupOff(prefix,gi))return;
     if(g.group) body+=`<tr class="pt-grp"><td colspan="${total}">${escapeHtml(ekv('g.'+prefix+'.'+gi,g.group))}</td></tr>`;
-    const VC={'○':'#16a34a','△':'#d97706','×':'#e11d48','생략':'#94a3b8'};
+    const VC={'○':'#2f8f5b','△':'#c9922b','×':'#c0433a','생략':'#9a958d'};
     g.items.forEach((it,ii)=>{ const k=`${prefix}_${gi}_${ii}`;
       const cells=cols.map(c=>{ const v=state[k+'_'+c.id+'_v']||''; const txt=escapeHtml(state[k+'_'+c.id]||''); return `<td>${v?('<b style="color:'+(VC[v]||'#111')+'">'+v+'</b> '):''}${txt}</td>`; }).join('');
       body+=`<tr><td class="pt-no">${ii+1}</td><td>${escapeHtml(ekv(k+'.label',it.label))}</td>${cells}</tr>`;
@@ -1780,7 +1798,7 @@ function updateRadar(){
   });
   const data={labels:RADAR_AXES,datasets};
   const opts={responsive:true,animation:false,indexAxis:'y',
-    scales:{ x:{min:0,max:5,ticks:{stepSize:1,color:'#94a3b8'},grid:{color:'#e2e8f0'}}, y:{grid:{display:false},ticks:{font:{size:12,weight:'bold'},color:'#475569'}} },
+    scales:{ x:{min:0,max:5,ticks:{stepSize:1,color:'#9a958d'},grid:{color:'#e6e3dd'}}, y:{grid:{display:false},ticks:{font:{size:12,weight:'bold'},color:'#5a564f'}} },
     plugins:{legend:{position:'bottom'},datalabels:false}};
   if(radarChart){ radarChart.data=data; radarChart.update(); } else radarChart=new Chart(document.getElementById('radarChart'),{type:'bar',data,options:opts});
 }
@@ -2520,21 +2538,21 @@ const BFIL={q:'',action:'',verdict:'',maker:'',due:'',grp:'maker',scope:'live',q
 let BOPEN={}, BGRP=[];   // 접힌 그룹 기억 / 현재 그룹 키 목록
 function toggleGrp(i){ const e=BGRP[i]; if(!e) return; const k=e[0]; BOPEN[k]=(BOPEN[k]===false); renderNativeBoard(); }
 const ACT_LIST=['도입 진행','최종 테스트 진행','디벨롭 · 사양 변경 요청','재샘플 요청','보류 — 조건부 재검토','개발 중단'];
-const ACT_COLOR={'도입 진행':'#16a34a','최종 테스트 진행':'#2563eb','디벨롭 · 사양 변경 요청':'#d97706',
-  '재샘플 요청':'#d97706','보류 — 조건부 재검토':'#64748b','개발 중단':'#e11d48','':'#94a3b8'};
-const VCOLOR={'○':'#16a34a','△':'#d97706','×':'#e11d48'};
+const ACT_COLOR={'도입 진행':'#2f8f5b','최종 테스트 진행':'#4a72a8','디벨롭 · 사양 변경 요청':'#c9922b',
+  '재샘플 요청':'#c9922b','보류 — 조건부 재검토':'#6f6b64','개발 중단':'#c0433a','':'#9a958d'};
+const VCOLOR={'○':'#2f8f5b','△':'#c9922b','×':'#c0433a'};
 const VWORD={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불가'};
 
 function dueInfo(d){
   if(!d) return null;
   const dd=Math.ceil((new Date(d+'T23:59:59')-new Date())/86400000);
-  if(dd<0) return {t:d+' · 초과', c:'#e11d48', hot:1};
-  if(dd<=3) return {t:d+' · D-'+dd, c:'#e11d48', hot:1};
-  return {t:d, c:'#94a3b8', hot:0};
+  if(dd<0) return {t:d+' · 초과', c:'#c0433a', hot:1};
+  if(dd<=3) return {t:d+' · D-'+dd, c:'#c0433a', hot:1};
+  return {t:d, c:'#9a958d', hot:0};
 }
 async function loadNativeBoard(){
   const box=document.getElementById('shPanelBoard'); if(!box) return;
-  if(!NBOARD.length) box.innerHTML='<p style="color:#94a3b8;font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
+  if(!NBOARD.length) box.innerHTML='<p style="color:#9a958d;font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
   try{
     const {data,error}=await sb.from('qc_reports')
       .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived');
@@ -2547,7 +2565,7 @@ async function loadNativeBoard(){
     if(!BSEL){ const f=boardFiltered(); if(f.length) BSEL=f[0].id; }
     renderNativeBoard();
     if(BSEL) selectBoardItem(BSEL, true);
-  }catch(e){ box.innerHTML='<p style="color:#e11d48;font-size:13px;padding:24px 0;text-align:center">현황을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
+  }catch(e){ box.innerHTML='<p style="color:#c0433a;font-size:13px;padding:24px 0;text-align:center">현황을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
 }
 function inScope(r, sc){
   const old=!!r.arch, v=sc||BFIL.scope;
@@ -2638,22 +2656,22 @@ function renderNativeBoard(){
   const rowHTML = r=>{
     const d=dueInfo(r.due), ac=ACT_COLOR[r.action||''];
     return `<div class="bd-row${r.id===BSEL?' on':''}" onclick="selectBoardItem('${r.id}')">
-      <span title="${esc(r.verdict||'판정 미입력')}" style="width:8px;height:8px;border-radius:50%;background:${VCOLOR[r.verdict]||'#cbd5e1'};flex:none"></span>
+      <span title="${esc(r.verdict||'판정 미입력')}" style="width:8px;height:8px;border-radius:50%;background:${VCOLOR[r.verdict]||'#d4d0c8'};flex:none"></span>
       <div style="min-width:0;flex:1">
-        <div style="font-size:13.5px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.ingredient||'(제품명 없음)')}</div>
-        <div style="font-size:11.5px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.maker||'거래처 미상')}${r.date?' · '+esc(r.date):''}</div>
+        <div style="font-size:13.5px;font-weight:700;color:#1d1b18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.ingredient||'(제품명 없음)')}</div>
+        <div style="font-size:11.5px;color:#6f6b64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.maker||'거래처 미상')}${r.date?' · '+esc(r.date):''}</div>
       </div>
       <div style="text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
         <span class="bd-chip" style="color:${ac};background:${ac}1a">${esc(r.action||'미지정')}</span>
         ${d?`<span style="font-size:10.5px;color:${d.c};font-weight:${d.hot?700:400}">${esc(d.t)}</span>`:''}
-        ${r.cmt?`<span style="font-size:10px;color:#94a3b8"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
+        ${r.cmt?`<span style="font-size:10px;color:#9a958d"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
       </div></div>`; };
 
   const GK={maker:r=>r.maker||'거래처 미상', ingredient:r=>r.ingredient||'(제품명 없음)', action:r=>r.action||'미지정'};
   let list;
   if(!rows.length){
     list=`<div style="padding:30px 18px;text-align:center">
-      <p style="font-size:12.5px;color:#94a3b8;margin-bottom:${af.length?'11px':'0'}">조건에 맞는 검증이 없습니다.</p>
+      <p style="font-size:12.5px;color:#9a958d;margin-bottom:${af.length?'11px':'0'}">조건에 맞는 검증이 없습니다.</p>
       ${af.length?`<button class="bd-btn" onclick="clearBFil()"><i class="fa-solid fa-rotate-left mr-1"></i>필터 ${af.length}개 모두 해제</button>`:''}
     </div>`;
   } else if(!BFIL.grp){ list=rows.map(rowHTML).join(''); }
@@ -2667,10 +2685,10 @@ function renderNativeBoard(){
       const dots=['○','△','×'].filter(v=>vc[v]).map(v=>`<span style="color:${VCOLOR[v]};font-weight:800">${v}${vc[v]}</span>`).join(' ');
       return `<div>
         <div class="bd-grp" onclick="toggleGrp(${gi})">
-          <i class="fa-solid fa-chevron-${op?'down':'right'}" style="font-size:9px;color:#94a3b8"></i>
-          <span style="font-size:12px;font-weight:800;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k)}</span>
+          <i class="fa-solid fa-chevron-${op?'down':'right'}" style="font-size:9px;color:#9a958d"></i>
+          <span style="font-size:12px;font-weight:800;color:#403c36;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k)}</span>
           ${dots?`<span style="font-size:10.5px">${dots}</span>`:''}
-          <span style="font-size:11px;color:#94a3b8;min-width:14px;text-align:right">${rs.length}</span>
+          <span style="font-size:11px;color:#9a958d;min-width:14px;text-align:right">${rs.length}</span>
         </div>
         ${op?rs.map(rowHTML).join(''):''}
       </div>`; }).join('');
@@ -2695,16 +2713,16 @@ function renderNativeBoard(){
     `<tr class="clk${BFIL.maker===k?' on':''}" onclick="pickMaker('${esc(k).replace(/'/g,"&#39;")}')">
       <td style="font-weight:${BFIL.maker===k?800:600}">${esc(k)}</td>
       <td class="n">${v.n}</td><td class="n">${v.open}</td>
-      <td class="n" style="color:${v.adopt?'#16a34a':'#cbd5e1'}">${v.adopt}</td>
-      <td class="n" style="color:${v.stop?'#e11d48':'#cbd5e1'}">${v.stop}</td></tr>`).join('');
+      <td class="n" style="color:${v.adopt?'#2f8f5b':'#d4d0c8'}">${v.adopt}</td>
+      <td class="n" style="color:${v.stop?'#c0433a':'#d4d0c8'}">${v.stop}</td></tr>`).join('');
 
-  const detailInner = prevDetail || '<p style="padding:40px 20px;text-align:center;color:#94a3b8;font-size:13px">왼쪽에서 품목을 고르세요.</p>';
+  const detailInner = prevDetail || '<p style="padding:40px 20px;text-align:center;color:#9a958d;font-size:13px">왼쪽에서 품목을 고르세요.</p>';
   const offList = !!(BSEL && prevDetail && !rows.some(r=>r.id===BSEL));
 
   box.innerHTML = `
   <div class="bd-tabs">${tab('live','현재 자료')}${tab('old','예전 자료')}${tab('all','전체')}</div>
-  ${BFIL.scope==='old'?`<div style="display:flex;align-items:center;gap:8px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:#475569">
-    <i class="fa-solid fa-box-archive" style="color:#94a3b8"></i>
+  ${BFIL.scope==='old'?`<div style="display:flex;align-items:center;gap:8px;background:#f4f2ee;border:1px solid #e6e3dd;border-radius:12px;padding:9px 13px;margin-bottom:12px;font-size:12.5px;color:#5a564f">
+    <i class="fa-solid fa-box-archive" style="color:#9a958d"></i>
     <span style="flex:1"><b>예전 자료</b>를 보고 있습니다 — 보관 처리한 지난 기록입니다. 수정·코멘트는 그대로 됩니다.</span>
     <button class="bd-btn" style="padding:4px 10px;font-size:11.5px" onclick="setScope('live')">현재 자료로</button></div>`:''}
 
@@ -2714,8 +2732,8 @@ function renderNativeBoard(){
 
   <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:${af.length||BFIL.panel?'8px':'12px'}">
     <input class="bd-f" style="flex:1 1 108px;min-width:96px" placeholder="제품·거래처 검색" value="${esc(BFIL.q)}" oninput="BFIL.q=this.value;renderNativeBoard()" id="bdq">
-    <button class="bd-btn" onclick="toggleFilterPanel()" style="${BFIL.panel?'border-color:#0f172a;color:#0f172a;':''}">
-      <i class="fa-solid fa-sliders mr-1"></i>상세 필터${panelN?` <span class="bd-chip" style="background:#0f172a;color:#fff;margin-left:3px">${panelN}</span>`:''}</button>
+    <button class="bd-btn" onclick="toggleFilterPanel()" style="${BFIL.panel?'border-color:#1d1b18;color:#1d1b18;':''}">
+      <i class="fa-solid fa-sliders mr-1"></i>상세 필터${panelN?` <span class="bd-chip" style="background:#1d1b18;color:#fff;margin-left:3px">${panelN}</span>`:''}</button>
     <select class="bd-f" onchange="setBFil('sort',this.value)" title="정렬">
       ${opt('date','최신순',BFIL.sort)}${opt('due','기한 임박순',BFIL.sort)}${opt('maker','거래처순',BFIL.sort)}</select>
   </div>
@@ -2734,8 +2752,8 @@ function renderNativeBoard(){
 
   <div class="bd-wrap">
     <div class="bd-card" style="overflow:hidden">
-      <div style="display:flex;align-items:center;gap:7px;padding:8px 10px 8px 12px;border-bottom:1px solid #f1f5f9">
-        <span style="font-size:11.5px;font-weight:700;color:#64748b;flex:1;white-space:nowrap">검증 ${rows.length}건${rows.length!==SC.length?` <span style="font-weight:600;color:#cbd5e1">/ ${SC.length}</span>`:''}</span>
+      <div style="display:flex;align-items:center;gap:7px;padding:8px 10px 8px 12px;border-bottom:1px solid #f4f2ee">
+        <span style="font-size:11.5px;font-weight:700;color:#6f6b64;flex:1;white-space:nowrap">검증 ${rows.length}건${rows.length!==SC.length?` <span style="font-weight:600;color:#d4d0c8">/ ${SC.length}</span>`:''}</span>
         <select class="bd-f" style="padding:4px 7px;font-size:11.5px" onchange="BOPEN={};setBFil('grp',this.value)" title="묶기">
           ${opt('maker','거래처별',BFIL.grp)}${opt('ingredient','품목별',BFIL.grp)}${opt('action','후속조치별',BFIL.grp)}${opt('','묶지 않음',BFIL.grp)}</select>
         <button class="bd-btn" style="padding:4px 9px;font-size:11.5px;white-space:nowrap" onclick="openNew()"><i class="fa-solid fa-plus mr-1"></i>새 검증</button>
@@ -2749,10 +2767,10 @@ function renderNativeBoard(){
   </div>
 
   <div class="bd-card" style="margin-top:14px;padding:14px 16px">
-    <div class="bd-h">거래처별 결과 <span style="font-weight:600;color:#cbd5e1">행을 누르면 그 거래처만 봅니다</span></div>
+    <div class="bd-h">거래처별 결과 <span style="font-weight:600;color:#d4d0c8">행을 누르면 그 거래처만 봅니다</span></div>
     <div style="max-height:270px;overflow:auto">
       <table class="bd-t"><thead><tr><th>거래처</th><th style="width:54px">검증</th><th style="width:60px">진행 중</th><th style="width:48px">도입</th><th style="width:48px">중단</th></tr></thead>
-      <tbody>${mkRows||'<tr><td colspan="5" style="color:#94a3b8;text-align:center;padding:18px">자료가 없습니다.</td></tr>'}</tbody></table>
+      <tbody>${mkRows||'<tr><td colspan="5" style="color:#9a958d;text-align:center;padding:18px">자료가 없습니다.</td></tr>'}</tbody></table>
     </div>
   </div>`;
 
@@ -2764,7 +2782,7 @@ async function selectBoardItem(id, keep){
   BSEL=id;
   document.querySelectorAll('#shPanelBoard .bd-row').forEach(el=>el.classList.toggle('on', el.getAttribute('onclick').includes("'"+id+"'")));
   const el=document.getElementById('boardDetail'); if(!el) return;
-  el.innerHTML='<p style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">불러오는 중…</p>';
+  el.innerHTML='<p style="padding:30px;text-align:center;color:#9a958d;font-size:13px">불러오는 중…</p>';
   try{
     const {data,error}=await sb.from('qc_reports').select('ingredient,date,verdict,data').eq('id',id).single();
     if(error) throw error;
@@ -2773,7 +2791,7 @@ async function selectBoardItem(id, keep){
     loadBoardComments(id);
     loadBoardPhotos(id, (data.data&&data.data.photoKeys)||[]);
     if(!keep && window.innerWidth<=860) el.scrollIntoView({behavior:'smooth',block:'start'});
-  }catch(e){ el.innerHTML='<p style="padding:24px;color:#e11d48;font-size:13px">불러오기 실패 — '+esc(e.message||e)+'</p>'; }
+  }catch(e){ el.innerHTML='<p style="padding:24px;color:#c0433a;font-size:13px">불러오기 실패 — '+esc(e.message||e)+'</p>'; }
 }
 function renderBoardDetail(){
   const el=document.getElementById('boardDetail'); if(!el||!BDETAIL) return;
@@ -2789,11 +2807,11 @@ function renderBoardDetail(){
     basis.push(`<li style="margin-bottom:3px"><b>${esc(it.label)}</b> — ${bad.map(c=>`<span style="color:${VCOLOR[st[k+'_'+c.id+'_v']]};font-weight:700">${esc(st[k+'_'+c.id+'_v'])}</span> ${esc(st[k+'_'+c.id]||'')}`).join(' / ')}</li>`);
   })));
   const asks=(Array.isArray(st.asks)?st.asks:[]).filter(r=>(r.item||r.req||'').trim());
-  const pill=(l,v,c)=>`<div style="flex:1 1 120px;min-width:0"><div style="font-size:10.5px;font-weight:700;color:#94a3b8">${l}</div><div style="font-size:15px;font-weight:800;color:${c||'#0f172a'}">${v}</div></div>`;
+  const pill=(l,v,c)=>`<div style="flex:1 1 120px;min-width:0"><div style="font-size:10.5px;font-weight:700;color:#9a958d">${l}</div><div style="font-size:15px;font-weight:800;color:${c||'#1d1b18'}">${v}</div></div>`;
   el.innerHTML = `
-  <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;border-left:4px solid ${VCOLOR[BDETAIL.verdict]||'#cbd5e1'};border-radius:16px 16px 0 0">
-    <div><div style="font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-.01em">${esc(BDETAIL.ingredient||'')}${st.archived?' <span class="bd-chip" style="color:#64748b;background:#e2e8f0;vertical-align:middle">예전 자료</span>':''}</div>
-      <div style="font-size:11.5px;color:#64748b">${esc(BDETAIL.date||'')} · ${esc(st.inspector||'')} · ${esc(cols.map(c=>c.name).join(' / '))}</div></div>
+  <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;border-left:4px solid ${VCOLOR[BDETAIL.verdict]||'#d4d0c8'};border-radius:16px 16px 0 0">
+    <div><div style="font-size:18px;font-weight:800;color:#1d1b18;letter-spacing:-.01em">${esc(BDETAIL.ingredient||'')}${st.archived?' <span class="bd-chip" style="color:#6f6b64;background:#e6e3dd;vertical-align:middle">예전 자료</span>':''}</div>
+      <div style="font-size:11.5px;color:#6f6b64">${esc(BDETAIL.date||'')} · ${esc(st.inspector||'')} · ${esc(cols.map(c=>c.name).join(' / '))}</div></div>
     <div style="display:flex;gap:6px">
       <button class="bd-btn" onclick="openReport('${BDETAIL.id}')"><i class="fa-solid fa-pen mr-1"></i>검증 열기</button>
       <button class="bd-btn pri" onclick="printHandoffFor('${BDETAIL.id}')"><i class="fa-solid fa-file-arrow-right mr-1"></i>전달서</button>
@@ -2803,7 +2821,7 @@ function renderBoardDetail(){
   ${(st.purpose||st.purposeType)?`<div class="bd-sec" style="background:#f0f9ff;border-left:4px solid #0ea5e9">
     <div class="bd-h" style="color:#0369a1">진행 목적${st.purposeType?` <span style="font-weight:600;color:#7dd3fc">${esc(st.purposeType)}</span>`:''}</div>
     <div style="font-size:13px;color:#0c4a6e;white-space:pre-wrap;line-height:1.6">${esc(st.purpose||'(목적 미입력)')}</div></div>`:''}
-  <div class="bd-sec" style="background:#fafbfa">
+  <div class="bd-sec" style="background:#faf9f7">
     <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
       ${pill('검증 결과', esc(VWORD[BDETAIL.verdict]||'판정 미입력'), VCOLOR[BDETAIL.verdict])}
       ${pill('사용 가능성', esc(usability(BDETAIL.verdict, st.nextAction)), ac)}
@@ -2811,16 +2829,16 @@ function renderBoardDetail(){
       ${pill('도입 목표', esc(st.targetDate||'-'))}
       ${pill('공급 가능', esc(st.supplyOk||'미확인'))}
     </div>
-    <div class="bd-h">후속 조치 · 회신 기한 <span style="font-weight:600;color:#cbd5e1">고르면 바로 저장됩니다</span></div>
+    <div class="bd-h">후속 조치 · 회신 기한 <span style="font-weight:600;color:#d4d0c8">고르면 바로 저장됩니다</span></div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
       <select class="bd-f" style="flex:1 1 210px" onchange="saveBoardAction('nextAction',this.value)">
         <option value=""${!st.nextAction?' selected':''}>후속 조치 — 미지정</option>
         ${ACT_LIST.map(a=>`<option${st.nextAction===a?' selected':''}>${esc(a)}</option>`).join('')}
       </select>
       <input type="date" class="bd-f" style="flex:0 0 150px" value="${esc(st.dueDate||'')}" onchange="saveBoardAction('dueDate',this.value)">
-      <span id="bdSaveMsg" style="font-size:11.5px;color:#94a3b8"></span>
+      <span id="bdSaveMsg" style="font-size:11.5px;color:#9a958d"></span>
     </div>
-    ${st.nextActionNote?`<div style="font-size:12px;color:#64748b;margin-top:7px">${esc(st.nextActionNote)}</div>`:''}
+    ${st.nextActionNote?`<div style="font-size:12px;color:#6f6b64;margin-top:7px">${esc(st.nextActionNote)}</div>`:''}
   </div>
   ${(st.useFor||st.testFrom||st.testTo)?`<div class="bd-sec"><div class="bd-h">사용 계획</div>
     <table class="bd-t"><tbody>
@@ -2828,19 +2846,19 @@ function renderBoardDetail(){
       ${(st.testFrom||st.testTo)?`<tr><th>테스트 기간</th><td class="n">${esc((st.testFrom||'')+' ~ '+(st.testTo||''))}</td></tr>`:''}
       ${st.reqFrom?`<tr><th>요청 출처</th><td>${esc(st.reqFrom)}</td></tr>`:''}
     </tbody></table></div>`:''}
-  ${st.improve?`<div class="bd-sec"><div class="bd-h" style="color:#b45309">개선 요청 사항</div>
+  ${st.improve?`<div class="bd-sec"><div class="bd-h" style="color:#9a6b1f">개선 요청 사항</div>
     <div style="font-size:12.5px;color:#92400e;white-space:pre-wrap;line-height:1.65;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:11px 13px">${esc(st.improve)}</div></div>`:''}
   ${st.comment?`<div class="bd-sec"><div class="bd-h">종합 평가</div>
-    <div id="bdCmtBox"${(st.comment||'').length>300?' class="bd-clamp"':''} style="font-size:12.5px;color:#334155;white-space:pre-wrap;line-height:1.65;background:#fafbfa;border:1px solid #eef2f6;border-radius:10px;padding:11px 13px">${esc(st.comment)}</div>
+    <div id="bdCmtBox"${(st.comment||'').length>300?' class="bd-clamp"':''} style="font-size:12.5px;color:#403c36;white-space:pre-wrap;line-height:1.65;background:#faf9f7;border:1px solid #eceae4;border-radius:10px;padding:11px 13px">${esc(st.comment)}</div>
     ${(st.comment||'').length>300?`<button class="bd-btn" style="margin-top:7px;padding:4px 11px;font-size:11.5px" onclick="toggleCmtBox(this)"><i class="fa-solid fa-chevron-down mr-1"></i>전문 보기</button>`:''}
   </div>`:''}
   <div class="bd-sec" id="bdPhotos" style="display:none"></div>
-  ${basis.length?`<div class="bd-sec"><div class="bd-h">판단 근거</div><ul style="margin:0;padding-left:17px;font-size:12.5px;color:#334155">${basis.join('')}</ul></div>`:''}
+  ${basis.length?`<div class="bd-sec"><div class="bd-h">판단 근거</div><ul style="margin:0;padding-left:17px;font-size:12.5px;color:#403c36">${basis.join('')}</ul></div>`:''}
   ${asks.length?`<div class="bd-sec"><div class="bd-h">변경 요청</div><table class="bd-t"><thead><tr><th>항목</th><th>현재</th><th>목표</th><th>요청</th></tr></thead><tbody>
     ${asks.map(r=>`<tr><td><b>${esc(r.item||'-')}</b></td><td class="n">${esc(r.now||'-')}</td><td class="n">${esc(r.goal||'-')}</td><td>${esc(r.req||'')}</td></tr>`).join('')}
   </tbody></table></div>`:''}
   <div class="bd-sec">
-    <div class="bd-h">협의 기록 <span style="font-weight:600;color:#cbd5e1">구매물류팀 ↔ 메뉴개발팀</span></div>
+    <div class="bd-h">협의 기록 <span style="font-weight:600;color:#d4d0c8">구매물류팀 ↔ 메뉴개발팀</span></div>
     <div id="bdCmts" style="display:flex;flex-direction:column;gap:9px;margin-bottom:9px"></div>
     <div style="display:flex;gap:6px;margin-bottom:6px">
       <select id="bdTeam" class="bd-f" style="flex:0 0 118px"><option>구매물류팀</option><option>메뉴개발팀</option></select>
@@ -2886,7 +2904,7 @@ async function loadBoardPhotos(id, keys){
     box.style.display='';
     box.innerHTML='<div class="bd-h">사진 '+ok.length+'장</div>'
       +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:7px">'
-      + ok.map(x=>`<a href="${x.signedUrl}" target="_blank" rel="noopener" style="display:block;border:1px solid #e6eae8;border-radius:9px;overflow:hidden;aspect-ratio:4/3;background:#f8fafc">
+      + ok.map(x=>`<a href="${x.signedUrl}" target="_blank" rel="noopener" style="display:block;border:1px solid #e6e3dd;border-radius:9px;overflow:hidden;aspect-ratio:4/3;background:#faf9f7">
           <img src="${x.signedUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></a>`).join('')
       + '</div>';
   }catch(e){ box.style.display='none'; }
@@ -2899,14 +2917,14 @@ async function loadBoardComments(id){
     box.innerHTML = (data||[]).length ? data.map(c=>{
       const buy=c.team==='구매물류팀';
       return `<div style="display:flex;gap:9px;align-items:flex-start">
-        <span style="flex:none;width:27px;height:27px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:9.5px;font-weight:800;background:${buy?'#2563eb':'#16a34a'}">${buy?'구매':'메뉴'}</span>
+        <span style="flex:none;width:27px;height:27px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:9.5px;font-weight:800;background:${buy?'#4a72a8':'#c1553a'}">${buy?'구매':'메뉴'}</span>
         <div style="min-width:0;flex:1">
-          <div style="font-size:11px;color:#94a3b8"><b style="color:#334155;font-size:12px">${esc(c.author||c.team)}</b> · ${esc(c.team)} · ${esc(String(c.created_at||'').slice(5,16).replace('T',' '))}
-            <button onclick="delBoardComment(${c.id})" style="float:right;border:none;background:none;color:#cbd5e1;cursor:pointer">✕</button></div>
-          <div style="font-size:12.5px;color:#334155;white-space:pre-wrap">${esc(c.body||'')}</div>
+          <div style="font-size:11px;color:#9a958d"><b style="color:#403c36;font-size:12px">${esc(c.author||c.team)}</b> · ${esc(c.team)} · ${esc(String(c.created_at||'').slice(5,16).replace('T',' '))}
+            <button onclick="delBoardComment(${c.id})" style="float:right;border:none;background:none;color:#d4d0c8;cursor:pointer">✕</button></div>
+          <div style="font-size:12.5px;color:#403c36;white-space:pre-wrap">${esc(c.body||'')}</div>
         </div></div>`; }).join('')
-      : '<p style="font-size:12px;color:#94a3b8">아직 협의 기록이 없습니다.</p>';
-  }catch(e){ box.innerHTML='<p style="font-size:12px;color:#e11d48">코멘트를 불러오지 못했습니다.</p>'; }
+      : '<p style="font-size:12px;color:#9a958d">아직 협의 기록이 없습니다.</p>';
+  }catch(e){ box.innerHTML='<p style="font-size:12px;color:#c0433a">코멘트를 불러오지 못했습니다.</p>'; }
 }
 async function postBoardComment(){
   if(!BDETAIL) return;
@@ -2942,13 +2960,13 @@ async function printHandoffFor(id){
 }
 // ── 검증 목록 탭 상단 요약 ──// ── 검증 목록 탭 상단 요약 ──
 const HOME_ACTS=[
-  {k:'',t:'미지정',c:'#94a3b8'},
-  {k:'최종 테스트 진행',t:'최종 테스트',c:'#2563eb'},
-  {k:'디벨롭 · 사양 변경 요청',t:'디벨롭',c:'#d97706'},
-  {k:'재샘플 요청',t:'재샘플',c:'#d97706'},
-  {k:'보류 — 조건부 재검토',t:'보류',c:'#64748b'},
-  {k:'도입 진행',t:'도입 확정',c:'#16a34a'},
-  {k:'개발 중단',t:'중단',c:'#e11d48'}
+  {k:'',t:'미지정',c:'#9a958d'},
+  {k:'최종 테스트 진행',t:'최종 테스트',c:'#4a72a8'},
+  {k:'디벨롭 · 사양 변경 요청',t:'디벨롭',c:'#c9922b'},
+  {k:'재샘플 요청',t:'재샘플',c:'#c9922b'},
+  {k:'보류 — 조건부 재검토',t:'보류',c:'#6f6b64'},
+  {k:'도입 진행',t:'도입 확정',c:'#2f8f5b'},
+  {k:'개발 중단',t:'중단',c:'#c0433a'}
 ];
 async function loadHomeBoard(){
   const box=document.getElementById('homeBoard'); if(!box) return;
@@ -2961,16 +2979,16 @@ async function loadHomeBoard(){
     const open=data.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
     const chip=(a)=>{ const n=data.filter(r=>(r.action||'')===a.k).length; if(!n) return '';
       return `<button type="button" onclick="shTab('ledger')" title="대장 진행 보드에서 보기"
-        style="border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:700;color:${a.c};cursor:pointer">
-        ${a.t} <span style="color:#94a3b8">${n}</span></button>`; };
-    box.innerHTML = `<div style="background:#fff;border-radius:14px;padding:12px 14px;border:1px solid #e2e8f0">
+        style="border:1px solid #e6e3dd;background:#fff;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:700;color:${a.c};cursor:pointer">
+        ${a.t} <span style="color:#9a958d">${n}</span></button>`; };
+    box.innerHTML = `<div style="background:#fff;border-radius:14px;padding:12px 14px;border:1px solid #e6e3dd">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:9px">
-        <span style="font-size:13px;font-weight:800;color:#1e293b">진행 현황</span>
-        <span style="font-size:11px;color:#94a3b8">진행 중 ${open.length}건${late.length?` · <b style="color:#e11d48">기한 초과 ${late.length}건</b>`:''}</span>
-        <button type="button" onclick="shTab('ledger')" style="margin-left:auto;font-size:11px;font-weight:700;color:#16a34a;background:none;border:none;cursor:pointer">보드 열기 →</button>
+        <span style="font-size:13px;font-weight:800;color:#2b2823">진행 현황</span>
+        <span style="font-size:11px;color:#9a958d">진행 중 ${open.length}건${late.length?` · <b style="color:#c0433a">기한 초과 ${late.length}건</b>`:''}</span>
+        <button type="button" onclick="shTab('ledger')" style="margin-left:auto;font-size:11px;font-weight:700;color:#c1553a;background:none;border:none;cursor:pointer">보드 열기 →</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">${HOME_ACTS.map(chip).join('')}</div>
-      ${late.length?`<div style="margin-top:9px;font-size:11.5px;color:#e11d48;font-weight:700">⚠ 기한 초과 — ${late.slice(0,3).map(r=>esc(r.ingredient||'')+'('+r.due+')').join(', ')}${late.length>3?` 외 ${late.length-3}건`:''}</div>`:''}
+      ${late.length?`<div style="margin-top:9px;font-size:11.5px;color:#c0433a;font-weight:700">⚠ 기한 초과 — ${late.slice(0,3).map(r=>esc(r.ingredient||'')+'('+r.due+')').join(', ')}${late.length>3?` 외 ${late.length-3}건`:''}</div>`:''}
     </div>`;
   }catch(e){ box.innerHTML=''; }
 }
@@ -2981,9 +2999,9 @@ async function loadReports(){
     const {data,error}=await withTimeout(q,12000);
     if(error) throw error;
     REPORTS=data||[]; renderReports(); loadHomeBoard();
-  }catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="loadReports()" style="margin-top:8px;text-decoration:underline;color:#0f172a">다시 시도</button></p>'; }
+  }catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="loadReports()" style="margin-top:8px;text-decoration:underline;color:#1d1b18">다시 시도</button></p>'; }
 }
-function vBadge(v){ const m={'○':['#16a34a','사용 가능'],'△':['#d97706','조건부'],'×':['#e11d48','사용 불가']}[v]; return m?`<span style="color:${m[0]};font-weight:800">${v} ${m[1]}</span>`:'<span class="text-slate-400">미정</span>'; }
+function vBadge(v){ const m={'○':['#2f8f5b','사용 가능'],'△':['#c9922b','조건부'],'×':['#c0433a','사용 불가']}[v]; return m?`<span style="color:${m[0]};font-weight:800">${v} ${m[1]}</span>`:'<span class="text-slate-400">미정</span>'; }
 function renderReports(){
   const box=document.getElementById('shListBody'); const q=(document.getElementById('shSearch').value||'').toLowerCase();
   const sc=REPORTS.filter(inScope);
@@ -3098,7 +3116,7 @@ async function openBaseline(){
   document.getElementById('shBase').style.display='flex';
   let data;
   try{ const q=sb.from('qc_reports').select('id,ingredient,brand,maker,updated_at').order('updated_at',{ascending:false}); const res=await withTimeout(q,12000); if(res.error) throw res.error; data=res.data; }
-  catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="openBaseline()" style="margin-top:8px;text-decoration:underline;color:#0f172a">다시 시도</button></p>'; return; }
+  catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="openBaseline()" style="margin-top:8px;text-decoration:underline;color:#1d1b18">다시 시도</button></p>'; return; }
   const list=(data||[]).filter(r=>r.ingredient && r.id!==CURRENT_ID);
   window.__BL=list;
   box.innerHTML=list.length?list.map((r,i)=>`<div class="bg-white rounded-xl shadow-sm p-3 mb-2 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="pullBaselineIdx(${i})"><div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate">${esc(r.ingredient)}</p><p class="text-xs text-slate-500 truncate">${esc(r.maker||'')} · ${esc(r.brand||'')}</p></div><i class="fa-solid fa-arrow-right text-slate-300"></i></div>`).join(''):'<p class="text-slate-400 text-sm p-6 text-center">저장된 제품이 없습니다.</p>';
@@ -3124,23 +3142,23 @@ async function pullBaseline(id){
 /* ---------- UI 주입 ---------- */
 function injectShell(){
   const gate=document.createElement('div'); gate.id='shGate';
-  gate.style.cssText='position:fixed;inset:0;z-index:70;background:#0f172aee;display:flex;align-items:center;justify-content:center;padding:16px';
+  gate.style.cssText='position:fixed;inset:0;z-index:70;background:#1d1b18ee;display:flex;align-items:center;justify-content:center;padding:16px';
   gate.innerHTML=`<div style="background:#fff;border-radius:16px;padding:26px;max-width:340px;width:100%;text-align:center">
-    <div style="width:56px;height:56px;border-radius:16px;background:#16a34a;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-shield-halved"></i></div>
-    <h1 style="font-size:18px;font-weight:800;color:#1e293b">식자재 품질검증</h1>
-    <p style="font-size:12px;color:#64748b;margin:4px 0 14px">팀 공용 비밀번호로 로그인</p>
-    <input id="shPw" type="password" placeholder="공용 비밀번호" onkeydown="if(event.key==='Enter')shellLogin()" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;text-align:center;font-size:14px">
-    <p id="shMsg" style="color:#e11d48;font-size:12px;font-weight:700;height:16px;margin:6px 0"></p>
-    <button onclick="shellLogin()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:800;cursor:pointer">들어가기</button></div>`;
+    <div style="width:56px;height:56px;border-radius:16px;background:#c1553a;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><i class="fa-solid fa-shield-halved"></i></div>
+    <h1 style="font-size:18px;font-weight:800;color:#2b2823">식자재 품질검증</h1>
+    <p style="font-size:12px;color:#6f6b64;margin:4px 0 14px">팀 공용 비밀번호로 로그인</p>
+    <input id="shPw" type="password" placeholder="공용 비밀번호" onkeydown="if(event.key==='Enter')shellLogin()" style="width:100%;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px;text-align:center;font-size:14px">
+    <p id="shMsg" style="color:#c0433a;font-size:12px;font-weight:700;height:16px;margin:6px 0"></p>
+    <button onclick="shellLogin()" style="width:100%;background:#c1553a;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:800;cursor:pointer">들어가기</button></div>`;
   document.body.appendChild(gate);
 
-  const list=document.createElement('div'); list.id='shList'; list.style.cssText='display:none;position:fixed;inset:0;z-index:60;background:#f1f5f9;overflow:auto';
-  list.innerHTML=`<div style="position:sticky;top:0;z-index:5;background:#f1f5f9;border-bottom:1px solid #cbd5e1">
+  const list=document.createElement('div'); list.id='shList'; list.style.cssText='display:none;position:fixed;inset:0;z-index:60;background:#f4f2ee;overflow:auto';
+  list.innerHTML=`<div style="position:sticky;top:0;z-index:5;background:#f4f2ee;border-bottom:1px solid #d4d0c8">
     <div style="max-width:1280px;margin:0 auto;padding:16px 16px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-      <div><h1 style="font-size:21px;font-weight:800;color:#0f172a;letter-spacing:-.02em"><i class="fa-solid fa-clipboard-check" style="color:#16a34a"></i> 식자재 검증 센터</h1>
-      <p style="font-size:12px;color:#64748b">메뉴개발팀 · 구매물류팀 공용 <span id="shCnt" style="color:#94a3b8"></span></p></div>
-      <div style="display:flex;gap:6px"><button onclick="loadReports()" title="목록 새로고침" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-rotate"></i></button>
-      <button onclick="shellLogout()" title="로그아웃" style="background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-right-from-bracket"></i></button></div>
+      <div><h1 style="font-size:21px;font-weight:800;color:#1d1b18;letter-spacing:-.02em"><i class="fa-solid fa-clipboard-check" style="color:#c1553a"></i> 식자재 검증 센터</h1>
+      <p style="font-size:12px;color:#6f6b64">메뉴개발팀 · 구매물류팀 공용 <span id="shCnt" style="color:#9a958d"></span></p></div>
+      <div style="display:flex;gap:6px"><button onclick="loadReports()" title="목록 새로고침" style="background:#e6e3dd;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-rotate"></i></button>
+      <button onclick="shellLogout()" title="로그아웃" style="background:#e6e3dd;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-right-from-bracket"></i></button></div>
     </div>
     <div style="max-width:1280px;margin:0 auto;padding:12px 16px 0;display:flex;gap:4px;overflow-x:auto">
       <button type="button" class="sh-tab on" data-tab="board" onclick="shTab('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 현황</button>
@@ -3151,12 +3169,12 @@ function injectShell(){
   </div>
   <div id="shPanelList" style="max-width:760px;margin:0 auto;padding:16px 14px 60px">
     <div id="homeBoard" style="margin-bottom:14px"></div>
-    <button onclick="openNew()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:12px"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
+    <button onclick="openNew()" style="width:100%;background:#c1553a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:12px"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
     <div style="display:flex;gap:7px;margin-bottom:14px">
-      <select onchange="BFIL.scope=this.value;BOPEN={};renderReports();if(NBOARD.length)renderNativeBoard()" style="flex:0 0 118px;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 8px;font-size:13px;font-weight:700;background:#fff">
+      <select onchange="BFIL.scope=this.value;BOPEN={};renderReports();if(NBOARD.length)renderNativeBoard()" style="flex:0 0 118px;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px 8px;font-size:13px;font-weight:700;background:#fff">
         <option value="live">현재 자료</option><option value="old">예전 자료</option><option value="all">전체</option>
       </select>
-      <input id="shSearch" oninput="renderReports()" placeholder="제품·제조회사 검색" style="flex:1;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:13px">
+      <input id="shSearch" oninput="renderReports()" placeholder="제품·제조회사 검색" style="flex:1;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px;font-size:13px">
     </div>
     <div id="shListBody"></div>
   </div>
@@ -3165,30 +3183,30 @@ function injectShell(){
   <div id="shPanelBuilder" style="display:none"><iframe id="ifBuilder" title="오프라인 빌더" class="sh-frame"></iframe></div>`;
   document.body.appendChild(list);
 
-  const nm=document.createElement('div'); nm.id='shNew'; nm.style.cssText='display:none;position:fixed;inset:0;z-index:80;background:#0f172acc;align-items:center;justify-content:center;padding:16px';
+  const nm=document.createElement('div'); nm.id='shNew'; nm.style.cssText='display:none;position:fixed;inset:0;z-index:80;background:#1d1b18cc;align-items:center;justify-content:center;padding:16px';
   nm.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;max-width:380px;width:100%">
-    <h2 style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:14px">새 검증 시작</h2>
-    <label style="font-size:12px;font-weight:700;color:#475569">제품(식재료)명</label>
-    <input id="newProd" placeholder="예: 가오리날개, 순살아구" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:14px;margin:4px 0 12px">
-    <label style="font-size:12px;font-weight:700;color:#475569">품목 유형 (전용 항목 자동 구성)</label>
-    <select id="newType" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:14px;margin:4px 0 16px"></select>
-    <div style="display:flex;gap:8px"><button onclick="document.getElementById('shNew').style.display='none'" style="flex:1;background:#e2e8f0;border:none;border-radius:10px;padding:11px;font-weight:700;cursor:pointer">취소</button>
-    <button onclick="createNew()" style="flex:2;background:#16a34a;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:800;cursor:pointer">시작</button></div></div>`;
+    <h2 style="font-size:16px;font-weight:800;color:#2b2823;margin-bottom:14px">새 검증 시작</h2>
+    <label style="font-size:12px;font-weight:700;color:#5a564f">제품(식재료)명</label>
+    <input id="newProd" placeholder="예: 가오리날개, 순살아구" style="width:100%;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px;font-size:14px;margin:4px 0 12px">
+    <label style="font-size:12px;font-weight:700;color:#5a564f">품목 유형 (전용 항목 자동 구성)</label>
+    <select id="newType" style="width:100%;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px;font-size:14px;margin:4px 0 16px"></select>
+    <div style="display:flex;gap:8px"><button onclick="document.getElementById('shNew').style.display='none'" style="flex:1;background:#e6e3dd;border:none;border-radius:10px;padding:11px;font-weight:700;cursor:pointer">취소</button>
+    <button onclick="createNew()" style="flex:2;background:#c1553a;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:800;cursor:pointer">시작</button></div></div>`;
   document.body.appendChild(nm);
 
-  const bl=document.createElement('div'); bl.id='shBase'; bl.style.cssText='display:none;position:fixed;inset:0;z-index:80;background:#0f172acc;align-items:center;justify-content:center;padding:16px';
-  bl.innerHTML=`<div style="background:#f1f5f9;border-radius:16px;padding:18px;max-width:420px;width:100%;max-height:80vh;overflow:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h2 style="font-size:16px;font-weight:800;color:#1e293b">기존 제품 불러오기</h2><button onclick="document.getElementById('shBase').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>
-    <p style="font-size:12px;color:#64748b;margin-bottom:10px">저장된 제품을 고르면 <b>제조회사·원산지·규격·사진</b>이 '기존' 열로 채워집니다.</p>
+  const bl=document.createElement('div'); bl.id='shBase'; bl.style.cssText='display:none;position:fixed;inset:0;z-index:80;background:#1d1b18cc;align-items:center;justify-content:center;padding:16px';
+  bl.innerHTML=`<div style="background:#f4f2ee;border-radius:16px;padding:18px;max-width:420px;width:100%;max-height:80vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h2 style="font-size:16px;font-weight:800;color:#2b2823">기존 제품 불러오기</h2><button onclick="document.getElementById('shBase').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:#9a958d">✕</button></div>
+    <p style="font-size:12px;color:#6f6b64;margin-bottom:10px">저장된 제품을 고르면 <b>제조회사·원산지·규격·사진</b>이 '기존' 열로 채워집니다.</p>
     <div id="blBody"></div></div>`;
   document.body.appendChild(bl);
 
-  const bar=document.createElement('div'); bar.id='edBar'; bar.className='no-print'; bar.style.cssText='display:none;position:fixed;top:0;left:0;right:0;z-index:45;background:#1e293b;color:#fff;padding:8px 12px;align-items:center;justify-content:space-between;gap:8px';
-  bar.innerHTML=`<div style="display:flex;align-items:center;gap:6px;min-width:0"><button onclick="showList()" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-arrow-left"></i></button>
-    <select id="edType" onchange="changeType(this.value)" title="품목 유형 변경(항목 다시 구성)" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:7px;font-size:12px;max-width:150px;cursor:pointer"></select></div>
-    <span id="edStamp" style="font-size:11px;color:#cbd5e1;white-space:nowrap"></span>
-    <div style="display:flex;gap:6px"><button onclick="openBaseline()" style="background:#475569;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-weight:700;font-size:12px;cursor:pointer">기존 불러오기</button>
-    <button onclick="saveReport()" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-weight:800;font-size:13px;cursor:pointer"><i class="fa-solid fa-cloud-arrow-up mr-1"></i>저장</button></div>`;
+  const bar=document.createElement('div'); bar.id='edBar'; bar.className='no-print'; bar.style.cssText='display:none;position:fixed;top:0;left:0;right:0;z-index:45;background:#2b2823;color:#fff;padding:8px 12px;align-items:center;justify-content:space-between;gap:8px';
+  bar.innerHTML=`<div style="display:flex;align-items:center;gap:6px;min-width:0"><button onclick="showList()" style="background:#403c36;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-arrow-left"></i></button>
+    <select id="edType" onchange="changeType(this.value)" title="품목 유형 변경(항목 다시 구성)" style="background:#403c36;color:#fff;border:none;border-radius:8px;padding:7px;font-size:12px;max-width:150px;cursor:pointer"></select></div>
+    <span id="edStamp" style="font-size:11px;color:#d4d0c8;white-space:nowrap"></span>
+    <div style="display:flex;gap:6px"><button onclick="openBaseline()" style="background:#5a564f;color:#fff;border:none;border-radius:8px;padding:7px 10px;font-weight:700;font-size:12px;cursor:pointer">기존 불러오기</button>
+    <button onclick="saveReport()" style="background:#c1553a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-weight:800;font-size:13px;cursor:pointer"><i class="fa-solid fa-cloud-arrow-up mr-1"></i>저장</button></div>`;
   document.body.appendChild(bar);
   // 에디터 상단 여백(고정바)
   const w=document.getElementById('appWrap'); if(w) w.style.paddingTop='6px';
@@ -3211,10 +3229,10 @@ function injectShell(){
     const d=document.createElement('div');
     d.className='no-print';
     d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:9999;display:flex;align-items:center;gap:10px;'
-      +'padding:9px 14px;background:#0f172a;color:#fff;font-size:13px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25)';
+      +'padding:9px 14px;background:#1d1b18;color:#fff;font-size:13px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25)';
     d.innerHTML='<i class="fa-solid fa-arrows-rotate"></i><span style="flex:1">새 버전이 배포되었습니다. 지금 보시는 화면은 예전 버전입니다.</span>'
       +'<button style="flex:none;background:#22c55e;color:#fff;border:0;border-radius:8px;padding:6px 14px;font-weight:800;cursor:pointer">최신으로 보기</button>'
-      +'<button style="flex:none;background:transparent;color:#94a3b8;border:0;padding:6px 6px;cursor:pointer" title="닫기">✕</button>';
+      +'<button style="flex:none;background:transparent;color:#9a958d;border:0;padding:6px 6px;cursor:pointer" title="닫기">✕</button>';
     const [go,close]=d.querySelectorAll('button');
     go.onclick=()=>{ location.replace(location.pathname+'?v='+b+location.hash); };
     close.onclick=()=>{ d.remove(); };
