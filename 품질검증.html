@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261030014252">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030014730">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -662,12 +662,12 @@ tailwind.config = { theme: { extend: {
       <div id="autoVerdict" class="mb-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500"><span class="no-print">항목 판정을 입력하면 자동 집계가 표시됩니다.</span></div>
       <div id="costSummary" class="mb-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500"><span class="no-print">원가(수율&실원가) 입력 시 증감이 표시됩니다.</span></div>
       <div id="verdictBanner" class="mb-3"></div>
-      <label class="lbl">제품별 종합 판정</label>
+      <label class="lbl no-print">제품별 종합 판정</label>
       <div id="finalVerdicts" class="space-y-2 mb-3 screen-only"></div>
       <div id="finalVerdictsPrint" class="print-only"></div>
       <div class="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3">
-        <label class="lbl"><i class="fa-solid fa-forward mr-1 text-brand-500"></i>후속 조치</label>
-        <select class="fld fld-sm" data-k="nextAction">
+        <label class="lbl no-print"><i class="fa-solid fa-forward mr-1 text-brand-500"></i>후속 조치</label>
+        <select class="fld fld-sm no-print" data-k="nextAction">
           <option value="">선택…</option>
           <option>도입 진행</option>
           <option>최종 테스트 진행</option>
@@ -677,10 +677,10 @@ tailwind.config = { theme: { extend: {
           <option>개발 중단</option>
           <option>기타(직접 작성)</option>
         </select>
-        <input class="fld fld-sm mt-2" data-k="nextActionNote" placeholder="후속 조치 메모 (예: 11/05까지 kg 환산 단가 회신)">
+        <input class="fld fld-sm mt-2 no-print" data-k="nextActionNote" placeholder="후속 조치 메모 (예: 11/05까지 kg 환산 단가 회신)">
         <div class="mt-3">
           <div class="flex items-center justify-between gap-2 mb-1.5">
-            <label class="lbl mb-0">변경 요청 — 수치로</label>
+            <label class="lbl mb-0 no-print">변경 요청 — 수치로</label>
             <button type="button" onclick="addAsk()" class="no-print text-[11px] font-bold text-brand-600 border border-dashed border-brand-300 bg-white rounded-md px-2 py-1"><i class="fa-solid fa-plus mr-1"></i>항목 추가</button>
           </div>
           <p class="no-print text-[11px] text-slate-400 mb-1.5">측정 수치를 넣으면 현재값이 자동으로 채워집니다. 수치가 없는 항목은 요청 문장만 적으세요.</p>
