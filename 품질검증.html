@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<meta name="qc-build" content="20261029233601">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261030003409">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -423,7 +423,7 @@ tailwind.config = { theme: { extend: {
           <div><label class="lbl">도입 목표 시기</label><input class="fld fld-sm" data-k="targetDate" placeholder="예: 2026-12 또는 12월 초"></div>
           <div><label class="lbl">테스트 시작</label><input type="date" class="fld fld-sm" data-k="testFrom"></div>
           <div><label class="lbl">테스트 종료</label><input type="date" class="fld fld-sm" data-k="testTo"></div>
-          <div class="col-span-2"><label class="lbl">공급 가능 여부 <span class="font-normal text-slate-400">구매물류팀이 입력</span></label>
+          <div class="col-span-2"><label class="lbl">공급 가능 여부</label>
             <select class="fld fld-sm" data-k="supplyOk">
               <option value="">미확인</option><option>확인 중</option><option>공급 가능</option><option>조건부 가능</option><option>공급 불가</option>
             </select></div>
@@ -621,7 +621,7 @@ tailwind.config = { theme: { extend: {
       <div id="finalVerdicts" class="space-y-2 mb-3 screen-only"></div>
       <div id="finalVerdictsPrint" class="print-only"></div>
       <div class="mt-3 rounded-xl border border-brand-300 bg-brand-50 p-3">
-        <label class="lbl"><i class="fa-solid fa-forward mr-1 text-brand-500"></i>후속 조치 <span class="font-normal text-slate-400">구매팀이 무엇을 할 차례인가</span></label>
+        <label class="lbl"><i class="fa-solid fa-forward mr-1 text-brand-500"></i>후속 조치</label>
         <select class="fld fld-sm" data-k="nextAction">
           <option value="">선택…</option>
           <option>도입 진행</option>
@@ -1803,6 +1803,7 @@ function handoffHTML(st, cfg, meta){
       <div class="hs-meta"><div>${esc(st.date||(meta&&meta.date)||'')}</div><div>${esc(cfg.dept||'메뉴개발팀')} · ${g('inspector')}</div></div></div>
     <table class="hs-kv">
       <tr><td class="k">품목</td><td>${esc(product)}</td><td class="k">브랜드</td><td>${esc(brands)}</td></tr>
+      ${st.purpose?`<tr><td class="k">진행 목적</td><td colspan="3">${g('purpose')}</td></tr>`:''}
       ${base?`<tr><td class="k">기존</td><td colspan="3">${line(base)}</td></tr>`:''}
       ${jc.map(c=>`<tr><td class="k">${esc(c.name)}</td><td colspan="3">${line(c)}</td></tr>`).join('')}
     </table>
@@ -2456,7 +2457,7 @@ let REPORTS=[];
 function withTimeout(p,ms){ return Promise.race([ Promise.resolve(p), new Promise((_,rej)=>setTimeout(()=>rej(new Error('시간 초과 — 네트워크/로그인/프로젝트 상태를 확인하세요')), ms||12000)) ]); }
 // ===== 진행 현황 — 메뉴개발팀이 쓰고 구매물류팀이 보고 판단하는 화면 =====
 let NBOARD=[], BSEL=null, BDETAIL=null;
-const BFIL={q:'',action:'',verdict:'',maker:'',due:'',grp:'maker'};
+const BFIL={q:'',action:'',verdict:'',maker:'',due:'',grp:'maker',scope:'live'};  // scope: live=현재 자료 / old=예전 자료 / all
 let BOPEN={}, BGRP=[];   // 접힌 그룹 기억 / 현재 그룹 키 목록
 function toggleGrp(i){ const e=BGRP[i]; if(!e) return; const k=e[0]; BOPEN[k]=(BOPEN[k]===false); renderNativeBoard(); }
 const ACT_LIST=['도입 진행','최종 테스트 진행','디벨롭 · 사양 변경 요청','재샘플 요청','보류 — 조건부 재검토','개발 중단'];
@@ -2476,7 +2477,7 @@ async function loadNativeBoard(){
   if(!NBOARD.length) box.innerHTML='<p style="color:#94a3b8;font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
   try{
     const {data,error}=await sb.from('qc_reports')
-      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote');
+      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived');
     if(error) throw error;
     NBOARD=(data||[]).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
     let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
@@ -2487,9 +2488,14 @@ async function loadNativeBoard(){
     if(BSEL) selectBoardItem(BSEL, true);
   }catch(e){ box.innerHTML='<p style="color:#e11d48;font-size:13px;padding:24px 0;text-align:center">현황을 불러오지 못했습니다 — '+esc(e.message||e)+'</p>'; }
 }
+function inScope(r){
+  const old=!!r.arch;
+  return BFIL.scope==='all' ? true : (BFIL.scope==='old' ? old : !old);
+}
 function boardFiltered(){
   const q=(BFIL.q||'').toLowerCase();
   return NBOARD.filter(r=>{
+    if(!inScope(r)) return false;
     if(BFIL.action!=='' && (r.action||'')!==BFIL.action) return false;
     if(BFIL.verdict && (r.verdict||'')!==BFIL.verdict) return false;
     if(BFIL.maker && (r.maker||'')!==BFIL.maker) return false;
@@ -2503,9 +2509,10 @@ function setBFil(k,v){ BFIL[k]=v; renderNativeBoard(); }
 function renderNativeBoard(){
   const box=document.getElementById('shPanelBoard'); if(!box) return;
   const now=new Date();
-  const open=NBOARD.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
-  const late=NBOARD.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
-  const adopt=NBOARD.filter(r=>r.action==='도입 진행');
+  const SC=NBOARD.filter(inScope);
+  const open=SC.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
+  const late=SC.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
+  const adopt=SC.filter(r=>r.action==='도입 진행');
   const makers=[...new Set(NBOARD.map(r=>r.maker).filter(Boolean))].sort();
   const rows=boardFiltered();
 
@@ -2556,9 +2563,10 @@ function renderNativeBoard(){
 
   box.innerHTML = `
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:14px">
-    ${tile('진행 중',open.length)}${tile('기한 임박·초과',late.length,late.length>0)}${tile('도입 확정',adopt.length)}${tile('전체 검증',NBOARD.length)}
+    ${tile('진행 중',open.length)}${tile('기한 임박·초과',late.length,late.length>0)}${tile('도입 확정',adopt.length)}${tile(BFIL.scope==='old'?'예전 자료':(BFIL.scope==='all'?'전체 검증':'현재 자료'),SC.length)}
   </div>
   <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    <select class="bd-f" style="flex:0 0 130px;font-weight:700" onchange="BOPEN={};setBFil('scope',this.value)">${opt('live','현재 자료',BFIL.scope)}${opt('old','예전 자료',BFIL.scope)}${opt('all','전체',BFIL.scope)}</select>
     <input class="bd-f" style="flex:1 1 180px;min-width:150px" placeholder="제품·거래처 검색" value="${esc(BFIL.q)}" oninput="BFIL.q=this.value;renderNativeBoard();document.getElementById('bdq')&&document.getElementById('bdq').focus()" id="bdq">
     <select class="bd-f" onchange="setBFil('action',this.value)">${opt('','후속 조치 전체',BFIL.action)}${opt('','미지정',BFIL.action==='∅'?'∅':'')}${ACT_LIST.map(a=>opt(a,a,BFIL.action)).join('')}</select>
     <select class="bd-f" onchange="setBFil('verdict',this.value)">${opt('','판정 전체',BFIL.verdict)}${['○','△','×'].map(v=>opt(v,v,BFIL.verdict)).join('')}</select>
@@ -2615,13 +2623,17 @@ function renderBoardDetail(){
   const pill=(l,v,c)=>`<div style="flex:1 1 120px;min-width:0"><div style="font-size:10.5px;font-weight:700;color:#94a3b8">${l}</div><div style="font-size:15px;font-weight:800;color:${c||'#0f172a'}">${v}</div></div>`;
   el.innerHTML = `
   <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;border-left:4px solid ${VCOLOR[BDETAIL.verdict]||'#cbd5e1'};border-radius:16px 16px 0 0">
-    <div><div style="font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-.01em">${esc(BDETAIL.ingredient||'')}</div>
+    <div><div style="font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-.01em">${esc(BDETAIL.ingredient||'')}${st.archived?' <span class="bd-chip" style="color:#64748b;background:#e2e8f0;vertical-align:middle">예전 자료</span>':''}</div>
       <div style="font-size:11.5px;color:#64748b">${esc(BDETAIL.date||'')} · ${esc(st.inspector||'')} · ${esc(cols.map(c=>c.name).join(' / '))}</div></div>
     <div style="display:flex;gap:6px">
       <button class="bd-btn" onclick="openReport('${BDETAIL.id}')"><i class="fa-solid fa-pen mr-1"></i>검증 열기</button>
       <button class="bd-btn pri" onclick="printHandoffFor('${BDETAIL.id}')"><i class="fa-solid fa-file-arrow-right mr-1"></i>전달서</button>
+      <button class="bd-btn" title="${st.archived?'현재 자료로 되돌립니다':'목록에서 숨기고 [예전 자료]에서만 보이게 합니다'}" onclick="saveBoardAction('archived','${st.archived?'':'Y'}')"><i class="fa-solid fa-box-archive mr-1"></i>${st.archived?'현재 자료로':'예전 자료로'}</button>
     </div>
   </div>
+  ${(st.purpose||st.purposeType)?`<div class="bd-sec" style="background:#f0f9ff;border-left:4px solid #0ea5e9">
+    <div class="bd-h" style="color:#0369a1">진행 목적${st.purposeType?` <span style="font-weight:600;color:#7dd3fc">${esc(st.purposeType)}</span>`:''}</div>
+    <div style="font-size:13px;color:#0c4a6e;white-space:pre-wrap;line-height:1.6">${esc(st.purpose||'(목적 미입력)')}</div></div>`:''}
   <div class="bd-sec" style="background:#fafbfa">
     <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
       ${pill('검증 결과', esc(BDETAIL.verdict||'미정'), VCOLOR[BDETAIL.verdict])}
@@ -2630,7 +2642,7 @@ function renderBoardDetail(){
       ${pill('도입 목표', esc(st.targetDate||'-'))}
       ${pill('공급 가능', esc(st.supplyOk||'미확인'))}
     </div>
-    <div class="bd-h">구매팀이 정하는 항목 — 고르면 바로 저장됩니다</div>
+    <div class="bd-h">후속 조치 · 회신 기한 <span style="font-weight:600;color:#cbd5e1">고르면 바로 저장됩니다</span></div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
       <select class="bd-f" style="flex:1 1 210px" onchange="saveBoardAction('nextAction',this.value)">
         <option value=""${!st.nextAction?' selected':''}>후속 조치 — 미지정</option>
@@ -2679,7 +2691,7 @@ async function saveBoardAction(field, value){
     if(up.error) throw up.error;
     BDETAIL.data=d;
     const r=NBOARD.find(x=>x.id===BDETAIL.id);
-    if(r){ if(field==='nextAction') r.action=value; if(field==='dueDate') r.due=value; }
+    if(r){ if(field==='nextAction') r.action=value; if(field==='dueDate') r.due=value; if(field==='archived') r.arch=value||null; }
     if(msg){ msg.textContent='저장됨'; setTimeout(()=>{ if(msg) msg.textContent=''; },1600); }
     renderNativeBoard(); renderBoardDetail(); loadBoardComments(BDETAIL.id);
   }catch(e){ if(msg) msg.textContent='저장 실패'; toast('저장 실패: '+(e.message||e)); }
@@ -2789,7 +2801,7 @@ async function loadHomeBoard(){
 async function loadReports(){
   const box=document.getElementById('shListBody'); box.innerHTML='<p class="text-slate-400 text-sm p-6 text-center">불러오는 중…</p>';
   try{
-    const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at').order('updated_at',{ascending:false});
+    const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at,arch:data->state->>archived').order('updated_at',{ascending:false});
     const {data,error}=await withTimeout(q,12000);
     if(error) throw error;
     REPORTS=data||[]; renderReports(); loadHomeBoard();
@@ -2798,8 +2810,9 @@ async function loadReports(){
 function vBadge(v){ const m={'○':['#16a34a','사용 가능'],'△':['#d97706','조건부'],'×':['#e11d48','사용 불가']}[v]; return m?`<span style="color:${m[0]};font-weight:800">${v} ${m[1]}</span>`:'<span class="text-slate-400">미정</span>'; }
 function renderReports(){
   const box=document.getElementById('shListBody'); const q=(document.getElementById('shSearch').value||'').toLowerCase();
-  const d=REPORTS.filter(r=>!q||[r.ingredient,r.maker,r.brand].some(x=>String(x||'').toLowerCase().includes(q)));
-  document.getElementById('shCnt').textContent=REPORTS.length+'건';
+  const sc=REPORTS.filter(inScope);
+  const d=sc.filter(r=>!q||[r.ingredient,r.maker,r.brand].some(x=>String(x||'').toLowerCase().includes(q)));
+  document.getElementById('shCnt').textContent=sc.length+'건';
   if(!d.length){ box.innerHTML='<p class="text-slate-400 text-sm p-8 text-center">저장된 검증이 없습니다. <b>[+ 새 검증]</b>으로 시작하세요.</p>'; return; }
   const grp={}; d.forEach(r=>{ (grp[r.maker||'(제조회사 미입력)']=grp[r.maker||'(제조회사 미입력)']||[]).push(r); });
   window.__RFLAT=[]; window.__COLLAPSED=window.__COLLAPSED||{};
@@ -2962,7 +2975,12 @@ function injectShell(){
   <div id="shPanelList" style="max-width:760px;margin:0 auto;padding:16px 14px 60px">
     <div id="homeBoard" style="margin-bottom:14px"></div>
     <button onclick="openNew()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:12px"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
-    <input id="shSearch" oninput="renderReports()" placeholder="제품·제조회사 검색" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:13px;margin-bottom:14px">
+    <div style="display:flex;gap:7px;margin-bottom:14px">
+      <select onchange="BFIL.scope=this.value;renderReports()" style="flex:0 0 118px;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 8px;font-size:13px;font-weight:700;background:#fff">
+        <option value="live">현재 자료</option><option value="old">예전 자료</option><option value="all">전체</option>
+      </select>
+      <input id="shSearch" oninput="renderReports()" placeholder="제품·제조회사 검색" style="flex:1;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:13px">
+    </div>
     <div id="shListBody"></div>
   </div>
   <div id="shPanelLedger" style="display:none"><iframe id="ifLedger" title="품질검증 대장" class="sh-frame"></iframe></div>
