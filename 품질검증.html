@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261030084635">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261101230937">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3156,6 +3156,42 @@ function reqItemRows(st, id, stt){
     </tr>`).join('')}
   </tbody></table>`;
 }
+
+// 희망 입고 — 기간으로 고르면 기준일(금요일/월말)을 함께 계산해 둔다.
+// 표기는 사람 말로, 정렬·임박 계산은 날짜로. 둘 다 필요하다.
+function fridayOf(weekOffset){
+  const d=new Date(); const day=d.getDay()===0?7:d.getDay();
+  let diff=5-day; if(diff<0) diff+=7;                    // 토·일이면 다음 주 금요일
+  d.setDate(d.getDate()+diff+(weekOffset||0)*7);
+  return d.toISOString().slice(0,10);
+}
+function endOfMonth(){ const d=new Date(); return new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10); }
+function addDaysISO(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+const WHEN_OPTS=[
+  {k:'이번 주 안',   f:()=>fridayOf(0)},
+  {k:'다음 주까지',  f:()=>fridayOf(1)},
+  {k:'2주 내',      f:()=>addDaysISO(14)},
+  {k:'이번 달 안',   f:()=>endOfMonth()},
+  {k:'날짜 지정',    f:null},
+  {k:'협의 후 결정', f:()=>''}
+];
+function rqWhenToggle(){
+  const t=document.getElementById('rqWhenType'), d=document.getElementById('rqWhen'),
+        h=document.getElementById('rqWhenHint');
+  if(!t||!d) return;
+  const opt=WHEN_OPTS.find(o=>o.k===t.value);
+  const pick = t.value==='날짜 지정';
+  d.style.display = pick ? '' : 'none';
+  if(h) h.textContent = (!pick && opt && opt.f) ? (opt.f() ? '기준일 '+opt.f() : '') : '';
+}
+// 화면·문서에 쓸 표기 한 줄
+function whenLabel(st){
+  const t=st.reqWhenType||'', d=st.reqWhen||'';
+  if(!t) return d||'';                                   // 예전 요청(날짜만 있던 것)
+  if(t==='날짜 지정') return d||'';
+  if(t==='협의 후 결정') return t;
+  return d ? t+' (~'+d.slice(5).replace('-','/')+')' : t;
+}
 // 요청 품목 줄 — 예전(단일 품목) 요청도 같은 모양으로 읽히게 한다
 function reqItems(st){
   if(Array.isArray(st.items) && st.items.length) return st.items;
@@ -3270,7 +3306,10 @@ function openNewReq(){
     <div class="grid grid-cols-2 gap-2.5 mt-2.5">
       <div><label class="lbl">사용처 *</label><input id="rqFor" class="fld fld-sm" placeholder="예: 삼대미역 — 영양밥"></div>
       <div><label class="lbl">요청자</label><input id="rqBy" class="fld fld-sm" placeholder="성명/직급"></div>
-      <div><label class="lbl">희망 입고일</label><input id="rqWhen" type="date" class="fld fld-sm" value="${today}"></div>
+      <div><label class="lbl">희망 입고</label>
+        <select id="rqWhenType" class="fld fld-sm" onchange="rqWhenToggle()">${WHEN_OPTS.map(o=>`<option>${o.k}</option>`).join('')}</select>
+        <input id="rqWhen" type="date" class="fld fld-sm mt-2" style="display:none" value="${today}">
+        <div id="rqWhenHint" style="font-size:11px;color:var(--faint);margin-top:4px"></div></div>
       <div><label class="lbl">도입 목표 시기</label><input id="rqTarget" class="fld fld-sm" placeholder="예: 2026-12"></div>
     </div>
     <label class="lbl mt-2.5">요청 사유 · 테스트 목적 *</label>
@@ -3287,7 +3326,7 @@ function openNewReq(){
     <p id="rqMsg" style="font-size:12px;color:#c0433a;margin:8px 0 0;text-align:center"></p>
   </div>`;
   document.body.appendChild(w);
-  RQROWS=[{}]; renderRqRows();
+  RQROWS=[{}]; renderRqRows(); rqWhenToggle();
   setTimeout(()=>{ const f=document.querySelector('#rqRows input'); if(f) f.focus(); },50);
 }
 async function saveNewReq(){
@@ -3300,7 +3339,11 @@ async function saveNewReq(){
   const id='rq_'+Date.now()+'_'+Math.floor(Math.random()*1e5);
   const st={ kind:'request', reqStatus:'요청', reqType:document.getElementById('rqType').value,
     items, product:items[0].name, reqFor:v('rqFor'), reqBy:v('rqBy'),
-    reqWhen:v('rqWhen'), targetDate:v('rqTarget'), reqWhy:v('rqWhy'),
+    reqWhenType:document.getElementById('rqWhenType').value,
+    reqWhen:(function(){ const t=document.getElementById('rqWhenType').value;
+      const o=WHEN_OPTS.find(x=>x.k===t);
+      return (t==='날짜 지정') ? v('rqWhen') : (o&&o.f?o.f():''); })(),
+    targetDate:v('rqTarget'), reqWhy:v('rqWhy'),
     date:new Date().toISOString().slice(0,10), reqAt:new Date().toISOString() };
   const makers=[...new Set(items.map(x=>x.maker).filter(Boolean))];
   const rec={ id, date:st.date, ingredient:reqTitle(st), brand:'', category:'요청', maker:makers.join(', '),
@@ -3324,6 +3367,7 @@ async function selectReq(id, keep){
       <div style="font-size:11.5px;color:var(--muted)">${esc(st.reqType||'샘플 요청')} · ${esc(r.date||'')}${st.reqBy?' · '+esc(st.reqBy):''} · ${esc(st.reqFor||'')}</div></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="bd-btn" onclick="printRequest('${id}')" title="A4 1장 — 구매팀·거래처 전달용"><i class="fa-solid fa-file-pdf mr-1"></i>요청서 PDF</button>
+      <button class="bd-btn" style="color:#c0433a" title="이 요청을 삭제합니다" onclick="delRequest('${id}')"><i class="fa-solid fa-trash"></i></button>
       ${(stt==='샘플 입고'&&reqItems(st).length===1)?`<button class="bd-btn pri" onclick="reqToVerification('${id}',0)"><i class="fa-solid fa-flask-vial mr-1"></i>이 요청으로 검증 시작</button>`:''}
     </div>
   </div>
@@ -3338,7 +3382,7 @@ async function selectReq(id, keep){
   </div>
   <div class="bd-sec"><div class="bd-h">요청 내용</div>
     <table class="bd-t"><tbody>
-      ${kv('요청 사유', st.reqWhy)}${kv('희망 입고일', st.reqWhen)}${kv('도입 목표', st.targetDate)}
+      ${kv('요청 사유', st.reqWhy)}${kv('희망 입고', whenLabel(st))}${kv('도입 목표', st.targetDate)}
     </tbody></table></div>
   <div class="bd-sec"><div class="bd-h">요청 품목 ${reqItems(st).length}건</div>
     ${reqItemRows(st, id, stt)}</div>
@@ -3354,6 +3398,23 @@ async function selectReq(id, keep){
   </div>`;
   loadReqComments(id);
   if(!keep && window.innerWidth<=860) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+// 잘못 올린 요청을 지운다. 슬랙에는 아무것도 나가지 않는다(알림은 등록·상태변경에만 붙어 있다).
+async function delRequest(id){
+  const r=REQS.find(x=>x.id===id); if(!r) return;
+  if(!confirm('이 요청을 삭제할까요?
+
+  '+reqTitle(r.st)+'
+
+협의 기록도 함께 지워집니다. 되돌릴 수 없습니다.
+(이미 슬랙에 나간 알림은 지워지지 않습니다)')) return;
+  try{
+    await sb.from('qc_comments').delete().eq('report_id', id);
+    const d=await sb.from('qc_reports').delete().eq('id', id);
+    if(d.error) throw d.error;
+    RSEL=null; REQS=[]; await loadRequests();
+    toast('요청을 삭제했습니다');
+  }catch(e){ toast('삭제 실패: '+(e.message||e)); }
 }
 async function saveReqStatus(id, v){
   const m=document.getElementById('rqSaveMsg'); if(m) m.textContent='저장 중…';
@@ -3408,7 +3469,7 @@ function requestHTML(st, meta){
     </table>
     <div class="hs-band">
       <div class="hs-b"><div class="l">진행 상태</div><div class="v">${g('reqStatus')||'요청'}</div></div>
-      <div class="hs-b"><div class="l">희망 입고일</div><div class="v">${g('reqWhen')||'-'}</div></div>
+      <div class="hs-b"><div class="l">희망 입고</div><div class="v">${esc(whenLabel(st))||'-'}</div></div>
       <div class="hs-b"><div class="l">도입 목표</div><div class="v">${g('targetDate')||'-'}</div></div>
     </div>
     <h3>요청 품목 ${reqItems(st).length}건</h3>
