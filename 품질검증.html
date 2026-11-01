@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261101230937">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261101231057">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3402,12 +3402,7 @@ async function selectReq(id, keep){
 // 잘못 올린 요청을 지운다. 슬랙에는 아무것도 나가지 않는다(알림은 등록·상태변경에만 붙어 있다).
 async function delRequest(id){
   const r=REQS.find(x=>x.id===id); if(!r) return;
-  if(!confirm('이 요청을 삭제할까요?
-
-  '+reqTitle(r.st)+'
-
-협의 기록도 함께 지워집니다. 되돌릴 수 없습니다.
-(이미 슬랙에 나간 알림은 지워지지 않습니다)')) return;
+  if(!confirm('이 요청을 삭제할까요? — ' + reqTitle(r.st) + '  /  협의 기록도 함께 지워지고 되돌릴 수 없습니다. 이미 슬랙에 나간 알림은 지워지지 않습니다.')) return;
   try{
     await sb.from('qc_comments').delete().eq('report_id', id);
     const d=await sb.from('qc_reports').delete().eq('id', id);
