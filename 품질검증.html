@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261101231057">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261101231309">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1250,7 +1250,7 @@ function rowItem(key,it){
 
 function presetDefaults(){
   const set=(k,v)=>{ const el=document.querySelector(`[data-k="${k}"]`); if(el&&!el.value&&!(k in state)&&v) el.value=v; };
-  const dEl=document.querySelector('[data-k=date]'); if(dEl&&!state.date&&!dEl.value) dEl.value=new Date().toISOString().slice(0,10);
+  const dEl=document.querySelector('[data-k=date]'); if(dEl&&!state.date&&!dEl.value) dEl.value=isoDate();
   set('product',C.ingredient); set('oldProduct',C.oldProduct); set('newProduct',C.newProduct); set('purpose',C.purpose);
 }
 
@@ -1428,6 +1428,9 @@ function bindItemVerdicts(){
 }
 function applySkips(){ document.querySelectorAll('.qc-item').forEach(item=>{ const b=item.querySelector('.iv[data-vg]'); if(!b)return; item.classList.toggle('item-skip', state[b.dataset.vg+'_v']==='생략'); }); }
 // ── 인쇄용 표(엑셀식) 생성 ──
+// 날짜는 현지 기준으로 만든다. toISOString() 은 UTC 라 한국 오전엔 하루가 빠진다.
+function isoDate(d){ d=d||new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function tableFor(groups,prefix){
   const cols=activeCols(); const total=2+cols.length;
@@ -3163,10 +3166,10 @@ function fridayOf(weekOffset){
   const d=new Date(); const day=d.getDay()===0?7:d.getDay();
   let diff=5-day; if(diff<0) diff+=7;                    // 토·일이면 다음 주 금요일
   d.setDate(d.getDate()+diff+(weekOffset||0)*7);
-  return d.toISOString().slice(0,10);
+  return isoDate(d);
 }
-function endOfMonth(){ const d=new Date(); return new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10); }
-function addDaysISO(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function endOfMonth(){ const d=new Date(); return isoDate(new Date(d.getFullYear(), d.getMonth()+1, 0)); }
+function addDaysISO(n){ const d=new Date(); d.setDate(d.getDate()+n); return isoDate(d); }
 const WHEN_OPTS=[
   {k:'이번 주 안',   f:()=>fridayOf(0)},
   {k:'다음 주까지',  f:()=>fridayOf(1)},
@@ -3295,7 +3298,7 @@ function renderRequests(){
 }
 function openNewReq(){
   const d=document.getElementById('reqForm'); if(d) d.remove();
-  const today=new Date().toISOString().slice(0,10);
+  const today=isoDate();
   const w=document.createElement('div'); w.id='reqForm';
   w.style.cssText='position:fixed;inset:0;background:rgba(29,27,24,.45);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px';
   w.innerHTML=`<div class="bd-card" style="max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:18px 20px">
@@ -3344,7 +3347,7 @@ async function saveNewReq(){
       const o=WHEN_OPTS.find(x=>x.k===t);
       return (t==='날짜 지정') ? v('rqWhen') : (o&&o.f?o.f():''); })(),
     targetDate:v('rqTarget'), reqWhy:v('rqWhy'),
-    date:new Date().toISOString().slice(0,10), reqAt:new Date().toISOString() };
+    date:isoDate(), reqAt:new Date().toISOString() };
   const makers=[...new Set(items.map(x=>x.maker).filter(Boolean))];
   const rec={ id, date:st.date, ingredient:reqTitle(st), brand:'', category:'요청', maker:makers.join(', '),
     verdict:'', data:{ config:null, state:st, photoKeys:[] }, updated_at:new Date().toISOString() };
@@ -3518,7 +3521,7 @@ function createNew(){
   if(!prod){ alert('제품명을 입력하세요.'); return; }
   document.getElementById('shNew').style.display='none';
   CURRENT_ID=null; uploadedPhotos={};
-  const init={ product:prod, date:new Date().toISOString().slice(0,10), store:'', inspector:'', brands:['인생아구찜'], _type:key };
+  const init={ product:prod, date:isoDate(), store:'', inspector:'', brands:['인생아구찜'], _type:key };
   // 샘플 요청에서 넘어온 경우 — 적은 내용을 다시 치게 하지 않는다
   const fromReq = window.__FROM_REQ ? (REQS.find(x=>x.id===window.__FROM_REQ)||null) : null;
   if(fromReq){
