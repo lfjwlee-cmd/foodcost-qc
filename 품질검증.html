@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261101233253">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261101233600">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2610,7 +2610,7 @@ async function loadNativeBoard(){
     const {data,error}=await sb.from('qc_reports')
       .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived,kind:data->state->>kind');
     if(error) throw error;
-    NBOARD=(data||[]).filter(r=>r.kind!=='request').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+    NBOARD=(data||[]).filter(r=>!r.kind).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
     let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
       if(!c.error&&c.data) c.data.forEach(x=>{ cm[x.report_id]=(cm[x.report_id]||0)+1; }); }catch(e){}
     NBOARD.forEach(r=> r.cmt=cm[r.id]||0);
@@ -3042,7 +3042,7 @@ async function loadHomeBoard(){
     const {data:data0,error}=await sb.from('qc_reports')
       .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate,arch:data->state->>archived,kind:data->state->>kind');
     if(error||!data0) { box.innerHTML=''; return; }
-    const data=data0.filter(r=>!r.arch && r.kind!=='request');   // 요약은 현재 자료만 — 아래 목록과 숫자가 어긋나면 안 된다
+    const data=data0.filter(r=>!r.arch && !r.kind);   // 요약은 현재 자료만 — 아래 목록과 숫자가 어긋나면 안 된다
     const now=new Date();
     const late=data.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
     const open=data.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
@@ -3067,7 +3067,7 @@ async function loadReports(){
     const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at,arch:data->state->>archived,kind:data->state->>kind').order('updated_at',{ascending:false});
     const {data,error}=await withTimeout(q,12000);
     if(error) throw error;
-    REPORTS=(data||[]).filter(r=>r.kind!=='request'); renderReports(); loadHomeBoard(); loadReqBadge();
+    REPORTS=(data||[]).filter(r=>!r.kind); renderReports(); loadHomeBoard(); loadReqBadge();
   }catch(e){ box.innerHTML='<p class="text-rose-500 text-sm p-6 text-center">불러오기 오류: '+esc(e.message||String(e))+'<br><button onclick="loadReports()" style="margin-top:8px;text-decoration:underline;color:#1d1b18">다시 시도</button></p>'; }
 }
 function vBadge(v){ const m={'○':['#2f8f5b','사용 가능'],'△':['#c9922b','조건부'],'×':['#c0433a','사용 불가']}[v]; return m?`<span style="color:${m[0]};font-weight:800">${v} ${m[1]}</span>`:'<span class="text-slate-400">미정</span>'; }
