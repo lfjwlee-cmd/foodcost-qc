@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261101233600">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261102022122">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -711,6 +711,7 @@ tailwind.config = { theme: { extend: {
         <select class="fld fld-sm no-print" data-k="nextAction">
           <option value="">선택…</option>
           <option>도입 진행</option>
+          <option>단가 협상 요청</option>
           <option>최종 테스트 진행</option>
           <option>디벨롭 · 사양 변경 요청</option>
           <option>재샘플 요청</option>
@@ -1861,6 +1862,7 @@ function usability(v, act){
   if(act==='도입 진행') return '도입 가능';
   if(act==='개발 중단') return '채택 불가';
   if(act==='디벨롭 · 사양 변경 요청'||act==='재샘플 요청') return '조건 충족 시 가능';
+  if(act==='단가 협상 요청') return '단가 합의 시 가능';
   if(act==='최종 테스트 진행') return '최종 확인 단계';
   if(act==='보류 — 조건부 재검토') return '보류';
   if(v==='○') return '사용 가능';
@@ -2590,8 +2592,8 @@ function boardRowKey(e){
   else if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.currentTarget.click(); }
 }
 function toggleGrp(i){ const e=BGRP[i]; if(!e) return; const k=e[0]; BOPEN[k]=(BOPEN[k]===false); renderNativeBoard(); }
-const ACT_LIST=['도입 진행','최종 테스트 진행','디벨롭 · 사양 변경 요청','재샘플 요청','보류 — 조건부 재검토','개발 중단'];
-const ACT_COLOR={'도입 진행':'#2f8f5b','최종 테스트 진행':'#4a72a8','디벨롭 · 사양 변경 요청':'#c9922b',
+const ACT_LIST=['도입 진행','단가 협상 요청','최종 테스트 진행','디벨롭 · 사양 변경 요청','재샘플 요청','보류 — 조건부 재검토','개발 중단'];
+const ACT_COLOR={'도입 진행':'#2f8f5b','단가 협상 요청':'#4a72a8','최종 테스트 진행':'#4a72a8','디벨롭 · 사양 변경 요청':'#c9922b',
   '재샘플 요청':'#c9922b','보류 — 조건부 재검토':'#6f6b64','개발 중단':'#c0433a','':'#9a958d'};
 const VCOLOR={'○':'#2f8f5b','△':'#c9922b','×':'#c0433a'};
 const VWORD={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불가'};
