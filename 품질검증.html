@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261105003933">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261105004453">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3136,9 +3136,10 @@ async function delReport(id){ if(!confirm('이 검증을 삭제할까요? (되�
    샘플 요청을 남기고 진행 단계를 직접 올린다(구매공급팀과는 앱 밖에서 주고받는다).
    샘플이 들어오면 같은 건을 그대로 검증으로 전환한다(입력한 내용이 그대로 넘어간다). */
 const REQ_STATUS=[
-  {k:'요청',          c:'#6f6b64', d:'메뉴개발팀이 올림'},
-  {k:'접수',          c:'#4a72a8', d:'구매공급팀에 전달함'},
-  {k:'거래처 컨택 중', c:'#c9922b', d:'업체 문의·견적 진행'},
+  {k:'요청',          c:'#6f6b64', d:'작성만 해 둔 상태 — 아직 전달 전'},
+  {k:'접수',          c:'#4a72a8', d:'구매공급팀에 전달함 — 회신 대기'},
+  {k:'거래처 컨택 중', c:'#c9922b', d:'업체 문의·견적 진행 중이라고 회신받음'},
+  {k:'입고 예정',      c:'#4a72a8', d:'입고일 확정 — 도착 대기'},
   {k:'샘플 입고',      c:'#2f8f5b', d:'도착 — 검증 시작 가능'},
   {k:'보류',          c:'#9a958d', d:'조건 미정·대기'},
   {k:'반려',          c:'#c0433a', d:'진행 불가'}
@@ -3256,8 +3257,9 @@ async function loadRequests(){
 }
 function renderRequests(){
   const box=document.getElementById('shPanelReq'); if(!box) return;
-  const live=REQS.filter(r=>!['샘플 입고','반려'].includes(r.st.reqStatus||'요청'));
-  const done=REQS.filter(r=> ['샘플 입고','반려'].includes(r.st.reqStatus||'요청'));
+  const DONE_ST=['샘플 입고','반려'];
+  const live=REQS.filter(r=>!DONE_ST.includes(r.st.reqStatus||'요청'));
+  const done=REQS.filter(r=> DONE_ST.includes(r.st.reqStatus||'요청'));
   const card=r=>{
     const stt=r.st.reqStatus||'요청', c=RQC(stt);
     const want=r.st.reqWant||'';
@@ -3279,10 +3281,10 @@ function renderRequests(){
   const cnt=k=>REQS.filter(r=>(r.st.reqStatus||'요청')===k).length;
   box.innerHTML=`
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:12px">
-    ${tile('요청 대기',cnt('요청'),cnt('요청')?'var(--accent)':null)}
-    ${tile('접수·컨택 중',cnt('접수')+cnt('거래처 컨택 중'))}
-    ${tile('샘플 입고',cnt('샘플 입고'),'#2f8f5b')}
-    ${tile('전체 요청',REQS.length)}
+    ${tile('전달 전',cnt('요청'),cnt('요청')?'var(--accent)':null)}
+    ${tile('회신 대기',cnt('접수')+cnt('거래처 컨택 중'))}
+    ${tile('입고 예정',cnt('입고 예정'),cnt('입고 예정')?'#4a72a8':null)}
+    ${tile('입고 완료',cnt('샘플 입고'),'#2f8f5b')}
   </div>
   <div class="bd-wrap">
     <div class="bd-card" style="overflow:hidden">
@@ -3385,9 +3387,14 @@ async function selectReq(id, keep){
       <span id="rqSaveMsg" style="font-size:11.5px;color:var(--faint);margin-left:4px"></span>
     </div>
     <div style="font-size:11.5px;color:var(--muted);margin-top:6px">${esc((REQ_STATUS.find(x=>x.k===stt)||{}).d||'')}${st.reqStatusAt?' · 마지막 변경 '+esc(String(st.reqStatusAt).slice(0,16).replace('T',' ')):''}</div>
+    ${(stt==='입고 예정'||st.reqETA)?`<div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:700;color:var(--ink)"><i class="fa-regular fa-calendar-check mr-1" style="color:#4a72a8"></i>입고 예정일</span>
+      <input type="date" class="bd-f" style="flex:0 0 150px" value="${esc(st.reqETA||'')}" onchange="saveReqField('${id}','reqETA',this.value)">
+      ${(st.reqETA&&st.reqArrived&&st.reqETA!==st.reqArrived)?`<span style="font-size:11.5px;color:var(--warn)">실제 입고와 ${Math.abs(Math.round((new Date(st.reqArrived)-new Date(st.reqETA))/86400000))}일 차이</span>`:''}
+    </div>`:''}
     ${(stt==='샘플 입고'||st.reqArrived)?`<div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
       <span style="font-size:12px;font-weight:700;color:var(--ink)"><i class="fa-solid fa-truck-ramp-box mr-1" style="color:#2f8f5b"></i>샘플 입고일</span>
-      <input type="date" class="bd-f" style="flex:0 0 150px" value="${esc(st.reqArrived||'')}" onchange="saveReqArrived('${id}',this.value)">
+      <input type="date" class="bd-f" style="flex:0 0 150px" value="${esc(st.reqArrived||'')}" onchange="saveReqField('${id}','reqArrived',this.value)">
       ${leadDays(st)!==null?`<span style="font-size:11.5px;color:var(--muted)">요청일로부터 ${leadDays(st)}일</span>`:''}
     </div>`:''}
   </div>
@@ -3440,15 +3447,15 @@ async function saveReqStatus(id, v){
   }catch(e){ if(m) m.textContent='저장 실패'; toast('저장 실패: '+(e.message||e)); }
 }
 // 입고일은 상태와 따로 고칠 수 있어야 한다(금요일에 온 걸 월요일에 기록하는 일이 흔하다)
-async function saveReqArrived(id, v){
+async function saveReqField(id, field, v){
   const m=document.getElementById('rqSaveMsg'); if(m) m.textContent='저장 중…';
   try{
     const {data,error}=await sb.from('qc_reports').select('data').eq('id',id).single();
     if(error) throw error;
-    const d=data.data||{}; d.state=d.state||{}; d.state.reqArrived=v;
+    const d=data.data||{}; d.state=d.state||{}; d.state[field]=v;
     const up=await sb.from('qc_reports').update({data:d, updated_at:new Date().toISOString()}).eq('id',id);
     if(up.error) throw up.error;
-    const r=REQS.find(x=>x.id===id); if(r) r.st.reqArrived=v;
+    const r=REQS.find(x=>x.id===id); if(r) r.st[field]=v;
     if(m){ m.textContent='저장됨'; setTimeout(()=>{ if(m) m.textContent=''; },1600); }
     renderRequests();
   }catch(e){ if(m) m.textContent='저장 실패'; toast('저장 실패: '+(e.message||e)); }
