@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261105012507">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261105020446">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3158,13 +3158,15 @@ async function delReport(id){ if(!confirm('이 검증을 삭제할까요? (되�
 /* ═══════════ 샘플 요청 ═══════════
    샘플 요청을 남기고 진행 단계를 직접 올린다(구매공급팀과는 앱 밖에서 주고받는다).
    샘플이 들어오면 같은 건을 그대로 검증으로 전환한다(입력한 내용이 그대로 넘어간다). */
+// 설명은 '누가 했다'가 아니라 '지금 어떤 상태다'로 쓴다.
+// 그래야 메뉴개발팀이 읽어도, 구매공급팀이 읽어도 같은 뜻이 된다.
 const REQ_STATUS=[
-  {k:'요청',          c:'#6f6b64', d:'작성만 해 둔 상태 — 아직 전달 전'},
-  {k:'접수',          c:'#4a72a8', d:'구매공급팀에 전달함 — 회신 대기'},
-  {k:'거래처 컨택 중', c:'#c9922b', d:'업체 문의·견적 진행 중이라고 회신받음'},
+  {k:'요청',          c:'#6f6b64', d:'작성됨 — 아직 전달 전'},
+  {k:'접수',          c:'#4a72a8', d:'구매공급팀 접수됨 — 회신 대기'},
+  {k:'거래처 컨택 중', c:'#c9922b', d:'업체 문의·견적 진행 중'},
   {k:'입고 예정',      c:'#4a72a8', d:'입고일 확정 — 도착 대기'},
   {k:'샘플 입고',      c:'#2f8f5b', d:'도착 — 검증 시작 가능'},
-  {k:'보류',          c:'#9a958d', d:'조건 미정·대기'},
+  {k:'보류',          c:'#9a958d', d:'조건 미정 — 대기'},
   {k:'반려',          c:'#c0433a', d:'진행 불가'}
 ];
 const RQC=k=>(REQ_STATUS.find(x=>x.k===k)||{}).c||'#9a958d';
@@ -3331,7 +3333,7 @@ function openNewReq(){
   w.style.cssText='position:fixed;inset:0;background:rgba(29,27,24,.45);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px';
   w.innerHTML=`<div class="bd-card" style="max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:18px 20px">
     <div style="font-size:17px;font-weight:800;margin-bottom:3px">샘플 요청</div>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 14px">이 내용으로 구매공급팀에 전달합니다. 수치로 적을수록 한 번에 끝납니다.</p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 14px">이 내용 그대로 거래처 문의에 쓰입니다. 수치로 적을수록 한 번에 끝납니다.</p>
     <label class="lbl">요청 유형</label>
     <select id="rqType" class="fld fld-sm">${REQ_KINDS.map(k=>`<option>${k}</option>`).join('')}</select>
     <div class="grid grid-cols-2 gap-2.5 mt-2.5">
