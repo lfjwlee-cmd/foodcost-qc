@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261105005318">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261105005618">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -945,8 +945,10 @@ function isAutoNote(t){ t=(t||'').trim(); if(!t) return true; if(AUTO_EXACT.incl
 const SAMPLE_NAMES=['샘플A','샘플B','샘플C','샘플D'];
 function toggleNoBase(on){
   state.noBase=!!on;
-  const cols=activeCols(), from=on?COL_NAMES:SAMPLE_NAMES, to=on?SAMPLE_NAMES:COL_NAMES;
-  cols.forEach((c,i)=>{ if(c.name===from[i]) c.name=to[i]||c.name; });   // 손 안 댈 기본 이름만 자동 교체
+  const cols=activeCols(), to=on?SAMPLE_NAMES:COL_NAMES;
+  // 자동으로 붙은 이름이면 위치에 맞게 바꾼다. 직접 쓴 이름은 건드리지 않는다.
+  const AUTO=[...COL_NAMES, ...SAMPLE_NAMES];
+  cols.forEach((c,i)=>{ if(AUTO.includes(c.name)) c.name=to[i]||c.name; });
   persist(); build();
   toast(on?'기존 제품 없음 — 전 열을 판정합니다':'첫 열을 기준(기존)으로 다룹니다');
 }
@@ -979,7 +981,17 @@ function addCol(){ const cols=activeCols(); if(cols.length>=4)return; const used
   const dirty=p=>Object.keys(state).some(k=>k==='colpic_'+p||k.endsWith('_'+p)||k.endsWith('_'+p+'_v'));
   const id=COL_IDS.find(p=>!used.includes(p)&&!dirty(p))||('c'+Date.now().toString(36));
   cols.push({id, name:(state.noBase?SAMPLE_NAMES:COL_NAMES)[cols.length]||('열'+(cols.length+1)), desc:''}); persist(); build(); }
-function delCol(i){ const cols=activeCols(); if(cols.length<=1)return; cols.splice(i,1); persist(); build(); }
+function delCol(i){
+  const cols=activeCols(); if(cols.length<=1) return;
+  const id=cols[i].id;
+  cols.splice(i,1);
+  // 지운 열의 값까지 치운다. 남겨 두면 엑셀·공유본·종합평가에 유령 데이터로 따라간다.
+  Object.keys(state).forEach(k=>{
+    if(k==='colpic_'+id || k.endsWith('_'+id) || k.endsWith('_'+id+'_v') || k.endsWith('_'+id+'_note')) delete state[k];
+  });
+  Object.keys(photosObj||{}).forEach(k=>{ if(k.indexOf(id)>=0) delete photosObj[k]; });
+  persist(); build();
+}
 
 // ── 그룹(평가 항목 묶음) 제외/사용 ──
 function grpKey(prefix,gi){ return 'grpoff_'+prefix+'_'+gi; }
