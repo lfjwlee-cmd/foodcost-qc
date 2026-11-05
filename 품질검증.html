@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261105003206">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261105003933">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3432,7 +3432,9 @@ async function saveReqStatus(id, v){
     if(v==='샘플 입고' && !d.state.reqArrived) d.state.reqArrived = isoDate();
     const up=await sb.from('qc_reports').update({data:d, updated_at:new Date().toISOString()}).eq('id',id);
     if(up.error) throw up.error;
-    const r=REQS.find(x=>x.id===id); if(r){ r.st.reqStatus=v; r.st.reqStatusAt=d.state.reqStatusAt; }
+    const r=REQS.find(x=>x.id===id);
+    if(r){ r.st.reqStatus=v; r.st.reqStatusAt=d.state.reqStatusAt;
+           r.st.reqArrived=d.state.reqArrived; }   // 자동으로 찍힌 입고일도 같이 받아온다
     if(m){ m.textContent='저장됨'; setTimeout(()=>{ if(m) m.textContent=''; },1600); }
     renderRequests();
   }catch(e){ if(m) m.textContent='저장 실패'; toast('저장 실패: '+(e.message||e)); }
