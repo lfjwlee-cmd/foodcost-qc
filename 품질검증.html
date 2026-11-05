@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261105004453">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261105005318">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2598,9 +2598,13 @@ const ACT_COLOR={'도입 진행':'#2f8f5b','단가 협상 요청':'#4a72a8','최
 const VCOLOR={'○':'#2f8f5b','△':'#c9922b','×':'#c0433a'};
 const VWORD={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불가'};
 
+// 기한은 날짜 단위다. 시각까지 넣고 재면 오늘 오전에 본 '7일 뒤'가 8일로 나온다.
+function daysUntil(d){
+  return Math.round((new Date(d+'T00:00:00') - new Date(isoDate()+'T00:00:00'))/86400000);
+}
 function dueInfo(d){
   if(!d) return null;
-  const dd=Math.ceil((new Date(d+'T23:59:59')-new Date())/86400000);
+  const dd=daysUntil(d);
   if(dd<0) return {t:d+' · '+(-dd)+'일 초과', c:'#c0433a', hot:1};
   if(dd<=7) return {t:d+' · D-'+dd, c:'#c0433a', hot:1};
   return {t:d, c:'#9a958d', hot:0};
@@ -2639,7 +2643,7 @@ function inScope(r, sc){
 // 거래처 회신·재샘플 발송에 3일은 이미 늦다. 주 단위로 보는 팀 기준 D-7.
 function isLate(r){
   if(!r.due || TERMINAL.includes(r.action||'')) return false;
-  return Math.ceil((new Date(r.due+'T23:59:59')-new Date())/86400000) <= 7;
+  return daysUntil(r.due) <= 7;
 }
 // 타일에서 고르는 빠른 보기 — 같은 타일을 다시 누르면 해제
 const QUICK={
@@ -3464,7 +3468,7 @@ async function saveReqField(id, field, v){
 function leadDays(st){
   if(!st.reqArrived || !st.date) return null;
   const d=Math.round((new Date(st.reqArrived+'T00:00:00')-new Date(st.date+'T00:00:00'))/86400000);
-  return (d>=0 && d<400) ? d : null;
+  return (d>=0 && d<400) ? d : null;   // 날짜끼리 빼므로 시각 영향 없음
 }
 async function loadReqComments(id){
   const box=document.getElementById('rqCmts'); if(!box) return;
