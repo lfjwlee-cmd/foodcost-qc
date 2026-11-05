@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261105005618">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261105012507">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -564,7 +564,7 @@ tailwind.config = { theme: { extend: {
       <p class="text-[11px] text-slate-400 mb-2">검증 내용과 분리해 남깁니다. 작성자·팀·시각이 함께 기록됩니다.</p>
       <div id="cmtBox" class="space-y-2.5 mb-3"></div>
       <div class="grid grid-cols-2 gap-2 mb-2">
-        <input id="cmtTeam" type="hidden" value="메뉴개발팀">
+        <select id="cmtTeam" class="fld fld-sm" onchange="rememberTeam(this.value)"><option>메뉴개발팀</option><option>구매공급팀</option></select>
         <input id="cmtWho" class="fld fld-sm" placeholder="작성자(성명/직급)">
       </div>
       <textarea id="cmtBody" class="fld fld-sm" rows="2" placeholder="협의 내용 · 회신 · 요청 사항"></textarea>
@@ -1444,6 +1444,13 @@ function applySkips(){ document.querySelectorAll('.qc-item').forEach(item=>{ con
 // 날짜는 현지 기준으로 만든다. toISOString() 은 UTC 라 한국 오전엔 하루가 빠진다.
 function isoDate(d){ d=d||new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// 마지막에 고른 팀을 이 브라우저에 기억한다. 구매공급팀이 쓸 때 매번 바꾸지 않게.
+const TEAM_KEY='qc_team';
+function myTeam(){ try{ return localStorage.getItem(TEAM_KEY) || '메뉴개발팀'; }catch(e){ return '메뉴개발팀'; } }
+function rememberTeam(v){ try{ localStorage.setItem(TEAM_KEY, v); }catch(e){} }
+function applyTeamDefault(root){
+  (root||document).querySelectorAll('#cmtTeam,#bdTeam,#rqTeam').forEach(el=>{ if(el.tagName==='SELECT') el.value=myTeam(); });
+}
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function tableFor(groups,prefix){
   const cols=activeCols(); const total=2+cols.length;
@@ -2580,7 +2587,7 @@ function shTab(name){
 }
 function showList(){ document.getElementById('shList').style.display='block'; document.getElementById('appWrap').style.display='none'; document.getElementById('edBar').style.display='none'; loadReports();
   const h=(location.hash||'').replace('#',''); shTab(h||'board'); }
-function showEditor(){ document.getElementById('shList').style.display='none'; document.getElementById('appWrap').style.display=''; document.getElementById('edBar').style.display='flex'; if(typeof populateEdType==='function') populateEdType(); window.scrollTo(0,0); }
+function showEditor(){ try{ applyTeamDefault(); }catch(e){} document.getElementById('shList').style.display='none'; document.getElementById('appWrap').style.display=''; document.getElementById('edBar').style.display='flex'; if(typeof populateEdType==='function') populateEdType(); window.scrollTo(0,0); }
 
 /* ---------- 목록 ---------- */
 let REPORTS=[];
@@ -2872,7 +2879,7 @@ async function selectBoardItem(id, keep){
     if(error) throw error;
     BDETAIL={id, ...data};
     renderBoardDetail();
-    loadBoardComments(id);
+    loadBoardComments(id); applyTeamDefault();
     loadBoardPhotos(id, (data.data&&data.data.photoKeys)||[]);
     if(!keep && window.innerWidth<=860) el.scrollIntoView({behavior:'smooth',block:'start'});
   }catch(e){ el.innerHTML='<p style="padding:24px;color:#c0433a;font-size:13px">불러오기 실패 — '+esc(e.message||e)+'</p>'; }
@@ -2943,10 +2950,10 @@ function renderBoardDetail(){
     ${asks.map(r=>`<tr><td><b>${esc(r.item||'-')}</b></td><td class="n">${esc(r.now||'-')}</td><td class="n">${esc(r.goal||'-')}</td><td>${esc(r.req||'')}</td></tr>`).join('')}
   </tbody></table></div>`:''}
   <div class="bd-sec">
-    <div class="bd-h">기록 · 메모 <span style="font-weight:600;color:#d4d0c8">진행 상황을 남겨 두면 나중에 근거가 됩니다</span></div>
+    <div class="bd-h">협의 기록 · 메모 <span style="font-weight:600;color:#d4d0c8">메뉴개발팀 ↔ 구매공급팀</span></div>
     <div id="bdCmts" style="display:flex;flex-direction:column;gap:9px;margin-bottom:9px"></div>
     <div style="display:flex;gap:6px;margin-bottom:6px">
-      <input id="bdTeam" type="hidden" value="메뉴개발팀">
+      <select id="bdTeam" class="bd-f" style="flex:0 0 118px" onchange="rememberTeam(this.value)"><option>메뉴개발팀</option><option>구매공급팀</option></select>
       <input id="bdWho" class="bd-f" style="flex:1" placeholder="작성자">
     </div>
     <textarea id="bdBody" class="bd-f" style="width:100%;resize:vertical" rows="2" placeholder="협의 내용 · 회신 · 요청"></textarea>
@@ -3421,16 +3428,16 @@ async function selectReq(id, keep){
   <div class="bd-sec"><div class="bd-h">요청 품목 ${reqItems(st).length}건</div>
     ${reqItemRows(st, id, stt)}</div>
   <div class="bd-sec">
-    <div class="bd-h">기록 · 메모 <span style="font-weight:600;color:var(--line-strong)">업체 회신·입고 예정 등을 남겨 두세요</span></div>
+    <div class="bd-h">협의 기록 · 메모 <span style="font-weight:600;color:var(--line-strong)">업체 회신·입고 예정 등</span></div>
     <div id="rqCmts" style="display:flex;flex-direction:column;gap:9px;margin-bottom:9px"></div>
     <div style="display:flex;gap:6px;margin-bottom:6px">
-      <input id="rqTeam" type="hidden" value="메뉴개발팀">
+      <select id="rqTeam" class="bd-f" style="flex:0 0 118px" onchange="rememberTeam(this.value)"><option>메뉴개발팀</option><option>구매공급팀</option></select>
       <input id="rqWho" class="bd-f" style="flex:1" placeholder="작성자">
     </div>
     <textarea id="rqBody" class="bd-f" style="width:100%;resize:vertical" rows="2" placeholder="회신 · 견적 · 입고 예정일 등"></textarea>
     <button class="bd-btn pri" style="width:100%;margin-top:6px" onclick="postReqComment('${id}')"><i class="fa-solid fa-paper-plane mr-1"></i>코멘트 남기기</button>
   </div>`;
-  loadReqComments(id);
+  loadReqComments(id); applyTeamDefault();
   if(!keep && window.innerWidth<=860) el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 // 잘못 올린 요청을 지운다. 슬랙에는 아무것도 나가지 않는다(알림은 등록·상태변경에만 붙어 있다).
@@ -3702,7 +3709,7 @@ function injectShell(){
   list.innerHTML=`<div style="position:sticky;top:0;z-index:5;background:#f4f2ee;border-bottom:1px solid #d4d0c8">
     <div style="max-width:1280px;margin:0 auto;padding:16px 16px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
       <div><h1 style="font-size:21px;font-weight:800;color:#1d1b18;letter-spacing:-.02em"><i class="fa-solid fa-clipboard-check" style="color:#c1553a"></i> 식자재 검증 센터</h1>
-      <p style="font-size:12px;color:#6f6b64">메뉴개발팀 <span id="shCnt" style="color:#9a958d"></span></p></div>
+      <p style="font-size:12px;color:#6f6b64">메뉴개발팀 · 구매공급팀 <span id="shCnt" style="color:#9a958d"></span></p></div>
       <div style="display:flex;gap:6px"><button onclick="loadReports()" title="목록 새로고침" style="background:#e6e3dd;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-rotate"></i></button>
       <button onclick="shellLogout()" title="로그아웃" style="background:#e6e3dd;border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer"><i class="fa-solid fa-right-from-bracket"></i></button></div>
     </div>
