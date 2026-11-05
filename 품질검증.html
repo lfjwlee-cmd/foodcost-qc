@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261105021025">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261105021330">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3153,7 +3153,18 @@ function renderReports(){
 function toggleGroupList(mi){ const k=(window.__MKEYS||[])[mi]; if(k==null)return; window.__COLLAPSED=window.__COLLAPSED||{}; window.__COLLAPSED[k]=(window.__COLLAPSED[k]===false); renderReports(); }
 function openReportIdx(i){ const r=(window.__RFLAT||[])[i]; if(r) openReport(r.id); }
 function delReportIdx(i){ const r=(window.__RFLAT||[])[i]; if(r) delReport(r.id); }
-async function delReport(id){ if(!confirm('이 검증을 삭제할까요? (되돌릴 수 없음)'))return; await sb.from('qc_reports').delete().eq('id',id); loadReports(); }
+async function delReport(id){
+  if(!confirm('이 검증을 삭제할까요? (되돌릴 수 없음)')) return;
+  // 대장은 '검증id|열id' 로 행이 따로 쌓인다. 같이 안 지우면 전체 표에 유령 행으로 남는다.
+  try{
+    const {data:lg}=await sb.from('qc_ledger').select('id');
+    const mine=(lg||[]).map(x=>x.id).filter(x=>String(x).split('|')[0]===id);
+    if(mine.length) await sb.from('qc_ledger').delete().in('id',mine);
+  }catch(e){}
+  await sb.from('qc_reports').delete().eq('id',id);
+  try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf(id)>=0) localStorage.removeItem(k); }); }catch(e){}
+  loadReports();
+}
 
 /* ═══════════ 샘플 요청 ═══════════
    샘플 요청을 남기고 진행 단계를 직접 올린다(구매공급팀과는 앱 밖에서 주고받는다).
