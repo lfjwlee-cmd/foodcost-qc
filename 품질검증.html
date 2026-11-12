@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261112234851">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261112235724">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -361,6 +361,15 @@ tailwind.config = { theme: { extend: {
   .bd-ext{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:9px;
     padding-top:9px; border-top:1px dashed var(--line); }
   .bd-ext-l{ font-size:11.5px; font-weight:700; color:var(--muted); margin-right:2px; }
+
+  /* 원료 검증 중복 표시 */
+  .sc-dup{ display:inline-block; margin-left:5px; padding:1px 6px; border-radius:999px;
+    font-size:9.5px; font-weight:800; white-space:nowrap; cursor:help;
+    background:var(--field); color:var(--muted); }
+  .sc-dup.flip{ background:var(--accent-soft); color:#a8462e; }
+  .sc-dup.mk{ background:transparent; color:var(--faint); border:1px solid var(--line); }
+  .sc-dupband{ padding:10px 13px; margin-bottom:12px; font-size:12px;
+    background:#fdf6f3; border-left:3px solid var(--accent); color:#7a3222; }
   @media print{
     @page{ size:A4; margin:10mm; }
     .no-print, #viewBanner{ display:none !important; }
@@ -2968,6 +2977,7 @@ function renderBoardDetail(){
       <button class="bd-btn" onclick="openReport('${BDETAIL.id}')"><i class="fa-solid fa-pen mr-1"></i>검증 열기</button>
       <button class="bd-btn pri" onclick="printHandoffFor('${BDETAIL.id}')"><i class="fa-solid fa-file-arrow-right mr-1"></i>전달서</button>
       <button class="bd-btn" title="${st.archived?'현재 자료로 되돌립니다':'목록에서 숨기고 [예전 자료]에서만 보이게 합니다'}" onclick="saveBoardAction('archived','${st.archived?'':'Y'}')"><i class="fa-solid fa-box-archive mr-1"></i>${st.archived?'현재 자료로':'예전 자료로'}</button>
+      <button class="bd-btn" style="color:var(--bad)" title="이 검증을 완전히 지웁니다 — 되돌릴 수 없습니다" onclick="delFromBoard()"><i class="fa-solid fa-trash mr-1"></i>삭제</button>
     </div>
   </div>
   ${(st.purpose||st.purposeType)?`<div class="bd-sec" style="background:#f0f9ff;border-left:4px solid #0ea5e9">
@@ -3039,6 +3049,30 @@ function toggleCmtBox(btn){
   btn.innerHTML='<i class="fa-solid fa-chevron-'+(clamped?'down':'up')+' mr-1"></i>'+(clamped?'전문 보기':'접기');
 }
 // 현황 화면에서 후속 조치·기한을 바로 저장 — 구매팀이 화면을 떠나지 않게
+// 지우기 전에 무엇이 사라지는지 먼저 보여준다. 숨기면 되는 경우가 더 많다.
+async function delFromBoard(){
+  if(!BDETAIL) return;
+  const st=((BDETAIL.data||{}).state)||{};
+  const n=(st.cols||[]).length, cmt=(NBOARD.find(x=>x.id===BDETAIL.id)||{}).cmt||0;
+  const what=[BDETAIL.ingredient||'(이름 없음)', BDETAIL.date||'', '열 '+n+'개',
+              cmt?('협의 기록 '+cmt+'건'):'', (st.photoRows&&(BDETAIL.data||{}).photoKeys||[]).length?'사진':''].filter(Boolean).join(' · ');
+  if(!confirm('이 검증을 완전히 지울까요?\n\n' + what + '\n\n전체 표의 행과 협의 기록도 함께 사라집니다. 되돌릴 수 없습니다.\n보관만 하려면 [예전 자료로] 를 쓰세요.')) return;
+  const id=BDETAIL.id;
+  try{
+    const {data:lg}=await sb.from('qc_ledger').select('id');
+    const mine=(lg||[]).map(x=>x.id).filter(x=>String(x).split('|')[0]===id);
+    if(mine.length) await sb.from('qc_ledger').delete().in('id',mine);
+  }catch(e){}
+  try{ await sb.from('qc_comments').delete().eq('report_id',id); }catch(e){}
+  const {error}=await sb.from('qc_reports').delete().eq('id',id);
+  if(error){ toast('삭제 실패: '+error.message); return; }
+  try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf(id)>=0) localStorage.removeItem(k); }); }catch(e){}
+  BDETAIL=null; BSEL=null;
+  document.getElementById('boardDetail').innerHTML='<div class="bd-card" style="padding:30px;text-align:center;color:var(--faint);font-size:13px">왼쪽에서 항목을 고르세요.</div>';
+  await loadNativeBoard();
+  toast('삭제했습니다');
+}
+
 // 상태는 후속 조치와 따로 저장한다. 둘을 한 칸에 담으면 "끝났다"와 "다음에 뭘 한다"가 섞인다.
 async function saveStage(k){
   if(!BDETAIL) return;
@@ -3272,6 +3306,26 @@ async function delReport(id){
 let SCRS=[], SCSEL=null, SCRND=0, SCDIRTY={}, scSaveT=null;
 const SC_CRIT=['빛깔','맵기','맛','입자감(식감)','향(풋내)'];
 
+// 같은 후보/업체가 여러 회차에 나오는지 본다. 결과가 뒤집힌 건(제외 → 확정) 특히 중요하다.
+function scMaker(n){ return String(n||'').replace(/\s*(\d+\s*번|[A-Z]|\d+)$/,'').trim() || String(n||''); }
+function scDupMap(){
+  const g=scCur(); const byName={}, byMaker={};
+  if(!g) return {byName, byMaker};
+  (g.st.rounds||[]).forEach(r=>(r.items||[]).forEach(i=>{
+    const rec={date:r.date, name:i.name, final:i.final||'', cat:i.cat||''};
+    (byName[i.name]=byName[i.name]||[]).push(rec);
+    const m=scMaker(i.name);
+    (byMaker[m]=byMaker[m]||[]).push(rec);
+  }));
+  return {byName, byMaker};
+}
+// 회차가 다른데 결과가 갈리면 true
+function scFlip(list){
+  const by={}; list.forEach(x=>{ by[x.date]=by[x.date]||[]; by[x.date].push(scPass(x.final)); });
+  const dates=Object.keys(by); if(dates.length<2) return false;
+  const anyPass=list.some(x=>scPass(x.final)), anyDrop=list.some(x=>scDrop(x.final));
+  return anyPass && anyDrop;
+}
 function scPass(v){ v=String(v||''); return /확정|사용\s*가능|^통과|최종\s*후보/.test(v) && !/제외|탈락/.test(v); }
 function scDrop(v){ return /제외|탈락/.test(String(v||'')); }
 function scNone(v){ return /미실시|^-$|^$/.test(String(v||'').trim()); }
@@ -3321,6 +3375,7 @@ function renderScreens(){
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       ${chips}
       <button class="bd-btn" onclick="scNewGroup()" style="margin-left:auto">+ 새 묶음</button>
+      ${g?`<button class="bd-btn" style="color:var(--bad)" onclick="scDelGroup()" title="이 묶음을 회차째 지웁니다">묶음 삭제</button>`:''}
     </div>
     <div class="bd-card" style="padding:12px 13px;margin-bottom:12px">
       <div class="bd-h" style="margin-bottom:9px">회차 <span style="font-weight:600;color:var(--line-strong)">날짜순 — 새 테스트는 회차로 쌓입니다</span></div>
@@ -3331,6 +3386,23 @@ function renderScreens(){
   renderScRound();
 }
 
+// 같은 이름은 '재시험', 접미사만 다른 같은 업체는 '같은 업체'. 결과가 갈린 건 색을 달리한다.
+function scChip(it, curDate){
+  const {byName, byMaker}=scDupMap();
+  const same=(byName[it.name]||[]).filter(x=>x.date!==curDate);
+  if(same.length){
+    const flip=scFlip(byName[it.name]||[]);
+    const tip=(byName[it.name]||[]).map(x=>x.date+' — '+(x.final||'-')).join(' / ');
+    return `<span class="sc-dup${flip?' flip':''}" title="${escapeHtml(tip)}">${flip?'결과 뒤집힘':'재시험'} ${(byName[it.name]||[]).length}회</span>`;
+  }
+  const mk=scMaker(it.name);
+  const other=(byMaker[mk]||[]).filter(x=>x.date!==curDate);
+  if(other.length && mk!==it.name){
+    const tip=(byMaker[mk]||[]).map(x=>x.date+' '+x.name+' — '+(x.final||'-')).join(' / ');
+    return `<span class="sc-dup mk" title="${escapeHtml(tip)}">같은 업체 ${(byMaker[mk]||[]).length}</span>`;
+  }
+  return '';
+}
 function renderScRound(){
   const host=document.getElementById('scBody'); if(!host) return;
   const g=scCur(), r=scRound();
@@ -3351,7 +3423,7 @@ function renderScRound(){
     rows+='<tr>'
       +(first?`<td class="sc-cat" rowspan="${span}">${escapeHtml(it.cat)}</td>`:'')
       +`<td class="sc-no">${escapeHtml(it.no)}</td>`
-      +`<td class="sc-nm" data-i="${i}" data-k="name" contenteditable>${escapeHtml(it.name)}</td>`
+      +`<td class="sc-nm"><span data-i="${i}" data-k="name" contenteditable>${escapeHtml(it.name)}</span>${scChip(it, r.date)}</td>`
       +SC_CRIT.map(k=>`<td data-i="${i}" data-c="${escapeHtml(k)}" contenteditable>${escapeHtml((it.v||{})[k]||'')}</td>`).join('')
       +stages.map((s,si)=>`<td class="sc-j" style="color:${scColor((it.st||[])[si])}" data-i="${i}" data-s="${si}" contenteditable>${escapeHtml((it.st||[])[si]||'')}</td>`).join('')
       +`<td class="sc-j" style="color:${scColor(it.final)};font-weight:700" data-i="${i}" data-k="final" contenteditable>${escapeHtml(it.final||'')}</td>`
@@ -3371,6 +3443,15 @@ function renderScRound(){
     </div>
 
     ${pass.length?`<div class="bd-card sc-pass"><b>최종 통과 ${pass.length}종</b> — ${pass.map(p=>escapeHtml(p.name)).join(', ')}</div>`:''}
+
+    ${(()=>{ const {byName}=scDupMap();
+      const flips=Object.keys(byName).filter(k=>byName[k].length>1 && scFlip(byName[k]));
+      const reps =Object.keys(byName).filter(k=>byName[k].length>1 && !scFlip(byName[k]));
+      if(!flips.length && !reps.length) return '';
+      return `<div class="bd-card sc-dupband">
+        ${flips.length?`<div><b>회차마다 결과가 갈린 후보 ${flips.length}종</b> — ${flips.map(k=>escapeHtml(k)+' ('+byName[k].map(x=>x.date.slice(5)+' '+(x.final||'-')).join(' → ')+')').join(' · ')}</div>`:''}
+        ${reps.length?`<div style="margin-top:${flips.length?'6px':'0'};color:var(--muted)">다시 시험한 후보 ${reps.length}종 — ${reps.map(k=>escapeHtml(k)).join(', ')}</div>`:''}
+      </div>`; })()}
 
     ${concl?`<details class="bd-card sc-det" open><summary>핵심 결론</summary>
       <table class="sc-cc"><tbody>${concl}</tbody></table></details>`:''}
@@ -3495,6 +3576,15 @@ function scDelRound(){
   const g=scCur(), r=scRound(); if(!g||!r) return;
   if(!confirm('회차 '+(r.date||'')+' 전체를 지울까요? 후보 '+((r.items||[]).length)+'종이 함께 사라집니다. (되돌릴 수 없음)')) return;
   g.st.rounds.splice(SCRND,1); SCRND=0; renderScreens(); scTouch();
+}
+async function scDelGroup(){
+  const g=scCur(); if(!g) return;
+  const rn=(g.st.rounds||[]).length, it=(g.st.rounds||[]).reduce((a,r)=>a+(r.items||[]).length,0);
+  if(!confirm('묶음 "'+g.name+'" 을 통째로 지울까요?\n\n회차 '+rn+'개 · 후보 '+it+'종이 함께 사라집니다.\n되돌릴 수 없습니다.')) return;
+  const {error}=await sb.from('qc_reports').delete().eq('id',g.id);
+  if(error){ toast('삭제 실패: '+error.message); return; }
+  SCRS=SCRS.filter(x=>x.id!==g.id); SCSEL=SCRS.length?SCRS[0].id:null; SCRND=0;
+  renderScreens(); toast('묶음을 지웠습니다');
 }
 async function scNewGroup(){
   const nm=prompt('묶음 이름 (예: 인생아구찜 원료)'); if(nm===null) return;
