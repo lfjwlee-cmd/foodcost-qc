@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261105021330">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261112232318">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -310,6 +310,47 @@ tailwind.config = { theme: { extend: {
   textarea[data-k=comment]{ field-sizing:content; min-height:130px !important; }
   textarea[data-k=improve]{ field-sizing:content; min-height:84px !important; }
   .lbl{ font-size:12.5px; font-weight:600; color:#5a564f; margin-bottom:5px; display:block; }
+
+  /* 원료 검증(스크리닝) */
+  .sc-chip{ border:1.5px solid var(--line); background:var(--surface); color:var(--muted);
+    border-radius:999px; padding:7px 13px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .sc-chip.on{ border-color:var(--accent); background:var(--accent-soft); color:#a8462e; }
+  .sc-tl{ display:flex; gap:7px; flex-wrap:wrap; align-items:stretch; }
+  .sc-rnd{ border:1.5px solid var(--line); background:var(--surface-2); border-radius:10px;
+    padding:8px 12px; cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:2px; }
+  .sc-rnd b{ font-size:13px; color:var(--ink); font-weight:800; }
+  .sc-rnd span{ font-size:11px; color:var(--faint); }
+  .sc-rnd.on{ border-color:var(--accent); background:var(--accent-soft); }
+  .sc-rnd.on b{ color:#a8462e; }
+  .sc-rnd.add{ border-style:dashed; color:var(--muted); font-size:12.5px; font-weight:700;
+    align-items:center; justify-content:center; }
+  .sc-title{ width:100%; border:none; border-bottom:1.5px solid var(--line); background:transparent;
+    font-size:15.5px; font-weight:800; color:var(--ink); padding:4px 2px; }
+  .sc-title:focus{ outline:none; border-bottom-color:var(--accent); }
+  .sc-lb{ font-size:11.5px; font-weight:700; color:var(--muted); }
+  .sc-pass{ padding:10px 13px; margin-bottom:12px; background:#eef6f1;
+    border-left:3px solid var(--good); font-size:12.5px; color:#1f6b43; }
+  .sc-det{ padding:11px 13px; margin-bottom:12px; }
+  .sc-det summary{ font-size:13px; font-weight:800; color:var(--ink); cursor:pointer; }
+  .sc-cc{ width:100%; border-collapse:collapse; margin-top:9px; font-size:12px; }
+  .sc-cc td{ border-top:1px solid var(--line); padding:6px 5px; vertical-align:top; }
+  .sc-fl{ margin:9px 0 0; padding-left:17px; font-size:12px; color:var(--muted); }
+  .sc-fl li{ margin-bottom:3px; }
+  .sc-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+  .sc-tb{ border-collapse:collapse; width:100%; font-size:11.5px; min-width:1000px; }
+  .sc-tb th, .sc-tb td{ border:1px solid var(--line); padding:5px 6px; text-align:left; vertical-align:top; }
+  .sc-tb thead th{ background:var(--field); font-size:11px; font-weight:800; color:var(--muted);
+    position:sticky; top:0; z-index:1; white-space:nowrap; }
+  .sc-tb td[contenteditable]:focus{ outline:2px solid var(--accent); background:#fffaf8; }
+  .sc-cat{ background:var(--surface-2); font-weight:800; white-space:nowrap; width:92px; }
+  .sc-no{ color:var(--faint); width:30px; text-align:center; }
+  .sc-nm{ font-weight:700; min-width:96px; }
+  .sc-j{ white-space:nowrap; font-weight:600; }
+  .sc-sh button, .sc-x button{ border:none; background:transparent; color:var(--faint);
+    cursor:pointer; font-size:13px; padding:0 3px; }
+  .sc-sh button:hover, .sc-x button:hover{ color:var(--bad); }
+  .sc-x{ width:26px; text-align:center; }
+  @media (max-width:560px){ .sc-tb{ font-size:11px; } }
   @media print{
     @page{ size:A4; margin:10mm; }
     .no-print, #viewBanner{ display:none !important; }
@@ -2574,13 +2615,14 @@ async function shellLogout(){ await sb.auth.signOut(); location.reload(); }
 // 처음 누를 때만 src 를 걸어 초기 로딩을 늦추지 않는다.
 // 보드와 대장 표는 같은 iframe 을 쓴다 — 두 번 로드하지 않도록 뷰만 바꾼다
 function shTab(name){
-  const map={board:'shPanelBoard', req:'shPanelReq', list:'shPanelList', ledger:'shPanelLedger', builder:'shPanelBuilder'};
+  const map={board:'shPanelBoard', req:'shPanelReq', list:'shPanelList', screen:'shPanelScreen', ledger:'shPanelLedger', builder:'shPanelBuilder'};
   if(!map[name]) name='board';
   const shown=map[name];
-  ['shPanelBoard','shPanelReq','shPanelList','shPanelLedger','shPanelBuilder'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=(id===shown)?'':'none'; });
+  ['shPanelBoard','shPanelReq','shPanelList','shPanelScreen','shPanelLedger','shPanelBuilder'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=(id===shown)?'':'none'; });
   document.querySelectorAll('.sh-tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
   if(name==='board') loadNativeBoard();
   if(name==='req') loadRequests();
+  if(name==='screen') loadScreens();
   if(name==='ledger'){ const f=document.getElementById('ifLedger'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_대장.html'); }
   if(name==='builder'){ const f=document.getElementById('ifBuilder'); if(f&&!f.getAttribute('src')) f.setAttribute('src','품질검증_만들기.html'); }
   try{ history.replaceState(null,'', name==='board' ? location.pathname : ('#'+name)); }catch(e){}
@@ -3166,6 +3208,290 @@ async function delReport(id){
   loadReports();
 }
 
+/* ═══════════ 원료 검증(스크리닝) ═══════════
+   검증과 다른 물건이다. 검증은 '기존 vs 변경' 몇 열을 깊게 보지만,
+   이건 후보 수십 종을 관능 기준으로 줄 세워 차수별로 떨어뜨리는 표다.
+   그래서 한 묶음(품목) 안에 회차(날짜)를 쌓고, 회차마다 후보 표를 둔다.
+   저장은 qc_reports 에 kind:'screen' 으로 — 기존 화면 필터가 전부 !kind 라 섞이지 않는다. */
+let SCRS=[], SCSEL=null, SCRND=0, SCDIRTY={}, scSaveT=null;
+const SC_CRIT=['빛깔','맵기','맛','입자감(식감)','향(풋내)'];
+
+function scPass(v){ v=String(v||''); return /확정|사용\s*가능|^통과|최종\s*후보/.test(v) && !/제외|탈락/.test(v); }
+function scDrop(v){ return /제외|탈락/.test(String(v||'')); }
+function scNone(v){ return /미실시|^-$|^$/.test(String(v||'').trim()); }
+function scColor(v){ return scPass(v)?'var(--good)' : scDrop(v)?'var(--bad)' : scNone(v)?'var(--faint)' : 'var(--muted)'; }
+
+async function loadScreens(){
+  const box=document.getElementById('shPanelScreen'); if(!box) return;
+  if(!SCRS.length) box.innerHTML='<p style="color:var(--faint);font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
+  try{
+    const {data,error}=await sb.from('qc_reports')
+      .select('id,ingredient,brand,date,data,kind:data->state->>kind').order('date',{ascending:false});
+    if(error) throw error;
+    SCRS=(data||[]).filter(r=>r.kind==='screen').map(r=>({
+      id:r.id, name:r.ingredient, brand:r.brand||'', date:r.date,
+      st:(r.data&&r.data.state)||{}
+    }));
+    SCRS.forEach(g=>{ if(!Array.isArray(g.st.rounds)) g.st.rounds=[]; });
+    if(!SCSEL || !SCRS.some(g=>g.id===SCSEL)) SCSEL=SCRS.length?SCRS[0].id:null;
+    SCRND=0; renderScreens();
+  }catch(e){ box.innerHTML='<p style="color:var(--bad);font-size:13px;padding:24px 0;text-align:center">원료 검증을 불러오지 못했습니다 — '+escapeHtml(e.message||e)+'</p>'; }
+}
+
+function scCur(){ return SCRS.find(g=>g.id===SCSEL)||null; }
+function scRound(){ const g=scCur(); if(!g) return null; return g.st.rounds[SCRND]||null; }
+
+function scPick(i){ SCSEL=SCRS[i]?SCRS[i].id:null; SCRND=0; renderScreens(); }
+function scGo(i){ SCRND=i; renderScreens(); }
+
+function renderScreens(){
+  const box=document.getElementById('shPanelScreen'); if(!box) return;
+  if(!SCRS.length){
+    box.innerHTML='<div class="bd-card" style="padding:40px 20px;text-align:center">'
+      +'<p style="color:var(--muted);font-size:13.5px;margin-bottom:14px">아직 원료 검증 묶음이 없습니다.</p>'
+      +'<button class="bd-btn pri" onclick="scNewGroup()">+ 첫 묶음 만들기</button></div>';
+    return;
+  }
+  const g=scCur(), rs=g?g.st.rounds:[];
+  const chips=SCRS.map((x,i)=>`<button class="sc-chip${x.id===SCSEL?' on':''}" onclick="scPick(${i})">`
+    +escapeHtml(x.name)+` <span class="bd-chip">${x.st.rounds.length}회차</span></button>`).join('');
+  const tl=rs.map((r,i)=>{
+    const pass=(r.items||[]).filter(it=>scPass(it.final)).length;
+    return `<button class="sc-rnd${i===SCRND?' on':''}" onclick="scGo(${i})">`
+      +`<b>${escapeHtml(r.date||'날짜 없음')}</b>`
+      +`<span>후보 ${(r.items||[]).length} · 통과 ${pass}</span></button>`;
+  }).join('');
+  box.innerHTML=`
+    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      ${chips}
+      <button class="bd-btn" onclick="scNewGroup()" style="margin-left:auto">+ 새 묶음</button>
+    </div>
+    <div class="bd-card" style="padding:12px 13px;margin-bottom:12px">
+      <div class="bd-h" style="margin-bottom:9px">회차 <span style="font-weight:600;color:var(--line-strong)">날짜순 — 새 테스트는 회차로 쌓입니다</span></div>
+      <div class="sc-tl">${tl||'<span style="color:var(--faint);font-size:12.5px">회차가 없습니다</span>'}
+        <button class="sc-rnd add" onclick="scAddRound()">+ 새 회차</button></div>
+    </div>
+    <div id="scBody"></div>`;
+  renderScRound();
+}
+
+function renderScRound(){
+  const host=document.getElementById('scBody'); if(!host) return;
+  const g=scCur(), r=scRound();
+  if(!r){ host.innerHTML='<div class="bd-card" style="padding:30px;text-align:center;color:var(--faint);font-size:13px">회차를 추가하세요.</div>'; return; }
+  const stages=r.stages||[];
+  const items=r.items||[];
+  const cats=[]; items.forEach(it=>{ if(!cats.includes(it.cat)) cats.push(it.cat); });
+
+  const concl=(r.concl||[]).map(c=>`<tr><td style="font-weight:700;white-space:nowrap">${escapeHtml(c.k)}</td>`
+    +`<td>${escapeHtml(c.v)}</td><td style="white-space:nowrap;font-weight:700;color:${scColor(c.r)}">${escapeHtml(c.r)}</td></tr>`).join('');
+  const flow=(r.flow||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('');
+
+  let rows='', ci=-1;
+  items.forEach((it,i)=>{
+    const first=(it.cat!==(items[i-1]||{}).cat);
+    if(first) ci++;
+    const span=items.filter(x=>x.cat===it.cat).length;
+    rows+='<tr>'
+      +(first?`<td class="sc-cat" rowspan="${span}">${escapeHtml(it.cat)}</td>`:'')
+      +`<td class="sc-no">${escapeHtml(it.no)}</td>`
+      +`<td class="sc-nm" data-i="${i}" data-k="name" contenteditable>${escapeHtml(it.name)}</td>`
+      +SC_CRIT.map(k=>`<td data-i="${i}" data-c="${escapeHtml(k)}" contenteditable>${escapeHtml((it.v||{})[k]||'')}</td>`).join('')
+      +stages.map((s,si)=>`<td class="sc-j" style="color:${scColor((it.st||[])[si])}" data-i="${i}" data-s="${si}" contenteditable>${escapeHtml((it.st||[])[si]||'')}</td>`).join('')
+      +`<td class="sc-j" style="color:${scColor(it.final)};font-weight:700" data-i="${i}" data-k="final" contenteditable>${escapeHtml(it.final||'')}</td>`
+      +`<td class="sc-x"><button onclick="scDelItem(${i})" title="이 후보 삭제">×</button></td>`
+      +'</tr>';
+  });
+
+  const pass=items.filter(it=>scPass(it.final));
+  host.innerHTML=`
+    <div class="bd-card" style="padding:14px 15px;margin-bottom:12px">
+      <input class="sc-title" data-k="title" value="${escapeHtml(r.title||'')}" placeholder="회차 제목">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+        <label class="sc-lb">날짜</label><input type="date" class="fld fld-sm" style="width:150px" data-k="date" value="${escapeHtml(r.date||'')}">
+        <label class="sc-lb">작성</label><input class="fld fld-sm" style="flex:1;min-width:200px" data-k="head" value="${escapeHtml(r.head||'')}" placeholder="메뉴개발팀 이종욱 | 대상 …">
+      </div>
+      ${r.src?`<p style="font-size:11px;color:var(--faint);margin-top:7px">원본 파일 — ${escapeHtml(r.src)}</p>`:''}
+    </div>
+
+    ${pass.length?`<div class="bd-card sc-pass"><b>최종 통과 ${pass.length}종</b> — ${pass.map(p=>escapeHtml(p.name)).join(', ')}</div>`:''}
+
+    ${concl?`<details class="bd-card sc-det" open><summary>핵심 결론</summary>
+      <table class="sc-cc"><tbody>${concl}</tbody></table></details>`:''}
+    ${flow?`<details class="bd-card sc-det"><summary>진행 흐름</summary><ul class="sc-fl">${flow}</ul></details>`:''}
+
+    <div class="bd-card" style="padding:13px 13px 15px">
+      <div class="bd-h" style="margin-bottom:10px">비교표
+        <span style="font-weight:600;color:var(--line-strong)">칸을 눌러 바로 고칠 수 있습니다</span></div>
+      <div class="sc-wrap"><table class="sc-tb" id="scTable"><thead><tr>
+        <th>구분</th><th>No.</th><th>후보</th>
+        ${SC_CRIT.map(k=>`<th>${escapeHtml(k)}</th>`).join('')}
+        ${stages.map((s,si)=>`<th class="sc-sh">${escapeHtml(s)}<button onclick="scDelStage(${si})" title="이 차수 삭제">×</button></th>`).join('')}
+        <th>최종 판정</th><th></th>
+      </tr></thead><tbody>${rows||'<tr><td colspan="99" style="text-align:center;color:var(--faint);padding:20px">후보가 없습니다</td></tr>'}</tbody></table></div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:11px">
+        <button class="bd-btn pri" onclick="scAddItem()">+ 후보 추가</button>
+        <button class="bd-btn" onclick="scAddStage()">+ 차수 추가</button>
+        <button class="bd-btn" onclick="scPrint()">인쇄 · PDF</button>
+        <button class="bd-btn" onclick="scDelRound()" style="margin-left:auto;color:var(--bad)">이 회차 삭제</button>
+      </div>
+      <p id="scSaveMsg" style="font-size:11.5px;color:var(--faint);margin-top:8px"></p>
+    </div>`;
+  scBind();
+}
+
+/* 입력을 한 군데서 받는다. 인라인 onclick 에 값을 끼워 넣으면 따옴표에서 조용히 깨진다. */
+function scBind(){
+  const host=document.getElementById('scBody'); if(!host) return;
+  host.querySelectorAll('[data-k],[data-c],[data-s]').forEach(el=>{
+    const ev=(el.tagName==='INPUT')?'change':'blur';
+    el.addEventListener(ev,()=>{
+      const r=scRound(); if(!r) return;
+      const val=(el.tagName==='INPUT')?el.value:el.textContent.trim();
+      const i=el.getAttribute('data-i');
+      if(i===null){ r[el.getAttribute('data-k')]=val; }
+      else{
+        const it=r.items[+i]; if(!it) return;
+        if(el.hasAttribute('data-c')){ it.v=it.v||{}; it.v[el.getAttribute('data-c')]=val; }
+        else if(el.hasAttribute('data-s')){ it.st=it.st||[]; it.st[+el.getAttribute('data-s')]=val; }
+        else it[el.getAttribute('data-k')]=val;
+      }
+      scTouch();
+    });
+  });
+}
+
+function scTouch(){
+  const g=scCur(); if(!g) return;
+  const m=document.getElementById('scSaveMsg'); if(m) m.textContent='저장 중…';
+  clearTimeout(scSaveT);
+  scSaveT=setTimeout(()=>scSave(true),700);
+}
+
+async function scSave(quiet){
+  const g=scCur(); if(!g) return;
+  const dates=g.st.rounds.map(r=>r.date).filter(Boolean).sort();
+  g.date=dates.length?dates[dates.length-1]:isoDate();
+  try{
+    const {error}=await sb.from('qc_reports').upsert({
+      id:g.id, date:g.date, ingredient:g.name, brand:g.brand||'',
+      category:'원료', maker:'', verdict:'',
+      data:{state:Object.assign({},g.st,{kind:'screen'})},
+      updated_at:new Date().toISOString()
+    });
+    if(error) throw error;
+    const m=document.getElementById('scSaveMsg');
+    if(m) m.textContent='저장됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    if(!quiet) toast('저장했습니다');
+  }catch(e){
+    const m=document.getElementById('scSaveMsg');
+    if(m){ m.textContent='저장 실패 — '+(e.message||e); m.style.color='var(--bad)'; }
+    if(!quiet) toast('저장 실패');
+  }
+}
+
+function scAddItem(){
+  const r=scRound(); if(!r) return;
+  r.items=r.items||[];
+  const last=r.items[r.items.length-1]||{};
+  const cat=last.cat||'';
+  const sameCat=r.items.filter(x=>x.cat===cat).length;
+  const v={}; SC_CRIT.forEach(k=>v[k]='기존과 동일');
+  r.items.push({cat:cat, no:String(sameCat+1), name:'', v:v, st:(r.stages||[]).map(()=>''), final:''});
+  renderScRound(); scTouch();
+  const t=document.querySelector('#scTable tbody tr:last-child .sc-nm'); if(t) t.focus();
+}
+function scDelItem(i){
+  const r=scRound(); if(!r||!r.items[i]) return;
+  if(!confirm('후보 "'+(r.items[i].name||'(이름 없음)')+'" 을 표에서 지울까요?')) return;
+  r.items.splice(i,1); renderScRound(); scTouch();
+}
+function scAddStage(){
+  const r=scRound(); if(!r) return;
+  r.stages=r.stages||[];
+  const n=r.stages.length+1;
+  const nm=prompt('차수 이름', n+'차 판정'); if(nm===null) return;
+  r.stages.push(nm.trim()||(n+'차 판정'));
+  (r.items||[]).forEach(it=>{ it.st=it.st||[]; it.st.push(''); });
+  renderScRound(); scTouch();
+}
+function scDelStage(si){
+  const r=scRound(); if(!r||!r.stages||!r.stages[si]) return;
+  if(!confirm('차수 "'+r.stages[si]+'" 열을 지울까요? 해당 열의 판정이 함께 사라집니다.')) return;
+  r.stages.splice(si,1);
+  (r.items||[]).forEach(it=>{ if(it.st) it.st.splice(si,1); });
+  renderScRound(); scTouch();
+}
+function scAddRound(){
+  const g=scCur(); if(!g) return;
+  const prev=g.st.rounds[g.st.rounds.length-1];
+  g.st.rounds.push({
+    date:isoDate(), title:'', head:(prev&&prev.head)||'메뉴개발팀 이종욱',
+    stages:(prev&&prev.stages&&prev.stages.length)?prev.stages.slice():['1차 판정','2차 판정'],
+    items:[], concl:[], flow:[]
+  });
+  g.st.rounds.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  SCRND=g.st.rounds.findIndex(r=>!r.items.length && !r.title);
+  if(SCRND<0) SCRND=g.st.rounds.length-1;
+  renderScreens(); scTouch();
+}
+function scDelRound(){
+  const g=scCur(), r=scRound(); if(!g||!r) return;
+  if(!confirm('회차 '+(r.date||'')+' 전체를 지울까요? 후보 '+((r.items||[]).length)+'종이 함께 사라집니다. (되돌릴 수 없음)')) return;
+  g.st.rounds.splice(SCRND,1); SCRND=0; renderScreens(); scTouch();
+}
+async function scNewGroup(){
+  const nm=prompt('묶음 이름 (예: 인생아구찜 원료)'); if(nm===null) return;
+  const name=nm.trim(); if(!name) return;
+  const id='sc_'+Date.now()+'_'+Math.floor(Math.random()*9000+1000);
+  const g={id:id, name:name, brand:'', date:isoDate(), st:{kind:'screen', rounds:[]}};
+  SCRS.unshift(g); SCSEL=id; SCRND=0;
+  await scSave(true); renderScreens();
+}
+
+function scPrint(){
+  const g=scCur(), r=scRound(); if(!g||!r) return;
+  const stages=r.stages||[], items=r.items||[];
+  const head=`<h1>${escapeHtml(r.title||g.name)}</h1><p class="hd">${escapeHtml(r.head||'')}</p>`;
+  const cc=(r.concl||[]).map(c=>`<tr><th>${escapeHtml(c.k)}</th><td>${escapeHtml(c.v)}</td><td>${escapeHtml(c.r)}</td></tr>`).join('');
+  const fl=(r.flow||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('');
+  let body='', prev=null;
+  items.forEach(it=>{
+    const first=it.cat!==prev; prev=it.cat;
+    const span=items.filter(x=>x.cat===it.cat).length;
+    body+='<tr>'+(first?`<td rowspan="${span}" class="ct">${escapeHtml(it.cat)}</td>`:'')
+      +`<td>${escapeHtml(it.no)}</td><td class="nm">${escapeHtml(it.name)}</td>`
+      +SC_CRIT.map(k=>`<td>${escapeHtml((it.v||{})[k]||'')}</td>`).join('')
+      +stages.map((s,si)=>`<td>${escapeHtml((it.st||[])[si]||'')}</td>`).join('')
+      +`<td class="fn">${escapeHtml(it.final||'')}</td></tr>`;
+  });
+  const w=window.open('','_blank'); if(!w){ toast('팝업이 막혀 있습니다'); return; }
+  w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8">
+  <title>${escapeHtml(r.title||g.name)}</title>
+  <style>
+   @page{ size:A4 landscape; margin:10mm; }
+   body{ font-family:"Malgun Gothic","IBM Plex Sans KR",sans-serif; color:#1d1b18; font-size:10px; }
+   h1{ font-size:16px; margin:0 0 3px; } .hd{ color:#6f6b64; font-size:10px; margin:0 0 10px; }
+   h2{ font-size:11.5px; margin:12px 0 5px; border-left:3px solid #c1553a; padding-left:6px; }
+   table{ width:100%; border-collapse:collapse; }
+   th,td{ border:1px solid #d4d0c8; padding:4px 5px; text-align:left; vertical-align:top; }
+   thead th{ background:#f4f2ee; font-size:9.5px; }
+   .ct{ background:#faf9f7; font-weight:700; width:72px; } .nm{ font-weight:700; } .fn{ font-weight:700; }
+   ul{ margin:0; padding-left:16px; } li{ margin-bottom:2px; }
+   .cc th{ background:#faf9f7; width:120px; }
+  </style></head><body>
+  ${head}
+  ${cc?'<h2>핵심 결론</h2><table class="cc"><tbody>'+cc+'</tbody></table>':''}
+  ${fl?'<h2>진행 흐름</h2><ul>'+fl+'</ul>':''}
+  <h2>비교표 — 후보 ${items.length}종</h2>
+  <table><thead><tr><th>구분</th><th>No.</th><th>후보</th>
+  ${SC_CRIT.map(k=>'<th>'+escapeHtml(k)+'</th>').join('')}
+  ${stages.map(s=>'<th>'+escapeHtml(s)+'</th>').join('')}
+  <th>최종 판정</th></tr></thead><tbody>${body}</tbody></table>
+  </body></html>`);
+  w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} }, 400);
+}
+
 /* ═══════════ 샘플 요청 ═══════════
    샘플 요청을 남기고 진행 단계를 직접 올린다(구매공급팀과는 앱 밖에서 주고받는다).
    샘플이 들어오면 같은 건을 그대로 검증으로 전환한다(입력한 내용이 그대로 넘어간다). */
@@ -3748,6 +4074,7 @@ function injectShell(){
       <button type="button" class="sh-tab on" data-tab="board" onclick="shTab('board')"><i class="fa-solid fa-diagram-project mr-1"></i>진행 현황</button>
       <button type="button" class="sh-tab" data-tab="req" onclick="shTab('req')"><i class="fa-solid fa-paper-plane mr-1"></i>샘플 요청 <span id="reqBadge" class="bd-chip" style="background:var(--accent);color:#fff;display:none"></span></button>
       <button type="button" class="sh-tab" data-tab="list" onclick="shTab('list')"><i class="fa-solid fa-list-check mr-1"></i>검증 목록</button>
+      <button type="button" class="sh-tab" data-tab="screen" onclick="shTab('screen')"><i class="fa-solid fa-flask mr-1"></i>원료 검증</button>
       <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-table-list mr-1"></i>전체 표</button>
       <button type="button" class="sh-tab" data-tab="builder" onclick="shTab('builder')"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>만들기</button>
     </div>
@@ -3761,6 +4088,7 @@ function injectShell(){
     </div>
     <div id="shListBody"></div>
   </div>
+  <div id="shPanelScreen" style="display:none;max-width:1280px;margin:0 auto;padding:16px 16px 60px"></div>
   <div id="shPanelLedger" style="display:none"><iframe id="ifLedger" title="품질검증 대장" class="sh-frame"></iframe></div>
   <div id="shPanelBoard" style="display:none;max-width:1280px;margin:0 auto;padding:16px 14px 60px"></div>
   <div id="shPanelBuilder" style="display:none"><iframe id="ifBuilder" title="오프라인 빌더" class="sh-frame"></iframe></div>`;
