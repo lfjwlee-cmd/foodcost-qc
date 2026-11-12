@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261112232318">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261112234446">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -351,6 +351,16 @@ tailwind.config = { theme: { extend: {
   .sc-sh button:hover, .sc-x button:hover{ color:var(--bad); }
   .sc-x{ width:26px; text-align:center; }
   @media (max-width:560px){ .sc-tb{ font-size:11px; } }
+
+  /* 상태 버튼 · 기한 연장 */
+  .bd-stg{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .bd-sg{ border:1.5px solid var(--line); background:var(--surface); color:var(--muted);
+    border-radius:999px; padding:6px 15px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .bd-sg:hover{ border-color:var(--line-strong); color:var(--ink); }
+  .bd-sg.on{ border-color:var(--sg); color:var(--sg); background:#fff; box-shadow:inset 0 0 0 1px var(--sg); }
+  .bd-ext{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:9px;
+    padding-top:9px; border-top:1px dashed var(--line); }
+  .bd-ext-l{ font-size:11.5px; font-weight:700; color:var(--muted); margin-right:2px; }
   @media print{
     @page{ size:A4; margin:10mm; }
     .no-print, #viewBanner{ display:none !important; }
@@ -2675,7 +2685,7 @@ async function loadNativeBoard(){
   if(!NBOARD.length) box.innerHTML='<p style="color:#9a958d;font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
   try{
     const {data,error}=await sb.from('qc_reports')
-      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived,kind:data->state->>kind');
+      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived,stage:data->state->>stage,kind:data->state->>kind');
     if(error) throw error;
     NBOARD=(data||[]).filter(r=>!r.kind).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
     let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
@@ -2689,10 +2699,19 @@ async function loadNativeBoard(){
 }
 const TERMINAL=['도입 진행','개발 중단'];
 // 탭 = 보관 여부(예전) + 후속 조치의 종결 값(완료·중단). 새 상태를 따로 만들지 않는다.
+// 직접 고른 상태가 있으면 그것을 쓰고, 없으면 예전처럼 후속 조치로 판단한다(기존 기록 호환).
+const STAGES=[{k:'open',t:'진행 중',c:'#6f6b64'},{k:'done',t:'완료',c:'#2f8f5b'},{k:'drop',t:'중단',c:'#c0433a'}];
+function stageOf(r){
+  const s=r.stage||'';
+  if(s==='done'||s==='drop'||s==='open') return s;
+  if(r.action==='도입 진행') return 'done';
+  if(r.action==='개발 중단') return 'drop';
+  return 'open';
+}
 const VIEWS=[
-  {k:'open', t:'진행 중', f:r=>!r.arch && !TERMINAL.includes(r.action||'')},
-  {k:'done', t:'완료',    f:r=>!r.arch && r.action==='도입 진행'},
-  {k:'drop', t:'중단',    f:r=>!r.arch && r.action==='개발 중단'},
+  {k:'open', t:'진행 중', f:r=>!r.arch && stageOf(r)==='open'},
+  {k:'done', t:'완료',    f:r=>!r.arch && stageOf(r)==='done'},
+  {k:'drop', t:'중단',    f:r=>!r.arch && stageOf(r)==='drop'},
   {k:'old',  t:'예전 자료',f:r=>!!r.arch},
   {k:'all',  t:'전체',    f:r=>true}
 ];
@@ -2703,7 +2722,7 @@ function inScope(r, sc){
 }
 // 거래처 회신·재샘플 발송에 3일은 이미 늦다. 주 단위로 보는 팀 기준 D-7.
 function isLate(r){
-  if(!r.due || TERMINAL.includes(r.action||'')) return false;
+  if(!r.due || stageOf(r)!=='open') return false;   // 끝난 건은 기한을 재지 않는다
   return daysUntil(r.due) <= 7;
 }
 // 타일에서 고르는 빠른 보기 — 같은 타일을 다시 누르면 해제
@@ -2836,7 +2855,7 @@ function renderNativeBoard(){
   // 거래처별 결과 — 보고 있는 범위만 센다(위 타일과 숫자가 어긋나면 안 된다)
   const mk={};
   SC.forEach(r=>{ const k=r.maker||'거래처 미상'; mk[k]=mk[k]||{n:0,open:0,adopt:0,stop:0};
-    mk[k].n++; if(!TERMINAL.includes(r.action||''))mk[k].open++;
+    mk[k].n++; if(stageOf(r)==='open')mk[k].open++;
     if(r.action==='도입 진행')mk[k].adopt++; if(r.action==='개발 중단')mk[k].stop++; });
   const mkRows=Object.entries(mk).sort((a,b)=>b[1].n-a[1].n||a[0].localeCompare(b[0],'ko')).map(([k,v])=>
     `<tr class="clk${BFIL.maker===k?' on':''}" onclick="pickMaker('${esc(k).replace(/'/g,"&#39;")}')">
@@ -2962,7 +2981,12 @@ function renderBoardDetail(){
       ${pill('도입 목표', esc(st.targetDate||'-'))}
       ${pill('공급 가능', esc(st.supplyOk||'미확인'))}
     </div>
-    <div class="bd-h">후속 조치 · 회신 기한 <span style="font-weight:600;color:#d4d0c8">고르면 바로 저장됩니다</span></div>
+    <div class="bd-h">상태 <span style="font-weight:600;color:#d4d0c8">끝난 건은 완료·중단으로 옮겨 두면 진행 중 목록이 깨끗해집니다</span></div>
+    <div class="bd-stg">
+      ${STAGES.map(g=>`<button class="bd-sg${stageOf({stage:st.stage,action:st.nextAction})===g.k?' on':''}" style="--sg:${g.c}" onclick="saveStage('${g.k}')">${esc(g.t)}</button>`).join('')}
+      ${st.stageAt?`<span style="font-size:11px;color:#9a958d;margin-left:4px">${esc(String(st.stageAt).slice(0,10))} 변경</span>`:''}
+    </div>
+    <div class="bd-h" style="margin-top:13px">후속 조치 · 회신 기한 <span style="font-weight:600;color:#d4d0c8">고르면 바로 저장됩니다</span></div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
       <select class="bd-f" style="flex:1 1 210px" onchange="saveBoardAction('nextAction',this.value)">
         <option value=""${!st.nextAction?' selected':''}>후속 조치 — 미지정</option>
@@ -2971,6 +2995,13 @@ function renderBoardDetail(){
       <input type="date" class="bd-f" style="flex:0 0 150px" value="${esc(st.dueDate||'')}" onchange="saveBoardAction('dueDate',this.value)">
       <span id="bdSaveMsg" style="font-size:11.5px;color:#9a958d"></span>
     </div>
+    ${st.dueDate?`<div class="bd-ext">
+      <span class="bd-ext-l">${d&&d.late?'기한 지남':'기한 연장'}</span>
+      <button class="bd-btn" onclick="extendDue(7)">+1주</button>
+      <button class="bd-btn" onclick="extendDue(14)">+2주</button>
+      <button class="bd-btn" onclick="extendDue(30)">+1개월</button>
+      ${(st.dueHist&&st.dueHist.length)?`<span class="bd-chip" title="${esc(st.dueHist.map(h=>h.from+' → '+h.to).join(' / '))}" style="background:#f3e2db;color:#a8462e">연장 ${st.dueHist.length}회</span>`:''}
+    </div>`:''}
     ${st.nextActionNote?`<div style="font-size:12px;color:#6f6b64;margin-top:7px">${esc(st.nextActionNote)}</div>`:''}
     ${st.nextActionAt?`<div style="font-size:11px;color:#9a958d;margin-top:5px"><i class="fa-regular fa-clock mr-1"></i>마지막 변경 ${esc(String(st.nextActionAt).slice(0,16).replace('T',' '))}</div>`:''}
   </div>
@@ -3008,6 +3039,31 @@ function toggleCmtBox(btn){
   btn.innerHTML='<i class="fa-solid fa-chevron-'+(clamped?'down':'up')+' mr-1"></i>'+(clamped?'전문 보기':'접기');
 }
 // 현황 화면에서 후속 조치·기한을 바로 저장 — 구매팀이 화면을 떠나지 않게
+// 상태는 후속 조치와 따로 저장한다. 둘을 한 칸에 담으면 "끝났다"와 "다음에 뭘 한다"가 섞인다.
+async function saveStage(k){
+  if(!BDETAIL) return;
+  const st=((BDETAIL.data||{}).state)||{};
+  if(stageOf({stage:st.stage,action:st.nextAction})===k && st.stage===k) return;
+  await saveBoardAction('stage', k);
+  await saveBoardAction('stageAt', new Date().toISOString());
+  const r=NBOARD.find(x=>x.id===BDETAIL.id); if(r) r.stage=k;
+  renderNativeBoard(); renderBoardDetail();
+  toast(k==='done'?'완료로 옮겼습니다':k==='drop'?'중단으로 옮겼습니다':'진행 중으로 되돌렸습니다');
+}
+// 기한을 미룬 사실 자체를 남긴다. 조용히 밀리면 나중에 아무도 모른다.
+async function extendDue(days){
+  if(!BDETAIL) return;
+  const st=((BDETAIL.data||{}).state)||{};
+  const from=st.dueDate||isoDate();
+  const base=new Date(from+'T00:00:00');
+  base.setDate(base.getDate()+days);
+  const to=isoDate(base);
+  const hist=Array.isArray(st.dueHist)?st.dueHist.slice():[];
+  hist.push({from:from, to:to, at:new Date().toISOString(), d:days});
+  await saveBoardAction('dueHist', hist);
+  await saveBoardAction('dueDate', to);
+  toast('회신 기한을 '+to+' 로 미뤘습니다 (연장 '+hist.length+'회)');
+}
 async function saveBoardAction(field, value){
   if(!BDETAIL) return;
   const msg=document.getElementById('bdSaveMsg'); if(msg) msg.textContent='저장 중…';
@@ -3020,7 +3076,7 @@ async function saveBoardAction(field, value){
     if(up.error) throw up.error;
     BDETAIL.data=d;
     const r=NBOARD.find(x=>x.id===BDETAIL.id);
-    if(r){ if(field==='nextAction') r.action=value; if(field==='dueDate') r.due=value; if(field==='archived') r.arch=value||null; }
+    if(r){ if(field==='nextAction') r.action=value; if(field==='dueDate') r.due=value; if(field==='archived') r.arch=value||null; if(field==='stage') r.stage=value; }
     if(msg){ msg.textContent='저장됨'; setTimeout(()=>{ if(msg) msg.textContent=''; },1600); }
     renderNativeBoard(); renderBoardDetail(); loadBoardComments(BDETAIL.id);
   }catch(e){ if(msg) msg.textContent='저장 실패'; toast('저장 실패: '+(e.message||e)); }
@@ -3107,12 +3163,12 @@ async function loadHomeBoard(){
   const box=document.getElementById('homeBoard'); if(!box) return;
   try{
     const {data:data0,error}=await sb.from('qc_reports')
-      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate,arch:data->state->>archived,kind:data->state->>kind');
+      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate,arch:data->state->>archived,stage:data->state->>stage,kind:data->state->>kind');
     if(error||!data0) { box.innerHTML=''; return; }
     const data=data0.filter(r=>!r.arch && !r.kind);   // 요약은 현재 자료만 — 아래 목록과 숫자가 어긋나면 안 된다
     const now=new Date();
-    const late=data.filter(r=>r.due && !['도입 진행','개발 중단'].includes(r.action||'') && new Date(r.due+'T23:59:59')<now);
-    const open=data.filter(r=>!['도입 진행','개발 중단'].includes(r.action||''));
+    const late=data.filter(r=>isLate(r));
+    const open=data.filter(r=>stageOf(r)==='open');
     const chip=(a)=>{ const n=data.filter(r=>(r.action||'')===a.k).length; if(!n) return '';
       return `<button type="button" onclick="shTab('ledger')" title="대장 진행 보드에서 보기"
         style="border:1px solid #e6e3dd;background:#fff;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:700;color:${a.c};cursor:pointer">
