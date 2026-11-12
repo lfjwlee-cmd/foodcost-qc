@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261112234446">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261112234638">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2996,7 +2996,7 @@ function renderBoardDetail(){
       <span id="bdSaveMsg" style="font-size:11.5px;color:#9a958d"></span>
     </div>
     ${st.dueDate?`<div class="bd-ext">
-      <span class="bd-ext-l">${d&&d.late?'기한 지남':'기한 연장'}</span>
+      <span class="bd-ext-l" style="color:${daysUntil(st.dueDate)<0?'var(--bad)':'var(--muted)'}">${daysUntil(st.dueDate)<0?('기한 '+(-daysUntil(st.dueDate))+'일 지남 — 연장'):'기한 연장'}</span>
       <button class="bd-btn" onclick="extendDue(7)">+1주</button>
       <button class="bd-btn" onclick="extendDue(14)">+2주</button>
       <button class="bd-btn" onclick="extendDue(30)">+1개월</button>
