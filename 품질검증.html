@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261113003330">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261113035850">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -403,6 +403,22 @@ tailwind.config = { theme: { extend: {
   .qk-body{ background:var(--surface-2); border-left:4px solid var(--line-strong); }
   .qk-text{ font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.75; }
   @media (max-width:560px){ .qk-3{ flex-wrap:wrap; } .qk-3 > div{ flex:1 1 100%; } }
+
+  /* 원료 검증 전체 보기 */
+  .sc-rnd.all{ border-color:var(--line-strong); background:var(--field); }
+  .sc-rnd.all.on{ border-color:var(--accent); background:var(--accent-soft); }
+  .sc-ov{ padding:14px 15px; margin-bottom:12px; }
+  .sc-ov-t{ font-size:15px; font-weight:800; color:var(--ink); margin-bottom:11px; }
+  .sc-ov-g{ display:flex; gap:9px; flex-wrap:wrap; }
+  .sc-ov-g > div{ flex:1 1 92px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:10px; padding:9px 11px; }
+  .sc-ov-g b{ display:block; font-size:21px; font-weight:800; color:var(--ink); line-height:1.15; }
+  .sc-ov-g span{ font-size:11px; color:var(--faint); font-weight:700; }
+  .sc-ov-n{ font-size:11.5px; color:var(--muted); margin:10px 0 0; }
+  .sc-flow{ min-width:620px; }
+  .sc-flow tbody tr.fl{ background:#fdf6f3; }
+  .sc-det[open] summary{ margin-bottom:4px; }
+  .sc-det summary span{ margin-left:7px; }
   @media print{
     @page{ size:A4; margin:10mm; }
     .no-print, #viewBanner{ display:none !important; }
@@ -3489,7 +3505,7 @@ async function loadScreens(){
 }
 
 function scCur(){ return SCRS.find(g=>g.id===SCSEL)||null; }
-function scRound(){ const g=scCur(); if(!g) return null; return g.st.rounds[SCRND]||null; }
+function scRound(){ const g=scCur(); if(!g||SCRND<0) return null; return g.st.rounds[SCRND]||null; }
 
 function scPick(i){ SCSEL=SCRS[i]?SCRS[i].id:null; SCRND=0; renderScreens(); }
 function scGo(i){ SCRND=i; renderScreens(); }
@@ -3505,7 +3521,10 @@ function renderScreens(){
   const g=scCur(), rs=g?g.st.rounds:[];
   const chips=SCRS.map((x,i)=>`<button class="sc-chip${x.id===SCSEL?' on':''}" onclick="scPick(${i})">`
     +escapeHtml(x.name)+` <span class="bd-chip">${x.st.rounds.length}회차</span></button>`).join('');
-  const tl=rs.map((r,i)=>{
+  const totIt=rs.reduce((a,r)=>a+(r.items||[]).length,0);
+  const tl=(rs.length?`<button class="sc-rnd all${SCRND===-1?' on':''}" onclick="scGo(-1)">`
+      +`<b>전체 보기</b><span>회차 ${rs.length} · 후보 ${totIt}</span></button>`:'')
+    +rs.map((r,i)=>{
     const pass=(r.items||[]).filter(it=>scPass(it.final)).length;
     return `<button class="sc-rnd${i===SCRND?' on':''}" onclick="scGo(${i})">`
       +`<b>${escapeHtml(r.date||'날짜 없음')}</b>`
@@ -3545,6 +3564,7 @@ function scChip(it, curDate){
 }
 function renderScRound(){
   const host=document.getElementById('scBody'); if(!host) return;
+  if(SCRND===-1){ renderScAll(); return; }
   const g=scCur(), r=scRound();
   if(!r){ host.innerHTML='<div class="bd-card" style="padding:30px;text-align:center;color:var(--faint);font-size:13px">회차를 추가하세요.</div>'; return; }
   const stages=r.stages||[];
@@ -3615,6 +3635,201 @@ function renderScRound(){
       <p id="scSaveMsg" style="font-size:11.5px;color:var(--faint);margin-top:8px"></p>
     </div>`;
   scBind();
+}
+
+/* ── 전체 보기 ──
+   묶음 전체를 한 화면에. 읽기 전용이다 — 고칠 때는 해당 회차 탭으로 간다. */
+function scAllRounds(){
+  const g=scCur(); if(!g) return [];
+  return (g.st.rounds||[]).slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+}
+function scShort(v){ v=String(v||'').trim(); return v||'·'; }
+
+function renderScAll(){
+  const host=document.getElementById('scBody'); if(!host) return;
+  const g=scCur(), rs=scAllRounds();
+  if(!rs.length){ host.innerHTML='<div class="bd-card" style="padding:30px;text-align:center;color:var(--faint);font-size:13px">회차가 없습니다.</div>'; return; }
+
+  // 후보를 이름으로 묶는다. 같은 이름이 여러 회차에 나오면 한 줄에 모인다.
+  const order=[], map={};
+  rs.forEach(r=>(r.items||[]).forEach(it=>{
+    const k=(it.name||'').trim()||'(이름 없음)';
+    if(!map[k]){ map[k]={name:k, cat:it.cat||'', by:{}, last:''}; order.push(k); }
+    map[k].by[r.date||'']=it;
+    if(String(it.final||'').trim()) map[k].last=it.final;   // 회차가 날짜순이라 마지막이 최신
+  }));
+  // 구분끼리 모아 둔다 — 고춧가루와 조미분말이 섞이면 읽기 어렵다
+  order.sort((a,b)=>{
+    const ca=map[a].cat||'', cb=map[b].cat||'';
+    if(ca!==cb) return ca.localeCompare(cb);
+    return 0;
+  });
+
+  const totIt=rs.reduce((a,r)=>a+(r.items||[]).length,0);
+  const uniq=order.length;
+  const lastPass=order.filter(k=>scPass(map[k].last)).length;
+  const lastDrop=order.filter(k=>scDrop(map[k].last)).length;
+  const lastNone=uniq-lastPass-lastDrop;
+  const d0=rs[0].date||'', d1=rs[rs.length-1].date||'';
+  const flips=order.filter(k=>{
+    const vs=Object.keys(map[k].by).map(d=>map[k].by[d].final||'');
+    return vs.length>1 && vs.some(scPass) && vs.some(scDrop);
+  });
+
+  // 흐름표 — 한 줄 = 한 후보, 열 = 회차
+  let frows='', pcat=null;
+  order.forEach(k=>{
+    const m=map[k];
+    const first=(m.cat!==pcat); pcat=m.cat;
+    const span=order.filter(x=>map[x].cat===m.cat).length;
+    frows+=`<tr${flips.includes(k)?' class="fl"':''}>`
+      +(first?`<td class="sc-cat" rowspan="${span}">${escapeHtml(m.cat||'-')}</td>`:'')
+      +`<td class="sc-nm">${escapeHtml(m.name)}${flips.includes(k)?'<span class="sc-dup flip">결과 뒤집힘</span>':''}</td>`
+      +rs.map(r=>{
+        const it=m.by[r.date||''];
+        if(!it) return '<td class="sc-j" style="color:var(--faint);text-align:center">·</td>';
+        return `<td class="sc-j" style="color:${scColor(it.final)}">${escapeHtml(scShort(it.final))}</td>`;
+      }).join('')
+      +`<td class="sc-j" style="color:${scColor(m.last)};font-weight:800">${escapeHtml(scShort(m.last))}</td>`
+      +'</tr>';
+  });
+
+  // 회차별 상세 — 각 회차의 비교표를 그대로, 읽기 전용으로
+  const detail=rs.map((r,i)=>{
+    const stages=r.stages||[], items=r.items||[];
+    let rows='', pv=null;
+    items.forEach(it=>{
+      const first=(it.cat!==pv); pv=it.cat;
+      const span=items.filter(x=>x.cat===it.cat).length;
+      rows+='<tr>'
+        +(first?`<td class="sc-cat" rowspan="${span}">${escapeHtml(it.cat||'-')}</td>`:'')
+        +`<td class="sc-no">${escapeHtml(it.no||'')}</td>`
+        +`<td class="sc-nm">${escapeHtml(it.name||'')}</td>`
+        +SC_CRIT.map(c=>`<td>${escapeHtml((it.v||{})[c]||'')}</td>`).join('')
+        +stages.map((st,si)=>`<td class="sc-j" style="color:${scColor((it.st||[])[si])}">${escapeHtml((it.st||[])[si]||'')}</td>`).join('')
+        +`<td class="sc-j" style="color:${scColor(it.final)};font-weight:700">${escapeHtml(it.final||'')}</td>`
+        +'</tr>';
+    });
+    const cc=(r.concl||[]).map(c=>`<tr><td style="font-weight:700;white-space:nowrap">${escapeHtml(c.k)}</td>`
+      +`<td>${escapeHtml(c.v)}</td><td style="white-space:nowrap;font-weight:700;color:${scColor(c.r)}">${escapeHtml(c.r)}</td></tr>`).join('');
+    const fl=(r.flow||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('');
+    const pass=items.filter(it=>scPass(it.final)).length;
+    const idx=(g.st.rounds||[]).indexOf(r);
+    return `<details class="bd-card sc-det" ${i===rs.length-1?'open':''}>
+      <summary>${escapeHtml(r.date||'날짜 없음')} — ${escapeHtml(r.title||'제목 없음')}
+        <span style="font-weight:600;color:var(--faint);font-size:11.5px">후보 ${items.length} · 통과 ${pass}</span></summary>
+      ${r.head?`<p style="font-size:11.5px;color:var(--muted);margin:7px 0 0">${escapeHtml(r.head)}</p>`:''}
+      ${cc?`<table class="sc-cc"><tbody>${cc}</tbody></table>`:''}
+      ${fl?`<ul class="sc-fl">${fl}</ul>`:''}
+      <div class="sc-wrap" style="margin-top:10px"><table class="sc-tb"><thead><tr>
+        <th>구분</th><th>No.</th><th>후보</th>
+        ${SC_CRIT.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}
+        ${stages.map(st=>`<th>${escapeHtml(st)}</th>`).join('')}
+        <th>최종 판정</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="99" style="text-align:center;color:var(--faint);padding:18px">후보가 없습니다</td></tr>'}</tbody></table></div>
+      <div style="margin-top:9px"><button class="bd-btn" onclick="scGo(${idx})">이 회차 고치기</button></div>
+    </details>`;
+  }).join('');
+
+  host.innerHTML=`
+    <div class="bd-card sc-ov">
+      <div class="sc-ov-t">${escapeHtml(g.name)} — 전체 진행</div>
+      <div class="sc-ov-g">
+        <div><b>${rs.length}</b><span>회차</span></div>
+        <div><b>${uniq}</b><span>후보 (연 ${totIt})</span></div>
+        <div><b style="color:var(--good)">${lastPass}</b><span>통과</span></div>
+        <div><b style="color:var(--bad)">${lastDrop}</b><span>제외</span></div>
+        <div><b style="color:var(--faint)">${lastNone}</b><span>미정</span></div>
+      </div>
+      <p class="sc-ov-n">${escapeHtml(d0)} ~ ${escapeHtml(d1)} · 통과·제외·미정은 <b>후보별 가장 최근 회차 결과</b> 기준입니다.</p>
+      ${flips.length?`<p class="sc-ov-n" style="color:#a8462e">회차마다 결과가 갈린 후보 ${flips.length}종 — ${flips.map(k=>escapeHtml(k)).join(', ')}</p>`:''}
+    </div>
+
+    <div class="bd-card" style="padding:13px 13px 15px;margin-bottom:12px">
+      <div class="bd-h" style="margin-bottom:10px">후보 흐름
+        <span style="font-weight:600;color:var(--line-strong)">한 줄이 한 후보 — 회차를 거치며 어떻게 갈렸는지</span></div>
+      <div class="sc-wrap"><table class="sc-tb sc-flow"><thead><tr>
+        <th>구분</th><th>후보</th>
+        ${rs.map(r=>`<th>${escapeHtml(r.date||'날짜 없음')}</th>`).join('')}
+        <th>최근 결과</th></tr></thead><tbody>${frows}</tbody></table></div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:11px">
+        <button class="bd-btn pri" onclick="scPrintAll()">전체 인쇄 · PDF</button>
+        <span style="font-size:11.5px;color:var(--faint);align-self:center">전체 보기는 읽기 전용입니다 — 고치려면 회차를 고르세요</span>
+      </div>
+    </div>
+
+    <div class="bd-h" style="margin:0 0 9px">회차별 상세</div>
+    ${detail}`;
+}
+
+function scPrintAll(){
+  const g=scCur(), rs=scAllRounds(); if(!g||!rs.length) return;
+  const order=[], map={};
+  rs.forEach(r=>(r.items||[]).forEach(it=>{
+    const k=(it.name||'').trim()||'(이름 없음)';
+    if(!map[k]){ map[k]={name:k, cat:it.cat||'', by:{}, last:''}; order.push(k); }
+    map[k].by[r.date||'']=it;
+    if(String(it.final||'').trim()) map[k].last=it.final;
+  }));
+  order.sort((a,b)=>String(map[a].cat||'').localeCompare(String(map[b].cat||'')));
+  let frows='', pcat=null;
+  order.forEach(k=>{
+    const m=map[k]; const first=(m.cat!==pcat); pcat=m.cat;
+    const span=order.filter(x=>map[x].cat===m.cat).length;
+    frows+='<tr>'+(first?`<td rowspan="${span}" class="ct">${escapeHtml(m.cat||'-')}</td>`:'')
+      +`<td class="nm">${escapeHtml(m.name)}</td>`
+      +rs.map(r=>{ const it=m.by[r.date||'']; return `<td>${it?escapeHtml(it.final||''):'·'}</td>`; }).join('')
+      +`<td class="fn">${escapeHtml(m.last||'')}</td></tr>`;
+  });
+  const secs=rs.map(r=>{
+    const stages=r.stages||[], items=r.items||[];
+    let body='', pv=null;
+    items.forEach(it=>{
+      const first=(it.cat!==pv); pv=it.cat;
+      const span=items.filter(x=>x.cat===it.cat).length;
+      body+='<tr>'+(first?`<td rowspan="${span}" class="ct">${escapeHtml(it.cat||'-')}</td>`:'')
+        +`<td>${escapeHtml(it.no||'')}</td><td class="nm">${escapeHtml(it.name||'')}</td>`
+        +SC_CRIT.map(c=>`<td>${escapeHtml((it.v||{})[c]||'')}</td>`).join('')
+        +stages.map((st,si)=>`<td>${escapeHtml((it.st||[])[si]||'')}</td>`).join('')
+        +`<td class="fn">${escapeHtml(it.final||'')}</td></tr>`;
+    });
+    const cc=(r.concl||[]).map(c=>`<tr><th>${escapeHtml(c.k)}</th><td>${escapeHtml(c.v)}</td><td>${escapeHtml(c.r)}</td></tr>`).join('');
+    const fl=(r.flow||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('');
+    return `<div class="pg"><h2>${escapeHtml(r.date||'')} — ${escapeHtml(r.title||'')}</h2>`
+      +(r.head?`<p class="hd">${escapeHtml(r.head)}</p>`:'')
+      +(cc?'<table class="cc"><tbody>'+cc+'</tbody></table>':'')
+      +(fl?'<ul>'+fl+'</ul>':'')
+      +`<table><thead><tr><th>구분</th><th>No.</th><th>후보</th>`
+      +SC_CRIT.map(c=>'<th>'+escapeHtml(c)+'</th>').join('')
+      +stages.map(st=>'<th>'+escapeHtml(st)+'</th>').join('')
+      +`<th>최종 판정</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  }).join('');
+  const totIt=rs.reduce((a,r)=>a+(r.items||[]).length,0);
+  const w=window.open('','_blank'); if(!w){ toast('팝업이 막혀 있습니다'); return; }
+  w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8">
+  <title>${escapeHtml(g.name)} — 전체 진행</title>
+  <style>
+   @page{ size:A4 landscape; margin:10mm; }
+   body{ font-family:"Malgun Gothic","IBM Plex Sans KR",sans-serif; color:#1d1b18; font-size:10px; }
+   h1{ font-size:16px; margin:0 0 3px; } .hd{ color:#6f6b64; font-size:10px; margin:0 0 8px; }
+   h2{ font-size:11.5px; margin:12px 0 5px; border-left:3px solid #c1553a; padding-left:6px; }
+   table{ width:100%; border-collapse:collapse; margin-bottom:8px; }
+   th,td{ border:1px solid #d4d0c8; padding:4px 5px; text-align:left; vertical-align:top; }
+   thead th{ background:#f4f2ee; font-size:9.5px; }
+   .ct{ background:#faf9f7; font-weight:700; width:72px; } .nm{ font-weight:700; } .fn{ font-weight:700; }
+   ul{ margin:0 0 8px; padding-left:16px; } li{ margin-bottom:2px; }
+   .cc th{ background:#faf9f7; width:120px; }
+   .pg{ page-break-before:always; }
+  </style></head><body>
+  <h1>${escapeHtml(g.name)} — 전체 진행</h1>
+  <p class="hd">회차 ${rs.length}개 (${escapeHtml(rs[0].date||'')} ~ ${escapeHtml(rs[rs.length-1].date||'')}) · 후보 ${order.length}종 (연 ${totIt}) · 인쇄 ${new Date().toLocaleDateString('ko-KR')}</p>
+  <h2>후보 흐름 — 회차별 판정</h2>
+  <table><thead><tr><th>구분</th><th>후보</th>
+  ${rs.map(r=>'<th>'+escapeHtml(r.date||'')+'</th>').join('')}
+  <th>최근 결과</th></tr></thead><tbody>${frows}</tbody></table>
+  ${secs}
+  </body></html>`);
+  w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} }, 400);
 }
 
 /* 입력을 한 군데서 받는다. 인라인 onclick 에 값을 끼워 넣으면 따옴표에서 조용히 깨진다. */
