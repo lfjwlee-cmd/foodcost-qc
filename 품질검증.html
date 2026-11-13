@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261112235724">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261113003330">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -370,6 +370,39 @@ tailwind.config = { theme: { extend: {
   .sc-dup.mk{ background:transparent; color:var(--faint); border:1px solid var(--line); }
   .sc-dupband{ padding:10px 13px; margin-bottom:12px; font-size:12px;
     background:#fdf6f3; border-left:3px solid var(--accent); color:#7a3222; }
+
+  /* 약식 검증 */
+  .qk-chip{ display:inline-block; padding:1px 7px; border-radius:999px; font-size:10px;
+    font-weight:800; background:var(--field); color:var(--muted); vertical-align:middle; }
+  .qk-win{ background:var(--surface); border-radius:16px; padding:20px 22px 18px;
+    max-width:560px; width:100%; max-height:92vh; overflow-y:auto; }
+  .qk-hd{ margin-bottom:15px; }
+  .qk-hd h2{ font-size:17px; font-weight:800; color:var(--ink); margin:0 0 3px; }
+  .qk-hd span{ font-size:11.5px; color:var(--faint); }
+  .qk-row{ margin-bottom:12px; }
+  .qk-row label{ display:block; font-size:11.5px; font-weight:700; color:var(--muted); margin-bottom:4px; }
+  .qk-row label b{ color:var(--accent); }
+  .qk-row input, .qk-row textarea{ width:100%; border:1.5px solid var(--line); border-radius:10px;
+    padding:9px 11px; font-size:13.5px; font-family:inherit; color:var(--ink); background:var(--surface); }
+  .qk-row textarea{ line-height:1.65; resize:vertical; }
+  .qk-row input:focus, .qk-row textarea:focus{ outline:none; border-color:var(--accent); }
+  .qk-3{ display:flex; gap:8px; }
+  .qk-3 > div{ flex:1; min-width:0; }
+  .qk-vs{ display:flex; gap:6px; flex-wrap:wrap; }
+  .qk-v{ flex:1 1 auto; border:1.5px solid var(--line); background:var(--surface); color:var(--muted);
+    border-radius:10px; padding:9px 6px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .qk-v[data-v="○"].on{ border-color:var(--good); color:var(--good); background:#eef6f1; }
+  .qk-v[data-v="△"].on{ border-color:var(--warn); color:var(--warn); background:#fdf6e8; }
+  .qk-v[data-v="×"].on{ border-color:var(--bad);  color:var(--bad);  background:#fbeceb; }
+  .qk-msg{ font-size:12px; color:var(--bad); min-height:16px; margin:2px 0 8px; }
+  .qk-ft{ display:flex; gap:8px; }
+  .qk-btn{ flex:1; border:none; border-radius:10px; padding:11px; font-weight:800;
+    font-size:13.5px; cursor:pointer; background:var(--line); color:var(--ink); }
+  .qk-btn.pri{ flex:2; background:var(--accent); color:#fff; }
+  .qk-btn.del{ flex:0 0 72px; background:transparent; color:var(--bad); border:1.5px solid var(--line); }
+  .qk-body{ background:var(--surface-2); border-left:4px solid var(--line-strong); }
+  .qk-text{ font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.75; }
+  @media (max-width:560px){ .qk-3{ flex-wrap:wrap; } .qk-3 > div{ flex:1 1 100%; } }
   @media print{
     @page{ size:A4; margin:10mm; }
     .no-print, #viewBanner{ display:none !important; }
@@ -2694,7 +2727,7 @@ async function loadNativeBoard(){
   if(!NBOARD.length) box.innerHTML='<p style="color:#9a958d;font-size:13px;padding:40px 0;text-align:center">불러오는 중…</p>';
   try{
     const {data,error}=await sb.from('qc_reports')
-      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived,stage:data->state->>stage,kind:data->state->>kind');
+      .select('id,ingredient,date,verdict,maker,brand,action:data->state->>nextAction,due:data->state->>dueDate,use:data->state->>monthlyUse,note:data->state->>nextActionNote,arch:data->state->>archived,stage:data->state->>stage,quick:data->state->>quick,kind:data->state->>kind');
     if(error) throw error;
     NBOARD=(data||[]).filter(r=>!r.kind).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
     let cm={}; try{ const c=await sb.from('qc_comments').select('report_id');
@@ -2811,7 +2844,7 @@ function renderNativeBoard(){
     <div class="v">${n}</div></button>`; };
 
   const rowHTML = r=>{
-    const d=dueInfo(r.due), ac=ACT_COLOR[r.action||''];
+    const d=dueInfo(r.due), ac=ACT_COLOR[r.action||''], qk=r.quick==='Y'?' <span class="qk-chip">약식</span>':'';
     return `<div class="bd-row${r.id===BSEL?' on':''}" role="option" aria-selected="${r.id===BSEL}"
       tabindex="${r.id===BSEL?0:-1}" onkeydown="boardRowKey(event)" onclick="selectBoardItem('${r.id}')">
       <span title="${esc(r.verdict||'판정 미입력')}" style="width:8px;height:8px;border-radius:50%;background:${VCOLOR[r.verdict]||'#d4d0c8'};flex:none"></span>
@@ -2971,15 +3004,21 @@ function renderBoardDetail(){
   const pill=(l,v,c)=>`<div style="flex:1 1 120px;min-width:0"><div style="font-size:10.5px;font-weight:700;color:#9a958d">${l}</div><div style="font-size:15px;font-weight:800;color:${c||'#1d1b18'}">${v}</div></div>`;
   el.innerHTML = `
   <div class="bd-sec" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;border-left:4px solid ${VCOLOR[BDETAIL.verdict]||'#d4d0c8'};border-radius:16px 16px 0 0">
-    <div><div style="font-size:18px;font-weight:800;color:#1d1b18;letter-spacing:-.01em">${esc(BDETAIL.ingredient||'')}${st.archived?' <span class="bd-chip" style="color:#6f6b64;background:#e6e3dd;vertical-align:middle">예전 자료</span>':''}</div>
+    <div><div style="font-size:18px;font-weight:800;color:#1d1b18;letter-spacing:-.01em">${esc(BDETAIL.ingredient||'')}${st.quick==='Y'?' <span class="qk-chip" style="vertical-align:middle">약식</span>':''}${st.archived?' <span class="bd-chip" style="color:#6f6b64;background:#e6e3dd;vertical-align:middle">예전 자료</span>':''}</div>
       <div style="font-size:11.5px;color:#6f6b64">${esc(BDETAIL.date||'')} · ${esc(st.inspector||'')} · ${esc(cols.map(c=>c.name).join(' / '))}</div></div>
     <div style="display:flex;gap:6px">
-      <button class="bd-btn" onclick="openReport('${BDETAIL.id}')"><i class="fa-solid fa-pen mr-1"></i>검증 열기</button>
-      <button class="bd-btn pri" onclick="printHandoffFor('${BDETAIL.id}')"><i class="fa-solid fa-file-arrow-right mr-1"></i>전달서</button>
+      <button class="bd-btn" onclick="openReport('${BDETAIL.id}')"><i class="fa-solid fa-pen mr-1"></i>${st.quick==='Y'?'내용 고치기':'검증 열기'}</button>
+      ${st.quick==='Y'
+        ? `<button class="bd-btn pri" onclick="quickPrint(((BDETAIL.data||{}).state)||{}, BDETAIL)"><i class="fa-solid fa-print mr-1"></i>인쇄</button>`
+        : `<button class="bd-btn pri" onclick="printHandoffFor('${BDETAIL.id}')"><i class="fa-solid fa-file-arrow-right mr-1"></i>전달서</button>`}
       <button class="bd-btn" title="${st.archived?'현재 자료로 되돌립니다':'목록에서 숨기고 [예전 자료]에서만 보이게 합니다'}" onclick="saveBoardAction('archived','${st.archived?'':'Y'}')"><i class="fa-solid fa-box-archive mr-1"></i>${st.archived?'현재 자료로':'예전 자료로'}</button>
       <button class="bd-btn" style="color:var(--bad)" title="이 검증을 완전히 지웁니다 — 되돌릴 수 없습니다" onclick="delFromBoard()"><i class="fa-solid fa-trash mr-1"></i>삭제</button>
     </div>
   </div>
+  ${st.quick==='Y'?`<div class="bd-sec qk-body">
+    <div class="bd-h">테스트 내용 <span style="font-weight:600;color:var(--line-strong)">약식 기록 — 항목표 없이 글로만 남긴 건</span></div>
+    <div class="qk-text">${esc(st.quickBody||'(내용 없음)')}</div>
+  </div>`:''}
   ${(st.purpose||st.purposeType)?`<div class="bd-sec" style="background:#f0f9ff;border-left:4px solid #0ea5e9">
     <div class="bd-h" style="color:#0369a1">진행 목적${st.purposeType?` <span style="font-weight:600;color:#7dd3fc">${esc(st.purposeType)}</span>`:''}</div>
     <div style="font-size:13px;color:#0c4a6e;white-space:pre-wrap;line-height:1.6">${esc(st.purpose||'(목적 미입력)')}</div></div>`:''}
@@ -3197,7 +3236,7 @@ async function loadHomeBoard(){
   const box=document.getElementById('homeBoard'); if(!box) return;
   try{
     const {data:data0,error}=await sb.from('qc_reports')
-      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate,arch:data->state->>archived,stage:data->state->>stage,kind:data->state->>kind');
+      .select('id,ingredient,action:data->state->>nextAction,due:data->state->>dueDate,arch:data->state->>archived,stage:data->state->>stage,quick:data->state->>quick,kind:data->state->>kind');
     if(error||!data0) { box.innerHTML=''; return; }
     const data=data0.filter(r=>!r.arch && !r.kind);   // 요약은 현재 자료만 — 아래 목록과 숫자가 어긋나면 안 된다
     const now=new Date();
@@ -3221,7 +3260,7 @@ async function loadHomeBoard(){
 async function loadReports(){
   const box=document.getElementById('shListBody'); box.innerHTML='<p class="text-slate-400 text-sm p-6 text-center">불러오는 중…</p>';
   try{
-    const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at,arch:data->state->>archived,kind:data->state->>kind').order('updated_at',{ascending:false});
+    const q=sb.from('qc_reports').select('id,date,ingredient,brand,category,maker,verdict,updated_at,arch:data->state->>archived,quick:data->state->>quick,kind:data->state->>kind').order('updated_at',{ascending:false});
     const {data,error}=await withTimeout(q,12000);
     if(error) throw error;
     REPORTS=(data||[]).filter(r=>!r.kind); renderReports(); loadHomeBoard(); loadReqBadge();
@@ -3231,7 +3270,7 @@ function vBadge(v){ const m={'○':['#2f8f5b','사용 가능'],'△':['#c9922b',
 function repRowHTML(r){
   const i=window.__RFLAT.push(r)-1;
   return `<div class="bg-white rounded-xl shadow-sm p-2.5 mb-1.5 flex items-center gap-3 cursor-pointer hover:shadow-md" onclick="openReportIdx(${i})">
-    <div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate text-sm">${esc(r.ingredient||'(제품명 없음)')}</p>
+    <div class="flex-1 min-w-0"><p class="font-bold text-slate-800 truncate text-sm">${esc(r.ingredient||'(제품명 없음)')}${r.quick?' <span class="qk-chip">약식</span>':''}</p>
     <p class="text-xs text-slate-500 truncate">${esc(r.maker||'')}${r.brand?' · '+esc(r.brand):''} · ${esc(r.date||'')}</p></div>
     <div class="text-sm">${vBadge(r.verdict)}</div>
     <span class="text-slate-300 hover:text-rose-500 px-1" onclick="event.stopPropagation();delReportIdx(${i})"><i class="fa-solid fa-trash"></i></span>
@@ -3296,6 +3335,107 @@ async function delReport(id){
   await sb.from('qc_reports').delete().eq('id',id);
   try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf(id)>=0) localStorage.removeItem(k); }); }catch(e){}
   loadReports();
+}
+
+
+/* ═══════════ 약식 검증 ═══════════
+   항목표를 다 채우지 않고 "해보니 이랬다"만 글로 남기는 경우를 위한 것.
+   진행 현황·검증 목록에는 그대로 섞이고 '약식' 칩으로만 구분한다.
+   state.quick='Y' 로 표시한다 — kind 를 쓰면 기존 필터(!r.kind)에서 통째로 빠진다. */
+let QEDIT=null;
+function quickOpen(rec){
+  QEDIT = rec ? {id:rec.id, st:((rec.data||{}).state)||{}, rec:rec} : null;
+  const st = QEDIT ? QEDIT.st : {};
+  const v = st.quickVerdict || '';
+  const box=document.getElementById('shQuick');
+  box.querySelector('#qkTitle').textContent = QEDIT ? '약식 기록 수정' : '약식 기록';
+  box.querySelector('#qkProd').value = st.product || '';
+  box.querySelector('#qkDate').value = st.date || isoDate();
+  box.querySelector('#qkMaker').value = st.quickMaker || '';
+  box.querySelector('#qkBrand').value = st.quickBrand || '인생아구찜';
+  box.querySelector('#qkWho').value = st.inspector || '';
+  box.querySelector('#qkBody').value = st.quickBody || '';
+  box.querySelectorAll('.qk-v').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
+  box.querySelector('#qkDel').style.display = QEDIT ? '' : 'none';
+  box.querySelector('#qkMsg').textContent='';
+  box.style.display='flex';
+  setTimeout(()=>box.querySelector('#qkProd').focus(), 50);
+}
+function quickClose(){ document.getElementById('shQuick').style.display='none'; QEDIT=null; }
+function quickPickV(el){
+  const box=document.getElementById('shQuick');
+  const on=el.classList.contains('on');
+  box.querySelectorAll('.qk-v').forEach(b=>b.classList.remove('on'));
+  if(!on) el.classList.add('on');   // 한 번 더 누르면 미정으로 되돌린다
+}
+function quickVerdict(){
+  const el=document.querySelector('#shQuick .qk-v.on');
+  return el ? el.dataset.v : '';
+}
+async function quickSave(){
+  const box=document.getElementById('shQuick');
+  const prod=box.querySelector('#qkProd').value.trim();
+  const body=box.querySelector('#qkBody').value.trim();
+  if(!prod){ box.querySelector('#qkMsg').textContent='품목명을 적어 주세요.'; return; }
+  if(!body){ box.querySelector('#qkMsg').textContent='내용을 적어 주세요. 한 줄이라도 남겨야 나중에 근거가 됩니다.'; return; }
+  box.querySelector('#qkMsg').textContent='저장 중…';
+  const id = QEDIT ? QEDIT.id : ('q_'+Date.now()+'_'+Math.floor(Math.random()*9000+1000));
+  const prev = QEDIT ? QEDIT.st : {};
+  const v=quickVerdict();
+  const st=Object.assign({}, prev, {
+    quick:'Y', product:prod,
+    date: box.querySelector('#qkDate').value || isoDate(),
+    inspector: box.querySelector('#qkWho').value.trim(),
+    quickMaker: box.querySelector('#qkMaker').value.trim(),
+    quickBrand: box.querySelector('#qkBrand').value.trim(),
+    quickBody: body, quickVerdict: v,
+    quickAt: new Date().toISOString()
+  });
+  try{
+    const {error}=await sb.from('qc_reports').upsert({
+      id:id, date:st.date, ingredient:prod, brand:st.quickBrand||'', maker:st.quickMaker||'',
+      category:'', verdict:v, data:{state:st}, updated_at:new Date().toISOString()
+    },{onConflict:'id'});
+    if(error) throw error;
+    // 전체 표에도 한 줄 — 약식이라고 표시해 둔다
+    await sb.from('qc_ledger').upsert([{ id:id+'|q', date:st.date, ingredient:prod, target:'약식',
+      brand:st.quickBrand||'', maker:st.quickMaker||'', origin:'', spec:'', exp:'', lot:'',
+      verdict:v, reason:'', note:body.slice(0,300) }],{onConflict:'id'});
+    quickClose(); toast(QEDIT?'수정했습니다':'약식 기록을 남겼습니다');
+    if(document.getElementById('shPanelBoard').style.display!=='none') loadNativeBoard();
+    loadReports();
+  }catch(e){ box.querySelector('#qkMsg').textContent='저장 실패 — '+(e.message||e); }
+}
+async function quickDel(){
+  if(!QEDIT) return;
+  if(!confirm('이 약식 기록을 지울까요? 되돌릴 수 없습니다.')) return;
+  const id=QEDIT.id;
+  try{ await sb.from('qc_ledger').delete().eq('id', id+'|q'); }catch(e){}
+  try{ await sb.from('qc_comments').delete().eq('report_id', id); }catch(e){}
+  const {error}=await sb.from('qc_reports').delete().eq('id', id);
+  if(error){ toast('삭제 실패'); return; }
+  quickClose(); toast('삭제했습니다');
+  if(BDETAIL && BDETAIL.id===id){ BDETAIL=null; BSEL=null; }
+  loadNativeBoard(); loadReports();
+}
+function quickPrint(st, rec){
+  const w=window.open('','_blank'); if(!w){ toast('팝업이 막혀 있습니다'); return; }
+  const VW={'○':'사용 가능','△':'조건부','×':'사용 불가'};
+  w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>'
+    +escapeHtml(st.product||'')+' 약식 검증</title><style>'
+    +'@page{size:A4;margin:18mm} body{font-family:"Malgun Gothic","IBM Plex Sans KR",sans-serif;color:#1d1b18;font-size:12px;line-height:1.7}'
+    +'h1{font-size:19px;margin:0 0 4px} .hd{color:#6f6b64;font-size:11px;margin:0 0 16px}'
+    +'.v{display:inline-block;padding:4px 12px;border:1.5px solid #d4d0c8;border-radius:999px;font-weight:800;margin-bottom:14px}'
+    +'.bd{white-space:pre-wrap;border-top:1px solid #d4d0c8;padding-top:12px}'
+    +'.tag{display:inline-block;background:#f4f2ee;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:#6f6b64;margin-left:6px}'
+    +'</style></head><body>'
+    +'<h1>'+escapeHtml(st.product||'')+'<span class="tag">약식 검증</span></h1>'
+    +'<p class="hd">'+escapeHtml(st.date||'')+(st.inspector?' · '+escapeHtml(st.inspector):'')
+      +(st.quickMaker?' · '+escapeHtml(st.quickMaker):'')+(st.quickBrand?' · '+escapeHtml(st.quickBrand):'')+'</p>'
+    +'<div class="v">'+escapeHtml(st.quickVerdict||'-')+' '+escapeHtml(VW[st.quickVerdict]||'판정 미정')+'</div>'
+    +'<div class="bd">'+escapeHtml(st.quickBody||'')+'</div>'
+    +'</body></html>');
+  w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} },300);
 }
 
 /* ═══════════ 원료 검증(스크리닝) ═══════════
@@ -4126,6 +4266,8 @@ async function openReport(id){
   toast('불러오는 중…');
   const {data,error}=await sb.from('qc_reports').select('*').eq('id',id).single();
   if(error){ toast('불러오기 오류'); return; }
+  // 약식은 항목표가 없다. 전체 에디터를 열면 빈 화면만 나온다.
+  if(((data.data||{}).state||{}).quick==='Y'){ quickOpen(Object.assign({id:id}, data)); return; }
   CURRENT_ID=id; const d=data.data||{}; uploadedPhotos={};
   applyConfig(d.config||{}, d.state||{});
   photosObj={};
@@ -4228,7 +4370,10 @@ function injectShell(){
   <div id="shPanelReq" style="display:none;max-width:1280px;margin:0 auto;padding:16px 16px 60px"></div>
   <div id="shPanelList" style="max-width:760px;margin:0 auto;padding:16px 14px 60px">
     <div id="homeBoard" style="margin-bottom:14px"></div>
-    <button onclick="openNew()" style="width:100%;background:#c1553a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:12px"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button onclick="openNew()" style="flex:2;background:#c1553a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:16px;cursor:pointer"><i class="fa-solid fa-plus mr-1"></i>새 검증 작성</button>
+      <button onclick="quickOpen()" title="간단히 테스트하고 글로만 남길 때" style="flex:1;background:#fff;color:#6f6b64;border:1.5px solid #e6e3dd;border-radius:14px;padding:15px;font-weight:800;font-size:14px;cursor:pointer"><i class="fa-regular fa-pen-to-square mr-1"></i>약식 기록</button>
+    </div>
     <div style="display:flex;gap:7px;margin-bottom:14px">
       <input id="shSearch" oninput="window.__OLDOPEN=undefined;renderReports()" placeholder="제품·제조회사·거래처 검색" style="flex:1;border:1.5px solid #e6e3dd;border-radius:10px;padding:10px;font-size:13px">
     </div>
@@ -4239,6 +4384,42 @@ function injectShell(){
   <div id="shPanelBoard" style="display:none;max-width:1280px;margin:0 auto;padding:16px 14px 60px"></div>
   <div id="shPanelBuilder" style="display:none"><iframe id="ifBuilder" title="오프라인 빌더" class="sh-frame"></iframe></div>`;
   document.body.appendChild(list);
+
+  // 약식 기록 창 — 항목표 없이 글로만 남기는 경우
+  const qk=document.createElement('div'); qk.id='shQuick';
+  qk.style.cssText='display:none;position:fixed;inset:0;z-index:84;background:#1d1b18cc;align-items:center;justify-content:center;padding:16px';
+  qk.innerHTML=`<div class="qk-win">
+    <div class="qk-hd"><h2 id="qkTitle">약식 기록</h2>
+      <span>항목표를 다 채우지 않아도 됩니다 — 해보니 어땠는지만 남기세요</span></div>
+    <div class="qk-row">
+      <label>품목 <b>*</b></label><input id="qkProd" placeholder="예: 순살아구, 영양밥 소스">
+    </div>
+    <div class="qk-row qk-3">
+      <div><label>날짜</label><input id="qkDate" type="date"></div>
+      <div><label>제조회사</label><input id="qkMaker" placeholder="선택"></div>
+      <div><label>거래처</label><input id="qkBrand" placeholder="선택"></div>
+    </div>
+    <div class="qk-row"><label>작성자</label><input id="qkWho" placeholder="예: 이종욱/주임"></div>
+    <div class="qk-row">
+      <label>결과 <span style="font-weight:500;color:var(--faint)">아직 모르면 비워 두세요 · 한 번 더 누르면 해제</span></label>
+      <div class="qk-vs">
+        <button type="button" class="qk-v" data-v="○" onclick="quickPickV(this)">○ 사용 가능</button>
+        <button type="button" class="qk-v" data-v="△" onclick="quickPickV(this)">△ 조건부</button>
+        <button type="button" class="qk-v" data-v="×" onclick="quickPickV(this)">× 사용 불가</button>
+      </div>
+    </div>
+    <div class="qk-row">
+      <label>내용 <b>*</b></label>
+      <textarea id="qkBody" rows="7" placeholder="어떻게 테스트했고 어땠는지 그대로 적으세요.&#10;예) 미역국으로 끓여 3명이 시식. 기존과 맛 차이 거의 없음. 다만 건더기가 조금 질김 — 두께 확인 필요."></textarea>
+    </div>
+    <p id="qkMsg" class="qk-msg"></p>
+    <div class="qk-ft">
+      <button id="qkDel" type="button" class="qk-btn del" onclick="quickDel()">삭제</button>
+      <button type="button" class="qk-btn" onclick="quickClose()">취소</button>
+      <button type="button" class="qk-btn pri" onclick="quickSave()">저장</button>
+    </div>
+  </div>`;
+  document.body.appendChild(qk);
 
   const nm=document.createElement('div'); nm.id='shNew'; nm.style.cssText='display:none;position:fixed;inset:0;z-index:80;background:#1d1b18cc;align-items:center;justify-content:center;padding:16px';
   nm.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;max-width:380px;width:100%">
