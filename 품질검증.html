@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261113043916">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261113044117">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3700,7 +3700,7 @@ function scLede(a){
   const when = a.rs.length===1
     ? (a.d0+' 하루')
     : (a.d0+'부터 '+a.d1+'까지'+(a.span?(' '+a.span+'일간'):''));
-  return when+' 모두 '+a.rs.length+'회차를 진행해 후보 '+a.uniq+'종을 시험했습니다'
+  return when+(a.rs.length>1?' 모두 ':' ')+a.rs.length+'회차를 진행해 후보 '+a.uniq+'종을 시험했습니다'
     + (a.totIt!==a.uniq ? (' (누적 '+a.totIt+'건 — '+a.repeat.length+'종은 다른 회차에서 다시 시험)') : '')
     + '.';
 }
