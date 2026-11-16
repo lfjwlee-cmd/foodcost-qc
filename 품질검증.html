@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261113044117">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261116232505">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -433,6 +433,10 @@ tailwind.config = { theme: { extend: {
   .sc-pill{ display:inline-block; background:var(--field); border-radius:7px;
     padding:3px 9px; margin:0 5px 4px 0; font-size:11.5px; color:var(--muted); }
   .sc-pill b{ color:var(--ink); font-weight:800; }
+
+  /* 샘플 요청 — 접히는 묶음 */
+  .req-grp{ cursor:pointer; display:flex; align-items:center; gap:7px; }
+  .req-grp:hover{ background:var(--field); }
   @media print{
     @page{ size:A4; margin:10mm; }
     .no-print, #viewBanner{ display:none !important; }
@@ -2745,8 +2749,11 @@ const VWORD={'○':'○ 사용 가능','△':'△ 조건부','×':'× 사용 불
 function daysUntil(d){
   return Math.round((new Date(d+'T00:00:00') - new Date(isoDate()+'T00:00:00'))/86400000);
 }
-function dueInfo(d){
+function dueInfo(d, r){
   if(!d) return null;
+  // 끝난 건(완료·중단)은 기한을 재지 않는다. isLate() 와 같은 기준이어야
+  // 타일 숫자와 목록·상세 표시가 어긋나지 않는다.
+  if(r && typeof stageOf==='function' && stageOf(r)!=='open') return {t:d, c:'#9a958d', hot:0};
   const dd=daysUntil(d);
   if(dd<0) return {t:d+' · '+(-dd)+'일 초과', c:'#c0433a', hot:1};
   if(dd<=7) return {t:d+' · D-'+dd, c:'#c0433a', hot:1};
@@ -2874,7 +2881,9 @@ function renderNativeBoard(){
     <div class="v">${n}</div></button>`; };
 
   const rowHTML = r=>{
-    const d=dueInfo(r.due), ac=ACT_COLOR[r.action||''], qk=r.quick==='Y'?' <span class="qk-chip">약식</span>':'';
+    const d=dueInfo(r.due, r), ac=ACT_COLOR[r.action||''], qk=r.quick==='Y'?' <span class="qk-chip">약식</span>':'';
+    // 끝난 건은 '다음에 뭘 한다'가 없다. 후속 조치 대신 끝난 상태를 보여준다.
+    const sg=stageOf(r), sgo=STAGES.find(x=>x.k===sg)||STAGES[0];
     return `<div class="bd-row${r.id===BSEL?' on':''}" role="option" aria-selected="${r.id===BSEL}"
       tabindex="${r.id===BSEL?0:-1}" onkeydown="boardRowKey(event)" onclick="selectBoardItem('${r.id}')">
       <span title="${esc(r.verdict||'판정 미입력')}" style="width:8px;height:8px;border-radius:50%;background:${VCOLOR[r.verdict]||'#d4d0c8'};flex:none"></span>
@@ -2883,7 +2892,9 @@ function renderNativeBoard(){
         <div style="font-size:11.5px;color:#6f6b64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.maker||'거래처 미상')}${r.date?' · '+esc(r.date):''}</div>
       </div>
       <div style="text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-        <span class="bd-chip" style="color:${ac};background:${ac}1a">${esc(r.action||'미지정')}</span>
+        ${sg==='open'
+          ? `<span class="bd-chip" style="color:${ac};background:${ac}1a">${esc(r.action||'미지정')}</span>`
+          : `<span class="bd-chip" style="color:${sgo.c};background:${sgo.c}1a" title="${esc(r.action||'')}">${esc(sgo.t)}</span>`}
         ${d?`<span style="font-size:10.5px;color:${d.c};font-weight:${d.hot?700:400}">${esc(d.t)}</span>`:''}
         ${r.cmt?`<span style="font-size:10px;color:#9a958d"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
       </div></div>`; };
@@ -3021,7 +3032,7 @@ function renderBoardDetail(){
   const el=document.getElementById('boardDetail'); if(!el||!BDETAIL) return;
   const st=(BDETAIL.data&&BDETAIL.data.state)||{}, cfg=(BDETAIL.data&&BDETAIL.data.config)||{};
   const cols=st.cols||[], jc=(!st.noBase&&cols.length>=2)?cols.slice(1):cols;
-  const d=dueInfo(st.dueDate), ac=ACT_COLOR[st.nextAction||''];
+  const d=dueInfo(st.dueDate, {stage:st.stage, action:st.nextAction, due:st.dueDate}), ac=ACT_COLOR[st.nextAction||''];
   // 부적합·조건부 항목만 근거로
   const basis=[];
   [['proc',cfg.process||[]],['sens',cfg.sensory||[]]].forEach(([p,gs])=>gs.forEach((g,gi)=>(g.items||[]).forEach((it,ii)=>{
@@ -3065,6 +3076,7 @@ function renderBoardDetail(){
       ${STAGES.map(g=>`<button class="bd-sg${stageOf({stage:st.stage,action:st.nextAction})===g.k?' on':''}" style="--sg:${g.c}" onclick="saveStage('${g.k}')">${esc(g.t)}</button>`).join('')}
       ${st.stageAt?`<span style="font-size:11px;color:#9a958d;margin-left:4px">${esc(String(st.stageAt).slice(0,10))} 변경</span>`:''}
     </div>
+    ${stageOf({stage:st.stage,action:st.nextAction})==='open' ? `
     <div class="bd-h" style="margin-top:13px">후속 조치 · 회신 기한 <span style="font-weight:600;color:#d4d0c8">고르면 바로 저장됩니다</span></div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
       <select class="bd-f" style="flex:1 1 210px" onchange="saveBoardAction('nextAction',this.value)">
@@ -3083,6 +3095,17 @@ function renderBoardDetail(){
     </div>`:''}
     ${st.nextActionNote?`<div style="font-size:12px;color:#6f6b64;margin-top:7px">${esc(st.nextActionNote)}</div>`:''}
     ${st.nextActionAt?`<div style="font-size:11px;color:#9a958d;margin-top:5px"><i class="fa-regular fa-clock mr-1"></i>마지막 변경 ${esc(String(st.nextActionAt).slice(0,16).replace('T',' '))}</div>`:''}
+    ` : `
+    <div class="bd-h" style="margin-top:13px">${stageOf({stage:st.stage,action:st.nextAction})==='done'?'완료로 끝난 건':'중단된 건'}
+      <span style="font-weight:600;color:#d4d0c8">기한과 후속 조치는 더 보지 않습니다 — 다시 진행하려면 위에서 [진행 중]</span></div>
+    <table class="bd-t"><tbody>
+      ${st.nextAction?`<tr><th style="width:112px">마지막 후속 조치</th><td>${esc(st.nextAction)}</td></tr>`:''}
+      ${st.dueDate?`<tr><th style="width:112px">당시 회신 기한</th><td class="n">${esc(st.dueDate)}${(st.dueHist&&st.dueHist.length)?' · 연장 '+st.dueHist.length+'회':''}</td></tr>`:''}
+      ${st.nextActionNote?`<tr><th style="width:112px">메모</th><td>${esc(st.nextActionNote)}</td></tr>`:''}
+      ${st.nextActionAt?`<tr><th style="width:112px">마지막 변경</th><td class="n">${esc(String(st.nextActionAt).slice(0,16).replace('T',' '))}</td></tr>`:''}
+    </tbody></table>
+    ${(!st.nextAction&&!st.dueDate&&!st.nextActionNote&&!st.nextActionAt)?`<p style="font-size:12px;color:#9a958d;margin:0">남은 후속 조치가 없습니다.</p>`:''}
+    `}
   </div>
   ${(st.useFor||st.testFrom||st.testTo)?`<div class="bd-sec"><div class="bd-h">사용 계획</div>
     <table class="bd-t"><tbody>
@@ -4159,10 +4182,22 @@ function renderRqRows(){
 function addRqRow(){ RQROWS.push({}); renderRqRows(); }
 
 
+/* 요청 상태를 세 덩어리로 나눈다. 세는 자리가 여럿이라 기준은 여기 하나만 둔다.
+   live — 지금 누군가 손대고 있는 것. 탭 배지와 '진행 중 N건' 은 이것만 센다.
+   hold — 보류. 조건이 안 잡혀 멈춘 것이지 끝난 게 아니라 '끝난 요청' 에 넣지 않는다.
+   done — 샘플이 들어왔거나 반려된 것. */
+const REQ_HOLD=['보류'], REQ_DONE=['샘플 입고','반려'];
+function reqBucket(st){
+  st=st||'요청';
+  return REQ_DONE.includes(st) ? 'done' : REQ_HOLD.includes(st) ? 'hold' : 'live';
+}
+let REQGRP={hold:false, done:false};
+function reqGrp(k){ REQGRP[k]=!REQGRP[k]; renderRequests(); }
+
 async function loadReqBadge(){
   try{
     const {data}=await sb.from('qc_reports').select('s:data->state->>reqStatus,k:data->state->>kind');
-    const n=(data||[]).filter(r=>r.k==='request' && !['샘플 입고','반려'].includes(r.s||'요청')).length;
+    const n=(data||[]).filter(r=>r.k==='request' && reqBucket(r.s)==='live').length;
     const b=document.getElementById('reqBadge'); if(b){ b.textContent=n||''; b.style.display=n?'':'none'; }
   }catch(e){}
 }
@@ -4183,9 +4218,12 @@ async function loadRequests(){
 }
 function renderRequests(){
   const box=document.getElementById('shPanelReq'); if(!box) return;
-  const DONE_ST=['샘플 입고','반려'];
-  const live=REQS.filter(r=>!DONE_ST.includes(r.st.reqStatus||'요청'));
-  const done=REQS.filter(r=> DONE_ST.includes(r.st.reqStatus||'요청'));
+  const live=REQS.filter(r=>reqBucket(r.st.reqStatus)==='live');
+  const hold=REQS.filter(r=>reqBucket(r.st.reqStatus)==='hold');
+  const done=REQS.filter(r=>reqBucket(r.st.reqStatus)==='done');
+  // 고른 건이 접힌 묶음 안에 있으면 그 묶음은 펴 둔다 — 안 그러면 어디 갔는지 모른다
+  const selIn=k=>(k==='hold'?hold:done).some(r=>r.id===RSEL);
+  const openG={hold:REQGRP.hold||selIn('hold'), done:REQGRP.done||selIn('done')};
   const card=r=>{
     const stt=r.st.reqStatus||'요청', c=RQC(stt);
     const want=r.st.reqWant||'';
@@ -4203,6 +4241,15 @@ function renderRequests(){
         ${r.cmt?`<span style="font-size:10px;color:var(--faint)"><i class="fa-regular fa-comment"></i> ${r.cmt}</span>`:''}
       </div></div>`;
   };
+  // 접히는 묶음. 기본은 접어 둔다 — 진행 중만 보이게.
+  const grp=(k,label,arr,open,tip)=>{
+    if(!arr.length) return '';
+    return `<div class="bd-grp req-grp" title="${esc(tip)}" onclick="reqGrp('${k}')">`
+      +`<i class="fa-solid fa-chevron-${open?'down':'right'}" style="font-size:10px;color:var(--faint)"></i>`
+      +`<span style="font-size:11.5px;font-weight:800;color:var(--faint);flex:1">${esc(label)} ${arr.length}</span>`
+      +`<span style="font-size:10.5px;color:var(--faint)">${open?'접기':'펼치기'}</span></div>`
+      +(open?arr.map(card).join(''):'');
+  };
   const tile=(l,n,c)=>`<div class="bd-tile" style="cursor:default" title="집계입니다 — 상태는 오른쪽 상세에서 바꿉니다"><div class="l">${l}</div><div class="v" style="color:${c||'var(--ink)'}">${n}</div></div>`;
   const cnt=k=>REQS.filter(r=>(r.st.reqStatus||'요청')===k).length;
   box.innerHTML=`
@@ -4215,12 +4262,13 @@ function renderRequests(){
   <div class="bd-wrap">
     <div class="bd-card" style="overflow:hidden">
       <div style="display:flex;align-items:center;gap:7px;padding:8px 10px 8px 12px;border-bottom:1px solid var(--line)">
-        <span style="font-size:11.5px;font-weight:700;color:var(--muted);flex:1">진행 중 ${live.length}건</span>
+        <span style="font-size:11.5px;font-weight:700;color:var(--muted);flex:1">진행 중 ${live.length}건${hold.length?`<span style="font-weight:600;color:var(--faint)"> · 보류 ${hold.length}</span>`:''}</span>
         <button class="bd-btn pri" style="padding:5px 11px;font-size:11.5px" onclick="openNewReq()"><i class="fa-solid fa-plus mr-1"></i>샘플 요청</button>
       </div>
       <div role="listbox" aria-label="샘플 요청" style="max-height:62vh;overflow:auto">
         ${live.length?live.map(card).join(''):'<p style="font-size:12.5px;color:var(--faint);padding:26px 12px;text-align:center">진행 중인 요청이 없습니다.</p>'}
-        ${done.length?`<div class="bd-grp" style="cursor:default"><span style="font-size:11.5px;font-weight:800;color:var(--faint);flex:1">끝난 요청 ${done.length}</span></div>`+done.map(card).join(''):''}
+        ${grp('hold','보류',hold,openG.hold,'조건이 안 잡혀 멈춘 건입니다 — 조건이 정해지면 상태를 올리세요')}
+        ${grp('done','끝난 요청',done,openG.done,'샘플이 들어왔거나 반려된 건입니다')}
       </div>
     </div>
     <div class="bd-card" id="reqDetail"><p style="padding:40px 20px;text-align:center;color:var(--faint);font-size:13px">왼쪽에서 요청을 고르세요.</p></div>
