@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261116232505">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261116233435">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4690,7 +4690,11 @@ function injectShell(){
       <button type="button" class="sh-tab" data-tab="list" onclick="shTab('list')"><i class="fa-solid fa-list-check mr-1"></i>검증 목록</button>
       <button type="button" class="sh-tab" data-tab="screen" onclick="shTab('screen')"><i class="fa-solid fa-flask mr-1"></i>원료 검증</button>
       <button type="button" class="sh-tab" data-tab="ledger" onclick="shTab('ledger')"><i class="fa-solid fa-table-list mr-1"></i>전체 표</button>
+      <!-- 만들기 탭은 숨김. 이 빌더가 내보내는 파일은 앱 DB와 연결되지 않아서,
+           거기에 쓴 검증은 진행 현황·검증 목록·전체 표 어디에도 안 남는다.
+           기능 자체는 그대로 있다 — 아래 줄의 주석을 풀면 다시 나온다.
       <button type="button" class="sh-tab" data-tab="builder" onclick="shTab('builder')"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>만들기</button>
+      -->
     </div>
   </div>
   <div id="shPanelReq" style="display:none;max-width:1280px;margin:0 auto;padding:16px 16px 60px"></div>
