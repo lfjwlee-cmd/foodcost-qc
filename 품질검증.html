@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#c1553a">
-<meta name="qc-build" content="20261118041213">   <!-- deploy.sh 가 배포 시각으로 치환 -->
+<meta name="qc-build" content="20261118041407">   <!-- deploy.sh 가 배포 시각으로 치환 -->
 <title>식자재 검증 센터</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3023,7 +3023,7 @@ async function selectBoardItem(id, keep){
   const el=document.getElementById('boardDetail'); if(!el) return;
   el.innerHTML='<p style="padding:30px;text-align:center;color:#9a958d;font-size:13px">불러오는 중…</p>';
   try{
-    const {data,error}=await sb.from('qc_reports').select('ingredient,date,verdict,data').eq('id',id).single();
+    const {data,error}=await sb.from('qc_reports').select('ingredient,date,verdict,maker,data').eq('id',id).single();
     if(error) throw error;
     BDETAIL={id, ...data};
     renderBoardDetail();
@@ -3080,7 +3080,8 @@ function renderBoardDetail(){
     <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
       ${pill('검증 결과', esc(VWORD[BDETAIL.verdict]||'판정 미입력'), VCOLOR[BDETAIL.verdict])}
       ${pill('사용 가능성', esc(usability(BDETAIL.verdict, st.nextAction)), ac)}
-      ${pill('거래처', esc(BDETAIL.maker||'미기재'), BDETAIL.maker?'':'#b8b2a8')}
+      ${(()=>{ const mk=BDETAIL.maker||((NBOARD.find(x=>x.id===BDETAIL.id)||{}).maker)||'';
+              return pill('거래처', esc(mk||'미기재'), mk?'':'#b8b2a8'); })()}
       ${pill('남은 기록', bdHas(st))}
       ${st.targetDate?pill('도입 목표', esc(st.targetDate)):''}
       ${st.supplyOk?pill('공급 가능', esc(st.supplyOk)):''}
@@ -3278,7 +3279,7 @@ async function delBoardComment(cid){
 async function printHandoffFor(id){
   let rec=BDETAIL;
   if(!rec || rec.id!==id){
-    const {data,error}=await sb.from('qc_reports').select('ingredient,date,verdict,data').eq('id',id).single();
+    const {data,error}=await sb.from('qc_reports').select('ingredient,date,verdict,maker,data').eq('id',id).single();
     if(error){ toast('불러오기 실패'); return; } rec={id, ...data};
   }
   const sheet=document.getElementById('handoffSheet');
